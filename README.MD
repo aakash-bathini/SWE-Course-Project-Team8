@@ -1,9 +1,3 @@
-Team:
-Kabir Ray Malik
-Matthew Roxas
-Aryan Banerjee
-Quincy Tordil
-
 A CLI for Trustworthy Model Reuse
 
 MIT License
