@@ -1,0 +1,33 @@
+Metric Rules
+
+Each metric is to be implemented in its own file, and it will be tracked in the
+registry which is called by other modules to run. This makes it modular and extendible
+
+To add a new metric follow the CHANGE CHECKLIST
+
+CHANGE CHECKLIST:
+- FOLLOW INSTRUCTIONS BELOW to write the code
+- ADD TO REGISTRY to have it run in the analysis
+- ADD WEIGHT to have it register in the final score
+
+1) One metric per file in src/metrics/.
+   - Example: src/metrics/metric_bus_factor.py
+
+2) Export exactly ONE function named:
+      async def metric(ctx: EvalContext) -> float
+   - It MUST be async.
+   - `ctx` provides the evaluated URL and cached data which saves repeated API calls
+   - Return a float between 0.0 and 1.0
+   
+3) Don’t block the event loop.
+   - For I/O: use asyncio-friendly libs (e.g., aiohttp) and await them.
+   - For CPU work: wrap it:  await asyncio.to_thread(cpu_bound_function)
+
+4) Naming:
+   - File name = metric id (lower_snake_case).
+   - Registry name must match the metric id.
+
+5) Logging:
+   - Raise exceptions on bad preconditions or unexpected data.
+   - Orchestrator will capture and surface error strings.
+   - Also log it using logger,

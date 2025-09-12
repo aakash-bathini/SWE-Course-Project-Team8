@@ -1,0 +1,1 @@
+This folder is simply for the dataclasses
