@@ -6,7 +6,8 @@ import os
 _LEVELS = {
     0: None,            #Silent
     1: logging.INFO,    #Info
-    2: logging.DEBUG    #Debug
+    2: loggging.ERROR,  #Error
+    3: logging.DEBUG    #Debug
 }
 
 def setup_logging(level: int = 0, log_file: str | None = None, also_stderr: bool = False) -> int:
