@@ -1,17 +1,50 @@
-#src/api/prep_eval_context.py
+# src/api/prep_eval_context.py
+from __future__ import annotations
+from urllib.parse import urlparse
+
 from src.models.types import EvalContext, Category
+from src.api.huggingface import scrape_hf_url
+from src.api.github import scrape_github_url
 
 def prepare_eval_context(url: str | None = None) -> EvalContext:
     """
-    Dummy context builder for testing.
-    Returns a simple EvalContext with filler data so metrics can run.
+    Builds EvalContext for HuggingFace and GitHub URLs.
     """
-    url = url or "https://example.com/model/demo"
-    cat: Category | None = "MODEL"
+    if not url:
+        raise ValueError("URL is required")
 
-    # Filler data you can expand later and call API's
-    hf_data = {"card": {"license": "apache-2.0"}, "downloads": 1234}
-    gh_data = None
-    repo_dir = None
+    host = urlparse(url).netloc.lower()
 
-    return EvalContext(url=url, category=cat, hf_data=hf_data, gh_data=gh_data, repo_dir=repo_dir)
+    # huggingface link: model or dataset
+    if "huggingface.co" in host:
+        hf_profile, hf_type = scrape_hf_url(url)
+        cat: Category = "MODEL" if hf_type == "model" else "DATASET"
+
+        hf_data = [hf_profile]  # always a list
+
+        gh_data: list[dict] = []
+        gh_links = hf_profile.get("github_links") or []
+        # already scraped links
+        seen = set()
+        # iterate through related github links, scrape relevant data
+        for gh_url in gh_links:
+            try:
+                gh_profile, _ = scrape_github_url(gh_url)
+                repoid = gh_profile.get("repo_id")
+                # if already scraped that github link, then proceed
+                if repoid and repoid not in seen:
+                    seen.add(repoid)
+                    gh_data.append(gh_profile)
+            except Exception:
+                # keep harvesting others even if one fails
+                continue
+
+        return EvalContext(url=url, category=cat, hf_data=hf_data, gh_data=gh_data)
+
+    # github link: code
+    if "github.com" in host:
+        gh_profile, _ = scrape_github_url(url)
+        gh_data = [gh_profile]  # always a list
+        return EvalContext(url=url, category="CODE", hf_data=[], gh_data=gh_data)
+
+    raise ValueError(f"prep_eval_context error: unsupported URL host: {host}")

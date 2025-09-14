@@ -1,6 +1,6 @@
 #src/models/types.py
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Dict, Optional, Tuple, Literal
+from typing import Awaitable, Callable, Dict, Optional, Tuple, Literal, List
 
 #shared types
 MetricId = str
@@ -11,9 +11,8 @@ class EvalContext:
     url: str
     category: Optional[Category] = None
     #Fields for caching once API's are implemented
-    hf_data: Optional[dict] = None
-    gh_data: Optional[dict] = None
-    repo_dir: Optional[str] = None
+    hf_data: Optional[List[dict]] = None
+    gh_data: Optional[List[dict]] = None
 
 #Metrics are ASYNC and receive an EvalContext
 MetricFn = Callable[[EvalContext], Awaitable[float]]
