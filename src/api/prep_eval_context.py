@@ -9,6 +9,13 @@ from src.api.github import scrape_github_url
 def prepare_eval_context(url: str | None = None) -> EvalContext:
     """
     Builds EvalContext for HuggingFace and GitHub URLs.
+        HuggingFace: returns (profile, type), category = MODEL or DATASET 
+        and scrapes associated GitHub repos if present.
+        
+        GitHub: returns just the GitHub profile, category = CODE.
+        
+        Both hf_data and gh_data are always lists of dictionaries for consistency
+        Potentially add github -> parse for hf link functionality 
     """
     if not url:
         raise ValueError("URL is required")
@@ -24,26 +31,22 @@ def prepare_eval_context(url: str | None = None) -> EvalContext:
 
         gh_data: list[dict] = []
         gh_links = hf_profile.get("github_links") or []
-        # already scraped links
-        seen = set()
-        # iterate through related github links, scrape relevant data
+        seen = set()  # avoid duplicate repos
         for gh_url in gh_links:
             try:
-                gh_profile, _ = scrape_github_url(gh_url)
+                gh_profile = scrape_github_url(gh_url)  # now returns dict only
                 repoid = gh_profile.get("repo_id")
-                # if already scraped that github link, then proceed
                 if repoid and repoid not in seen:
                     seen.add(repoid)
                     gh_data.append(gh_profile)
             except Exception:
-                # keep harvesting others even if one fails
-                continue
+                continue  # keep harvesting others even if one fails
 
         return EvalContext(url=url, category=cat, hf_data=hf_data, gh_data=gh_data)
 
     # github link: code
     if "github.com" in host:
-        gh_profile, _ = scrape_github_url(url)
+        gh_profile = scrape_github_url(url)
         gh_data = [gh_profile]  # always a list
         return EvalContext(url=url, category="CODE", hf_data=[], gh_data=gh_data)
 

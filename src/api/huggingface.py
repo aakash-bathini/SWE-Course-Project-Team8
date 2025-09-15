@@ -115,8 +115,10 @@ def _extract_github_links(readme_text: str | None, card_yaml: Dict[str, Any]) ->
 # main function
 def scrape_hf_url(url: str) -> Tuple[Dict[str, Any], str]:
     """
-    caches to <project>/.cache/hf_meta.json with TTL
-    returns a flat dict ready for metrics
+    Fetch HF repo metadata + other values, plus relevant
+    GitHub links for metrics
+    Caches to <project>/.cache/hf_meta.json with TTL
+    Returns a flat dict ready for metrics
     """
     repo_type, repo_id = parse_hf_url(url)
     cache = _load_cache()
