@@ -2,7 +2,7 @@ import os
 import sys
 import asyncio
 
-from src.orchestration.logging import setup_logging
+from orchestration.logging_util import setup_logging
 from src.api.prep_eval_context import prepare_eval_context
 from src.orchestration.metric_orchestrator import orchestrate
 from src.scoring.weights import get_weights
