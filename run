@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-if [[ "$1" == "install" ]]; then
-    if [[ -f requirements.txt ]]; then
-        python3 -m pip install --user -r requirements.txt
-    else
-        echo "[run] No requirements.txt found"
-    fi
-    exit 0
+if [[ $# -lt 1 ]]; then
+  echo "Usage: ./run {install|test|URL_FILE}" >&2
+  exit 1
 fi
 
-# Forward everything else to src/main.py
-python3 src/main.py "$@"
+cmd="$1"
+shift || true
+
+if [[ "$cmd" == "install" ]]; then
+  exec python3 -m src.commands.cli install
+elif [[ "$cmd" == "test" ]]; then
+  exec python3 -m src.commands.cli test
+else
+  # Treat single arg as URL file path
+  exec python3 -m src.commands.cli eval "$cmd"
+fi
