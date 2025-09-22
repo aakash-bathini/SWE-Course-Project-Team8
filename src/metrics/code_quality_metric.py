@@ -1,0 +1,105 @@
+import os
+import json
+import logging
+import asyncio
+import subprocess
+from pathlib import Path
+from src.models.types import EvalContext
+
+
+async def run_cmd(cmd, cwd="."):
+    """Run a shell command and capture output safely."""
+    try:
+        result = subprocess.run(
+            cmd, cwd=cwd, shell=True,
+            capture_output=True, text=True, check=False
+        )
+        return result.stdout, result.stderr, result.returncode
+    except Exception as e:
+        logging.error(f"Command failed {cmd}: {e}")
+        return "", str(e),
+
+
+async def compute_linting_score(repo_path: str) -> float:
+    """Run flake8 and isort, compute normalized linting score [0,1]."""
+    py_files = list(Path(repo_path).rglob("*.py"))
+    loc = sum(sum(1 for _ in open(f, "r", encoding="utf-8", errors="ignore")) for f in py_files) or 1
+
+    # Run flake8
+    flake_out, flake_err, _ = await run_cmd("flake8 .", cwd=repo_path)
+    flake_violations = flake_out.count("\n")
+
+    # Run isort in check mode
+    isort_out, isort_err, _ = await run_cmd("isort . --check-only", cwd=repo_path)
+    isort_violations = isort_out.count("ERROR") + isort_err.count("ERROR")
+
+    total_violations = flake_violations + isort_violations
+    score = max(0.0, 1.0 - (total_violations / loc))
+    return round(score, 3)
+
+
+async def compute_typing_score(repo_path: str) -> float:
+    """Run mypy, compute typing score [0,1]."""
+    mypy_out, mypy_err, _ = await run_cmd("mypy --ignore-missing-imports --strict .", cwd=repo_path)
+    errors = mypy_out.count(": error:") + mypy_err.count(": error:")
+
+    py_files = list(Path(repo_path).rglob("*.py"))
+    loc = sum(sum(1 for _ in open(f, "r", encoding="utf-8", errors="ignore")) for f in py_files) or 1
+
+    score = max(0.0, 1.0 - (errors / loc))
+    return round(score, 3)
+
+
+async def compute_tests_score(repo_path: str) -> float:
+    """Check if tests/ exists and has pytest-style tests. Score [0,1]."""
+    tests_path = Path(repo_path) / "tests"
+    if not tests_path.exists():
+        return 0.0
+
+    test_files = list(tests_path.rglob("test_*.py"))
+    has_ci = any(Path(repo_path).rglob(".github/workflows/*.yml"))
+
+    if test_files and has_ci:
+        return 1.0
+    elif test_files:
+        return 0.7
+    elif has_ci:
+        return 0.5
+    else:
+        return 0.2
+
+
+async def metric(ctx: EvalContext) -> float:
+    """
+    Compute a code quality score [0,1] for a repository, using:
+      - linting (0.3)
+      - typing (0.25)
+      - tests (0.25)
+      - maintainability (0.2)
+    """
+
+    gh = ctx.gh_data[0]
+    repo_path = gh.get("local_repo_path", ".")  # assume repo is cloned locally
+
+    # Run each analysis
+    linting_score = await compute_linting_score(repo_path)
+    typing_score = await compute_typing_score(repo_path)
+    tests_score = await compute_tests_score(repo_path)
+    maintainability_score = gh.get("maintainability_score", 0.0)  # from metadata
+
+    logging.info(
+        f"Linting={linting_score}, Typing={typing_score}, "
+        f"Tests={tests_score}, Maintainability={maintainability_score}"
+    )
+
+    # Weighted combination
+    code_score = (
+        0.3 * linting_score +
+        0.25 * typing_score +
+        0.25 * tests_score +
+        0.2 * maintainability_score
+    )
+
+    code_score = max(0.0, min(1.0, code_score))
+
+    return float(code_score)
