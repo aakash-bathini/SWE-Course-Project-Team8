@@ -1,16 +1,16 @@
 '''
 SPDX helper data and functions for license parsing
 '''
-from config.thresholds import LICENSE_WHITELIST, LICENSE_BLACKLIST, LICENSE_AMBIGUOUS_03, LICENSE_AMBIGUOUS_07
+from src.config_parsers_nlp.thresholds import LICENSE_WHITELIST, LICENSE_BLACKLIST, LICENSE_AMBIGUOUS_03, LICENSE_AMBIGUOUS_07, LICENSE_ALIASES
 
 def normalize_license(text: str) -> str:
     '''
     Normalize license text for SPDX matching
     '''
-   norm = text.strip().lower()
-   for alias, spdx in LICENSE_ALIASES.items():
+    norm = text.strip().lower()
+    for alias, spdx in LICENSE_ALIASES.items():
        if alias in norm:
-           return spdx_id
+           return spdx
     return norm
 
 def classify_license(text: str) -> (float, str):
