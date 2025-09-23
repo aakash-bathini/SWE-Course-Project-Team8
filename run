@@ -10,7 +10,10 @@ cmd="$1"
 shift || true
 
 if [[ "$cmd" == "install" ]]; then
-  exec python3 -m src.commands.cli install
+    echo "installing requirements..."
+    pip install -r requirements.txt
+    echo "requirements installed!"
+  # exec python3 -m src.commands.cli install
 elif [[ "$cmd" == "test" ]]; then
   exec python3 -m src.commands.cli test
 else
