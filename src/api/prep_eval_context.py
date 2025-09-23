@@ -1,10 +1,10 @@
 # src/api/prep_eval_context.py
 from __future__ import annotations
-#from urllib.parse import urlparse
+from urllib.parse import urlparse
 
 from src.models.types import EvalContext, Category
-#from src.api.huggingface import scrape_hf_url
-#from src.api.github import scrape_github_url
+from src.api.huggingface import scrape_hf_url
+from src.api.github import scrape_github_url
 
 def prepare_eval_context(url: str | None = None) -> EvalContext:
     """
