@@ -12,6 +12,7 @@ shift || true
 if [[ "$cmd" == "install" ]]; then
     echo "installing requirements..."
     pip install -r requirements.txt
+    pip install -q -U google-genai
     echo "requirements installed!"
   # exec python3 -m src.commands.cli install
 elif [[ "$cmd" == "test" ]]; then
