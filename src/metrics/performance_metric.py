@@ -4,12 +4,14 @@ import json
 from google import genai
 from src.models.types import EvalContext
 import logging
+import requests
 
 
 # Configure Gemini API key from environment variable
-api_key = os.getenv("GOOGLE_API_KEY")
-# if not api_key:
-#     raise RuntimeError("Could not find GOOGLE_API_KEY. Make sure to set it as an environment variable.")
+api_key = os.getenv("GEMINI_API_KEY")
+purdue_api_key = os.getenv("GEN_AI_STUDIO_API_KEY")
+if not api_key and not purdue_api_key:
+    raise RuntimeError("GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables must be set for performance_metric")
 # genai.configure(api_key=api_key)
 
 
@@ -63,32 +65,64 @@ async def metric(ctx: EvalContext) -> float:
     }}
 
     Focus on being precise about what constitutes good evidence vs. vague claims.
+    Only  respond with the JSON object, no additional text.
     """
+    
+    if api_key:
+        client = genai.Client()
+        logging.info("Calling Gemini with prompt for performance metric: %s", prompt[:500].replace("\n", " ") + "...")
 
-    client = genai.Client()
-    logging.info("Calling Gemini with prompt for performance metric: %s", prompt[:500].replace("\n", " ") + "...")
+        # Call Gemini (this is synchronous)
+        response = client.models.generate_content(
+            model = "gemini-2.0-flash", 
+            contents = prompt
+            )
 
-    # Call Gemini (this is synchronous)
-    response = client.models.generate_content(
-        model = "gemini-2.0-flash", 
-        contents = prompt
-        )
+        # Extract text response
+        analysis_text = response.text
+        # logging.info("Gemini response: %s", analysis_text)
+        try:
+            raw = response.text
+            cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.DOTALL)
+            analysis_json = json.loads(cleaned)
+        except json.JSONDecodeError:
+            raise RuntimeError(f"LLM response was not valid JSON:\n{analysis_text}")
+    else:
+        logging.info("Calling Purdue GenAI with prompt for performance metric: %s", prompt[:500].replace("\n", " ") + "...")
 
-    # Extract text response
-    analysis_text = response.text
-    # logging.info("Gemini response: %s", analysis_text)
+        url = "https://genai.rcac.purdue.edu/api/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {purdue_api_key}",
+            "Content-Type": "application/json"
+        }
+        body = {
+            "model": "llama4:latest",
+            "messages": [
+            {
+                "role": "a very needed Engineer looking at README files for performance claims",
+                "content": prompt
+            }
+            ],
+            "stream": False
+    }
+        response = requests.post(url, headers=headers, json=body)
+        analysis_text = response.json()['choices'][0]['message']['content']
+        # Try parsing into JSON
+        try:
+            cleaned = re.sub(r"^```json\s*|\s*```$", "", analysis_text.strip(), flags=re.DOTALL)
+            analysis_json = json.loads(cleaned)
+        except json.JSONDecodeError:
+            raise RuntimeError(f"LLM response was not valid JSON:\n{analysis_text}")
 
-    # Try parsing into JSON
-    try:
-        raw = response.text
-        cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.DOTALL)
-        analysis_json = json.loads(cleaned)
-    except json.JSONDecodeError:
-        raise RuntimeError(f"Gemini response was not valid JSON:\n{analysis_text}")
-
+    # logging.info("LLM response: %s", analysis_text)
     # Compute score from summary
     summary = analysis_json.get("summary", {})
     quality = summary.get("overall_evidence_quality", 0.0)
     specificity = summary.get("overall_specificity", 0.0)
-    print(f"Performance Metric - Quality: {quality}, Specificity: {specificity}")
+    logging.info(
+        f"Performance Metric -> Quality: {quality}, Specificity: {specificity}, "
+        f"Total Claims: {summary.get('total_claims', 0)}, Quantitative Claims: {summary.get('quantitative_claims', 0)}, "
+        f"Benchmark Count: {summary.get('benchmark_count', 0)}, Has Tables/Charts: {summary.get('has_tables_or_charts', False)}"
+    )
+    # print(f"Performance Metric - Quality: {quality}, Specificity: {specificity}")
     return float((quality + specificity) / 2.0)

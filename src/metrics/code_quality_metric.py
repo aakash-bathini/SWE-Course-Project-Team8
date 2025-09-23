@@ -1,7 +1,5 @@
-import os
-import json
+# src/metrics/code_quality_metric.py
 import logging
-import asyncio
 import subprocess
 from pathlib import Path
 from src.models.types import EvalContext

@@ -4,7 +4,7 @@ from . import metric_a, metric_b, metric_c, metric_d, performance_metric, code_q
 
 def get_all_metrics() -> List[MetricItem]:
     return [
-        # ("performance", performance_metric.metric),
+        ("performance", performance_metric.metric),
         ("bus factor", bus_factor_metric.metric),
         ("code quality", code_quality_metric.metric),
         ("metric_a", metric_a.metric),
