@@ -1,11 +1,13 @@
 import re
 import os
 import json
-from google import genai
+try:
+    import google.generativeai as genai
+except ImportError:
+    logging.warning("google.generativeai package not found, Gemini calls will fail")
 from src.models.types import EvalContext
 import logging
 import requests
-
 
 # Configure Gemini API key from environment variable
 api_key = os.getenv("GEMINI_API_KEY")
