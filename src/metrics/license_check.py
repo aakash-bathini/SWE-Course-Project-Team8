@@ -1,27 +1,75 @@
+import asyncio
 import time
-from config-parser-nlp.readme_parser import extract_license_evidence
-from config-parser-nlp.spdx import parse_spdx_expression, SPDXParseError
+from typing import Optional, Dict
+from src.models.types import EvalContext
+from src.config_parsers_nlp.readme_parser import extract_license_evidence
+import src.config_parsers_nlp.spdx as spdx
 
+_PREFERRED_LICENSE_NAMES = (
+    "LICENSE",
+    "LICENSE.TXT",
+    "LICENSE.MD",
+    "LICENCE",
+    "LICENCE.TXT",
+    "LICENCE.MD",
+    "COPYING",
+    "COPYRIGHT",
+    "UNLICENSE",
+)
 
-# Assuming that the metric framework provides a base Metric class
-# and a decorator to register metrics
-class LicenseMetric(Metric):
-    def __init__(self, repo_analyzer, gh_client, logger):
-        self.repo = repo_analyzer
-        self.gh = gh_client
-        self.log = logger
+def _select_license_text(doc_texts: dict[str, str]) -> Optional[str]:
+    """Choose the best license text from a dict of path -> text."""
+    if not doc_texts:
+        return None # nothing available in repo
+    upper_map = {path.upper(): text for path, text in doc_texts.items()} # case insensitive match
+    # exact filename match
+    for name in _PREFERRED_LICENSE_NAMES:
+        for path_upper, text in upper_map.items():
+            if path_upper.endswith(f"/{name}") or path_upper == name:
+                return text
+    #loose basename match
+    for name in _PREFERRED_LICENSE_NAMES:
+        for path_upper, text in upper_map.items():
+            basename = path_upper.rsplit("/", 1)[-1]
+            if basename.startswith(name):
+                return text
+    return None # no good match
+            
 
-    def compute(self, record) -> MetricResult
-        start = time.time()
+async def metric(ctx: EvalContext) -> float:
+    """
+    License check metric
+    -returns a score in [0.0, 1.0] based on license presence and compliance
+    -consumes Github data from EvalContext (ctx.github)
+    """
+    gh = getattr(ctx, "gh_data", None) or {} # list of github profiles
+    if not gh:
+        print("license_check: no github data available")
+        return 0.0 # no github data to check
+    gh_profile = gh[0] # just check the first repo for now
+    if not gh_profile:
+        print("license_check: empty github profile")
+        return 0.0
+    
 
-        # 1. Get license evidence
-        readme_text = self.gh.get_readme_text(self.repo) # change function name as needed
-        license_file_text = self.repo.get_license_file_text() # change function name as needed
-        source, spdx_ids, spdx_exprs, hints = extract_license_evidence(readme_text, license_file_text)
+    readme_text: Optional[str] = gh_profile.get("readme_text")
+    doc_texts: Dict[str, str] = gh_profile.get("doc_texts") or {}
+    gh_spdx: Optional[str] = gh_profile.get("license_spdx")
 
-        # 2. Classify based on evidence
-        score, rationale = spdx.classify_license(spdx_ids, spdx_exprs, hints)
+    def compute() -> float:
+        license_text = _select_license_text(doc_texts)
+        source, spdx_ids, spdx_exprs, hints = extract_license_evidence(
+            readme_text,
+            license_text
+        )
 
-        # 3. Wrap in metricResult
-        latency_ms = (time.time() - start) * 1000
-        return MetricResult(score=score, rationale=f"{src}: {rationale}", latency_ms=latency_ms)
+        if gh_spdx and not spdx_ids:
+            spdx_ids = [gh_spdx] # use github's detected license if nothing else found
+        score, ratiionale = spdx.classify_license(spdx_ids[0]) if spdx_ids else (0.0, "No license found")
+        try:
+            print(f"license_check: source={source}, spdx_ids={spdx_ids}, hints={hints} => {ratiionale}")
+            return float(score)
+        except Exception:
+            return 0.0
+
+    return await asyncio.to_thread(compute)
