@@ -5,8 +5,8 @@ from src.api.prep_eval_context import prepare_eval_context
 # Optional: isolate cache so you don’t pollute your main project cache
 os.environ["PROJECT_ROOT"] = os.getcwd()
 
-#ctx = prepare_eval_context("https://github.com/kabirraymalik/gello-bimanual-ur3")
-ctx = prepare_eval_context("https://huggingface.co/facebook/MobileLLM-R1-950M")
+ctx = prepare_eval_context("https://github.com/kabirraymalik/gello-bimanual-ur3")
+#ctx = prepare_eval_context("https://huggingface.co/facebook/MobileLLM-R1-950M")
 
 print("URL:", ctx.url)
 print("Category:", ctx.category)

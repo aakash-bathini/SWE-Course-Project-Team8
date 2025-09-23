@@ -19,6 +19,10 @@ def prepare_eval_context(url: str | None = None) -> EvalContext:
     """
     if not url:
         raise ValueError("URL is required")
+    
+    #temp test for pipeline
+    # print(f"PREP URL: {url}")
+    # return EvalContext(url=url)
 
     host = urlparse(url).netloc.lower()
 
@@ -28,7 +32,6 @@ def prepare_eval_context(url: str | None = None) -> EvalContext:
         cat: Category = "MODEL" if hf_type == "model" else "DATASET"
 
         hf_data = [hf_profile]  # always a list
-
         gh_data: list[dict] = []
         gh_links = hf_profile.get("github_links") or []
         seen = set()  # avoid duplicate repos
