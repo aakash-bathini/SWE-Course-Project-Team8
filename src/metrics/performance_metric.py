@@ -12,12 +12,14 @@ import requests
 # Configure Gemini API key from environment variable
 api_key = os.getenv("GEMINI_API_KEY")
 purdue_api_key = os.getenv("GEN_AI_STUDIO_API_KEY")
-if not api_key and not purdue_api_key:
-    raise RuntimeError("GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables must be set for performance_metric")
+    
 # genai.configure(api_key=api_key)
 
 
 async def metric(ctx: EvalContext) -> float:
+    if not api_key and not purdue_api_key:
+        logging.error("GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail")
+        return 0.0
     gh = ctx.gh_data[0]
     """
     Analyze the README content from EvalContext for performance claims
@@ -88,7 +90,8 @@ async def metric(ctx: EvalContext) -> float:
             cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.DOTALL)
             analysis_json = json.loads(cleaned)
         except json.JSONDecodeError:
-            raise RuntimeError(f"LLM response was not valid JSON:\n{analysis_text}")
+            logging.error(f"LLM response was not valid JSON:\n{analysis_text}")
+            return (0.0)
     else:
         logging.info("Calling Purdue GenAI with prompt for performance metric: %s", prompt[:500].replace("\n", " ") + "...")
 
@@ -114,7 +117,8 @@ async def metric(ctx: EvalContext) -> float:
             cleaned = re.sub(r"^```json\s*|\s*```$", "", analysis_text.strip(), flags=re.DOTALL)
             analysis_json = json.loads(cleaned)
         except json.JSONDecodeError:
-            raise RuntimeError(f"LLM response was not valid JSON:\n{analysis_text}")
+            logging.error(f"LLM response was not valid JSON:\n{analysis_text}")
+            return (0.0)
 
     # logging.info("LLM response: %s", analysis_text)
     # Compute score from summary
