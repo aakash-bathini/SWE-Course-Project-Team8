@@ -5,7 +5,10 @@ import json
 import sys
 from pathlib import Path
 from typing import Dict, Iterable, List
+import os
+import logging
 
+from src.orchestration.logging_util import setup_logging_util
 from src.orchestration.prep_eval_orchestrator import prep_eval_many
 from src.orchestration.metric_orchestrator import orchestrate
 from src.models.types import EvalContext, OrchestrationReport
@@ -37,6 +40,10 @@ async def prep_contexts(urls: List[str]) -> Dict[str, EvalContext]:
     return await prep_eval_many(urls, limit=8)
 
 
+async def setup_logging() -> None:
+    log_file = os.path.join(os.path.dirname(__file__), "temp.log")
+    setup_logging_util(level=2, log_file=log_file, also_stderr=False)
+   
 # 3) Run metrics one URL at a time (sequential for simplicity)
 #    → Dict[url, OrchestrationReport]
 async def run_metrics_on_contexts(
@@ -78,6 +85,7 @@ def print_ndjson(urls: List[str], reports: Dict[str, OrchestrationReport]) -> No
 # 5) Final entrypoint that calls the 4 above
 def run_eval(url_file: str) -> None:
     urls = parse_urls_from_file(url_file)
+    asyncio.run(setup_logging())
     ctx_map = asyncio.run(prep_contexts(urls))
     reports = asyncio.run(run_metrics_on_contexts(urls, ctx_map, limit=4))
     print_ndjson(urls, reports)

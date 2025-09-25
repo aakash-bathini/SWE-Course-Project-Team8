@@ -9,7 +9,7 @@ _LEVELS = {
     2: logging.DEBUG    # Debug
 }
 
-def setup_logging(level: int = 0, log_file: str | None = None, also_stderr: bool = False) -> int:
+def setup_logging_util(level: int = 0, log_file: str | None = None, also_stderr: bool = False) -> int:
     """
     Configure logging for the pipeline.
     - level: 0 (silent), 1 (info), 2 (debug)
