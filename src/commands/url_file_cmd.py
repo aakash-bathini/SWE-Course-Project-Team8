@@ -7,12 +7,12 @@ from pathlib import Path
 from typing import Dict, Iterable, List
 import os
 import logging
+from urllib.parse import urlparse
 
 from src.orchestration.logging_util import setup_logging_util
 from src.orchestration.prep_eval_orchestrator import prep_eval_many
 from src.orchestration.metric_orchestrator import orchestrate
 from src.models.types import EvalContext, OrchestrationReport
-
 
 # 1) Parse URLs from an ASCII file → List[str]
 def parse_urls_from_file(path: str) -> List[str]:
@@ -63,23 +63,44 @@ async def run_metrics_on_contexts(
 
 # 4) Print results in NDJSON (one line per URL)
 def print_ndjson(urls: List[str], reports: Dict[str, OrchestrationReport]) -> None:
+    # for u in urls:
+    #     rep = reports.get(u)
+    #     if not rep:
+    #         continue
+    #     payload = {
+    #         "URL": u,
+    #         "total_latency_ms": rep.total_latency_ms,
+    #         "results": {
+    #             name: {
+    #                 "value": r.value,
+    #                 "latency_ms": r.latency_ms,
+    #                 **({"error": r.error} if r.error else {}),
+    #             }
+    #             for name, r in rep.results.items()
+    #         },
+    #     }
+    #     print(json.dumps(payload, separators=(",", ":"), ensure_ascii=True))
     for u in urls:
         rep = reports.get(u)
         if not rep:
             continue
-        payload = {
-            "URL": u,
-            "total_latency_ms": rep.total_latency_ms,
-            "results": {
-                name: {
-                    "value": r.value,
-                    "latency_ms": r.latency_ms,
-                    **({"error": r.error} if r.error else {}),
-                }
-                for name, r in rep.results.items()
-            },
+
+        # derive a short name from the URL (last path component)
+        path = urlparse(u).path.strip("/")
+        repo_name = path.split("/")[-1] if path else u
+
+        out = {
+            "name": repo_name,
+            "category": "REPO",
         }
-        print(json.dumps(payload, separators=(",", ":"), ensure_ascii=True))
+
+        for label, r in rep.results.items():
+            out[label] = r.value
+            out[f"{label}_latency"] = r.latency_ms
+            if getattr(r, "error", None):
+                out[f"{label}_error"] = r.error
+
+        print(json.dumps(out, separators=(",", ":"), ensure_ascii=True))
 
 
 # 5) Final entrypoint that calls the 4 above

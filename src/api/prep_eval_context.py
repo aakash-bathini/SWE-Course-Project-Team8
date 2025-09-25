@@ -19,10 +19,6 @@ def prepare_eval_context(url: str | None = None) -> EvalContext:
     """
     if not url:
         raise ValueError("URL is required")
-    
-    #temp test for pipeline
-    # print(f"PREP URL: {url}")
-    # return EvalContext(url=url)
 
     host = urlparse(url).netloc.lower()
 

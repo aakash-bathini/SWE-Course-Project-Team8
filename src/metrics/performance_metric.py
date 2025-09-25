@@ -2,8 +2,8 @@ import re
 import os
 import json
 try:
-    import google.generativeai as genai
-except ImportError:
+    from google import genai
+except:
     logging.warning("google.generativeai package not found, Gemini calls will fail")
 from src.models.types import EvalContext
 import logging

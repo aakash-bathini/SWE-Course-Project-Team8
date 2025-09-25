@@ -79,7 +79,7 @@ def _get_json(url: str, timeout: float = 12.0) -> Any:
 # selectively harvest content
 # file budget for code-quality signals
 _MAX_DOC_FILES = int(os.environ.get("GH_MAX_DOC_FILES", "25"))
-_MAX_TOTAL_BYTES = int(os.environ.get("GH_MAX_TOTAL_BYTES", str(400_000)))  # ~400KB
+_MAX_TOTAL_BYTES = int(os.environ.get("GH_MAX_TOTAL_BYTES", str(1_000_000)))  # ~1MB
 
 _DOC_PATTERNS = [
     r"^README(\.[a-zA-Z0-9]+)?$",
@@ -162,8 +162,10 @@ def scrape_github_url(url: str) -> Dict[str, Any]:
             blob = readme_json.get("content") or ""
             if enc == "base64":
                 readme_text = base64.b64decode(blob).decode("utf-8", errors="replace")
+                #print("README: " + readme_text + "\n")
             else:
                 readme_text = str(blob)
+                #print("README: " + readme_text + "\n")
     except Exception:
         readme_text = None
 
