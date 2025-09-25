@@ -1,0 +1,1402 @@
+12:27:18 [DEBUG] asyncio: Using selector: EpollSelector
+12:27:18 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:27:18 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:27:19 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project HTTP/1.1" 200 1288
+12:27:19 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:27:19 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab HTTP/1.1" 200 1305
+12:27:19 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:27:19 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/readme HTTP/1.1" 200 372
+12:27:19 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:27:19 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/readme HTTP/1.1" 200 1620
+12:27:19 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:27:19 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/contributors?per_page=100&anon=1 HTTP/1.1" 200 737
+12:27:19 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:27:19 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/contributors?per_page=100&anon=1 HTTP/1.1" 200 456
+12:27:19 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:27:19 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/git/trees/main?recursive=1 HTTP/1.1" 200 471
+12:27:19 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:27:19 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/contents/README.MD?ref=main HTTP/1.1" 200 372
+12:27:19 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/git/trees/main?recursive=1 HTTP/1.1" 200 None
+12:27:19 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:27:19 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/contents/README.md?ref=main HTTP/1.1" 200 1620
+12:27:19 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:27:20 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/contents/source/go1_arm_lab/docs/CHANGELOG.rst?ref=main HTTP/1.1" 200 479
+12:27:20 [DEBUG] asyncio: Using selector: EpollSelector
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/mroxas04/SWE-Course-Project
+12:27:20 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/mroxas04/SWE-Course-Project
+12:27:20 [INFO] root: Bus Factor Metric -> contributors=6, top_share=0.25, score=0.80
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/mroxas04/SWE-Course-Project
+12:27:20 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 193 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=193 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/mroxas04/SWE-Course-Project
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/mroxas04/SWE-Course-Project
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/mroxas04/SWE-Course-Project
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/mroxas04/SWE-Course-Project
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 1 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=1 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 279 ms (success=7, failed=0, url=https://github.com/mroxas04/SWE-Course-Project)
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/kabirraymalik/go1_arm_lab
+12:27:20 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/kabirraymalik/go1_arm_lab
+12:27:20 [INFO] root: Bus Factor Metric -> contributors=2, top_share=0.92, score=0.25
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/kabirraymalik/go1_arm_lab
+12:27:20 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 145 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=145 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/kabirraymalik/go1_arm_lab
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/kabirraymalik/go1_arm_lab
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/kabirraymalik/go1_arm_lab
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/kabirraymalik/go1_arm_lab
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:27:20 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 230 ms (success=7, failed=0, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:48 [DEBUG] asyncio: Using selector: EpollSelector
+12:33:48 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:33:48 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project HTTP/1.1" 200 1288
+12:33:48 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:33:48 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/readme HTTP/1.1" 200 372
+12:33:48 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:33:49 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/contributors?per_page=100&anon=1 HTTP/1.1" 200 737
+12:33:49 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:33:49 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/git/trees/main?recursive=1 HTTP/1.1" 200 471
+12:33:49 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:33:49 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/contents/README.MD?ref=main HTTP/1.1" 200 372
+12:33:49 [DEBUG] asyncio: Using selector: EpollSelector
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/mroxas04/SWE-Course-Project
+12:33:49 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/mroxas04/SWE-Course-Project
+12:33:49 [INFO] root: Bus Factor Metric -> contributors=6, top_share=0.25, score=0.80
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/mroxas04/SWE-Course-Project
+12:33:49 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 152 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=152 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/mroxas04/SWE-Course-Project
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/mroxas04/SWE-Course-Project
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/mroxas04/SWE-Course-Project
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/mroxas04/SWE-Course-Project
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 81 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=81 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 237 ms (success=7, failed=0, url=https://github.com/mroxas04/SWE-Course-Project)
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/kabirraymalik/go1_arm_lab
+12:33:49 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/kabirraymalik/go1_arm_lab
+12:33:49 [INFO] root: Bus Factor Metric -> contributors=2, top_share=0.92, score=0.25
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/kabirraymalik/go1_arm_lab
+12:33:49 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 158 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=158 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/kabirraymalik/go1_arm_lab
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/kabirraymalik/go1_arm_lab
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/kabirraymalik/go1_arm_lab
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/kabirraymalik/go1_arm_lab
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 81 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=81 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:33:49 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 243 ms (success=7, failed=0, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:16 [DEBUG] asyncio: Using selector: EpollSelector
+12:34:16 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:16 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:16 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project HTTP/1.1" 200 1288
+12:34:16 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:16 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/readme HTTP/1.1" 200 372
+12:34:16 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:17 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/contributors?per_page=100&anon=1 HTTP/1.1" 200 737
+12:34:17 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:17 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/git/trees/main?recursive=1 HTTP/1.1" 200 471
+12:34:17 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:18 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab HTTP/1.1" 200 1305
+12:34:18 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:18 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/contents/README.MD?ref=main HTTP/1.1" 200 372
+12:34:18 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/readme HTTP/1.1" 200 1620
+12:34:18 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:20 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/contributors?per_page=100&anon=1 HTTP/1.1" 200 456
+12:34:20 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:21 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/git/trees/main?recursive=1 HTTP/1.1" 200 None
+12:34:21 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:22 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/contents/README.md?ref=main HTTP/1.1" 200 1620
+12:34:22 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:22 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/contents/source/go1_arm_lab/docs/CHANGELOG.rst?ref=main HTTP/1.1" 200 1208
+12:34:22 [DEBUG] asyncio: Using selector: EpollSelector
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/mroxas04/SWE-Course-Project
+12:34:22 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/mroxas04/SWE-Course-Project
+12:34:22 [INFO] root: Bus Factor Metric -> contributors=6, top_share=0.25, score=0.80
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/mroxas04/SWE-Course-Project
+12:34:22 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 158 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=158 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/mroxas04/SWE-Course-Project
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/mroxas04/SWE-Course-Project
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/mroxas04/SWE-Course-Project
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/mroxas04/SWE-Course-Project
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 81 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=81 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 243 ms (success=7, failed=0, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/kabirraymalik/go1_arm_lab
+12:34:22 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/kabirraymalik/go1_arm_lab
+12:34:22 [INFO] root: Bus Factor Metric -> contributors=2, top_share=0.92, score=0.25
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/kabirraymalik/go1_arm_lab
+12:34:22 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 144 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=144 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/kabirraymalik/go1_arm_lab
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/kabirraymalik/go1_arm_lab
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/kabirraymalik/go1_arm_lab
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/kabirraymalik/go1_arm_lab
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:22 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 229 ms (success=7, failed=0, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:42 [DEBUG] asyncio: Using selector: EpollSelector
+12:34:42 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:42 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:42 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project HTTP/1.1" 200 1288
+12:34:42 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:42 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab HTTP/1.1" 200 1305
+12:34:42 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:43 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/readme HTTP/1.1" 200 1620
+12:34:43 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/readme HTTP/1.1" 200 372
+12:34:43 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:43 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:43 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/contributors?per_page=100&anon=1 HTTP/1.1" 200 456
+12:34:43 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/contributors?per_page=100&anon=1 HTTP/1.1" 200 737
+12:34:43 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:43 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:43 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/git/trees/main?recursive=1 HTTP/1.1" 200 None
+12:34:43 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:43 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/git/trees/main?recursive=1 HTTP/1.1" 200 471
+12:34:43 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:43 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/contents/README.md?ref=main HTTP/1.1" 200 1620
+12:34:43 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:34:43 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/contents/README.MD?ref=main HTTP/1.1" 200 372
+12:34:43 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/contents/source/go1_arm_lab/docs/CHANGELOG.rst?ref=main HTTP/1.1" 200 479
+12:34:43 [DEBUG] asyncio: Using selector: EpollSelector
+12:34:43 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/mroxas04/SWE-Course-Project
+12:34:43 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:34:43 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/mroxas04/SWE-Course-Project
+12:34:43 [INFO] root: Bus Factor Metric -> contributors=6, top_share=0.25, score=0.80
+12:34:43 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/mroxas04/SWE-Course-Project
+12:34:43 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:34:43 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 166 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=166 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/mroxas04/SWE-Course-Project
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/mroxas04/SWE-Course-Project
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/mroxas04/SWE-Course-Project
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/mroxas04/SWE-Course-Project
+12:34:43 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 81 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=81 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 252 ms (success=7, failed=0, url=https://github.com/mroxas04/SWE-Course-Project)
+12:34:43 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/kabirraymalik/go1_arm_lab
+12:34:43 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:34:43 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/kabirraymalik/go1_arm_lab
+12:34:43 [INFO] root: Bus Factor Metric -> contributors=2, top_share=0.92, score=0.25
+12:34:43 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:43 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/kabirraymalik/go1_arm_lab
+12:34:44 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:34:44 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 161 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:44 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=161 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:44 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:44 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/kabirraymalik/go1_arm_lab
+12:34:44 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:44 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/kabirraymalik/go1_arm_lab
+12:34:44 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:44 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/kabirraymalik/go1_arm_lab
+12:34:44 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:44 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/kabirraymalik/go1_arm_lab
+12:34:44 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:44 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:44 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:44 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:44 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:44 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:44 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:44 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:34:44 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 246 ms (success=7, failed=0, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:38 [DEBUG] asyncio: Using selector: EpollSelector
+12:36:38 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:36:38 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:36:38 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project HTTP/1.1" 200 1280
+12:36:38 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab HTTP/1.1" 200 1305
+12:36:38 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:36:38 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:36:39 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/readme HTTP/1.1" 200 1318
+12:36:39 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/readme HTTP/1.1" 200 1620
+12:36:39 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:36:39 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:36:39 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/contributors?per_page=100&anon=1 HTTP/1.1" 200 456
+12:36:39 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:36:39 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/contributors?per_page=100&anon=1 HTTP/1.1" 200 737
+12:36:39 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:36:39 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/git/trees/main?recursive=1 HTTP/1.1" 200 None
+12:36:39 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:36:39 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/git/trees/main?recursive=1 HTTP/1.1" 200 471
+12:36:39 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:36:39 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/contents/README.md?ref=main HTTP/1.1" 200 1620
+12:36:39 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:36:39 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/contents/README.MD?ref=main HTTP/1.1" 200 1318
+12:36:39 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/contents/source/go1_arm_lab/docs/CHANGELOG.rst?ref=main HTTP/1.1" 200 479
+12:36:39 [DEBUG] asyncio: Using selector: EpollSelector
+12:36:39 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/mroxas04/SWE-Course-Project
+12:36:39 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:36:39 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/mroxas04/SWE-Course-Project
+12:36:39 [INFO] root: Bus Factor Metric -> contributors=6, top_share=0.25, score=0.80
+12:36:39 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/mroxas04/SWE-Course-Project
+12:36:39 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:36:39 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 157 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=157 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/mroxas04/SWE-Course-Project
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/mroxas04/SWE-Course-Project
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/mroxas04/SWE-Course-Project
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/mroxas04/SWE-Course-Project
+12:36:39 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:39 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:40 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:40 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 242 ms (success=7, failed=0, url=https://github.com/mroxas04/SWE-Course-Project)
+12:36:40 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/kabirraymalik/go1_arm_lab
+12:36:40 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:36:40 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/kabirraymalik/go1_arm_lab
+12:36:40 [INFO] root: Bus Factor Metric -> contributors=2, top_share=0.92, score=0.25
+12:36:40 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/kabirraymalik/go1_arm_lab
+12:36:40 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:36:40 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 154 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=154 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/kabirraymalik/go1_arm_lab
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/kabirraymalik/go1_arm_lab
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/kabirraymalik/go1_arm_lab
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/kabirraymalik/go1_arm_lab
+12:36:40 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:36:40 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 239 ms (success=7, failed=0, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:39 [DEBUG] asyncio: Using selector: EpollSelector
+12:39:39 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:39:39 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:39:39 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab HTTP/1.1" 200 1305
+12:39:39 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:39:39 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project HTTP/1.1" 200 1280
+12:39:39 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:39:39 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/readme HTTP/1.1" 200 1620
+12:39:39 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:39:39 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/readme HTTP/1.1" 200 1318
+12:39:39 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:39:40 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/contributors?per_page=100&anon=1 HTTP/1.1" 200 456
+12:39:40 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:39:40 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/contributors?per_page=100&anon=1 HTTP/1.1" 200 737
+12:39:40 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:39:40 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/git/trees/main?recursive=1 HTTP/1.1" 200 None
+12:39:40 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:39:40 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/git/trees/main?recursive=1 HTTP/1.1" 200 471
+12:39:40 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:39:40 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/contents/README.md?ref=main HTTP/1.1" 200 1620
+12:39:40 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:39:40 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/contents/README.MD?ref=main HTTP/1.1" 200 2427
+12:39:40 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/kabirraymalik/go1_arm_lab/contents/source/go1_arm_lab/docs/CHANGELOG.rst?ref=main HTTP/1.1" 200 479
+12:39:40 [DEBUG] asyncio: Using selector: EpollSelector
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/mroxas04/SWE-Course-Project
+12:39:40 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/mroxas04/SWE-Course-Project
+12:39:40 [INFO] root: Bus Factor Metric -> contributors=6, top_share=0.25, score=0.80
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/mroxas04/SWE-Course-Project
+12:39:40 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 159 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=159 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/mroxas04/SWE-Course-Project
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/mroxas04/SWE-Course-Project
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/mroxas04/SWE-Course-Project
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/mroxas04/SWE-Course-Project
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 81 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=81 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 245 ms (success=7, failed=0, url=https://github.com/mroxas04/SWE-Course-Project)
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/kabirraymalik/go1_arm_lab
+12:39:40 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/kabirraymalik/go1_arm_lab
+12:39:40 [INFO] root: Bus Factor Metric -> contributors=2, top_share=0.92, score=0.25
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/kabirraymalik/go1_arm_lab
+12:39:40 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 157 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=157 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/kabirraymalik/go1_arm_lab
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/kabirraymalik/go1_arm_lab
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/kabirraymalik/go1_arm_lab
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/kabirraymalik/go1_arm_lab
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 81 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=81 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:39:40 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 242 ms (success=7, failed=0, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:12 [DEBUG] asyncio: Using selector: EpollSelector
+12:41:12 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:41:12 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project HTTP/1.1" 200 1280
+12:41:12 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:41:12 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/readme HTTP/1.1" 200 1318
+12:41:12 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:41:12 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/contributors?per_page=100&anon=1 HTTP/1.1" 200 741
+12:41:12 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:41:12 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/git/trees/main?recursive=1 HTTP/1.1" 200 471
+12:41:12 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:41:13 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/mroxas04/SWE-Course-Project/contents/README.MD?ref=main HTTP/1.1" 200 1318
+12:41:13 [DEBUG] asyncio: Using selector: EpollSelector
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/mroxas04/SWE-Course-Project
+12:41:13 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/mroxas04/SWE-Course-Project
+12:41:13 [INFO] root: Bus Factor Metric -> contributors=6, top_share=0.28, score=0.79
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/mroxas04/SWE-Course-Project
+12:41:13 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 153 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=153 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/mroxas04/SWE-Course-Project
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/mroxas04/SWE-Course-Project
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/mroxas04/SWE-Course-Project
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/mroxas04/SWE-Course-Project
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 81 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=81 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 238 ms (success=7, failed=0, url=https://github.com/mroxas04/SWE-Course-Project)
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/kabirraymalik/go1_arm_lab
+12:41:13 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/kabirraymalik/go1_arm_lab
+12:41:13 [INFO] root: Bus Factor Metric -> contributors=2, top_share=0.92, score=0.25
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/kabirraymalik/go1_arm_lab
+12:41:13 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 152 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=152 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/kabirraymalik/go1_arm_lab
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/kabirraymalik/go1_arm_lab
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/kabirraymalik/go1_arm_lab
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/kabirraymalik/go1_arm_lab
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 3 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=3 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:41:13 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 236 ms (success=7, failed=0, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] asyncio: Using selector: EpollSelector
+12:51:26 [DEBUG] asyncio: Using selector: EpollSelector
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/mroxas04/SWE-Course-Project
+12:51:26 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/mroxas04/SWE-Course-Project
+12:51:26 [INFO] root: Bus Factor Metric -> contributors=6, top_share=0.28, score=0.79
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/mroxas04/SWE-Course-Project
+12:51:26 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 158 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=158 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/mroxas04/SWE-Course-Project
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/mroxas04/SWE-Course-Project
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/mroxas04/SWE-Course-Project
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/mroxas04/SWE-Course-Project
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 3 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=3 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 81 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=81 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 243 ms (success=7, failed=0, url=https://github.com/mroxas04/SWE-Course-Project)
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/kabirraymalik/go1_arm_lab
+12:51:26 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/kabirraymalik/go1_arm_lab
+12:51:26 [INFO] root: Bus Factor Metric -> contributors=2, top_share=0.92, score=0.25
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/kabirraymalik/go1_arm_lab
+12:51:26 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 160 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=160 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/kabirraymalik/go1_arm_lab
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/kabirraymalik/go1_arm_lab
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/kabirraymalik/go1_arm_lab
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/kabirraymalik/go1_arm_lab
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:51:26 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 244 ms (success=7, failed=0, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:38 [DEBUG] asyncio: Using selector: EpollSelector
+12:55:38 [DEBUG] asyncio: Using selector: EpollSelector
+12:55:38 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/mroxas04/SWE-Course-Project
+12:55:38 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:55:38 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/mroxas04/SWE-Course-Project
+12:55:38 [INFO] root: Bus Factor Metric -> contributors=6, top_share=0.28, score=0.79
+12:55:38 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/mroxas04/SWE-Course-Project
+12:55:38 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:55:38 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 151 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=151 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/mroxas04/SWE-Course-Project
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/mroxas04/SWE-Course-Project
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/mroxas04/SWE-Course-Project
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/mroxas04/SWE-Course-Project
+12:55:38 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 236 ms (success=7, failed=0, url=https://github.com/mroxas04/SWE-Course-Project)
+12:55:38 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/kabirraymalik/go1_arm_lab
+12:55:38 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:55:38 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/kabirraymalik/go1_arm_lab
+12:55:38 [INFO] root: Bus Factor Metric -> contributors=2, top_share=0.92, score=0.25
+12:55:38 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/kabirraymalik/go1_arm_lab
+12:55:39 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:55:39 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 144 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:39 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=144 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:39 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:39 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/kabirraymalik/go1_arm_lab
+12:55:39 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:39 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/kabirraymalik/go1_arm_lab
+12:55:39 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:39 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/kabirraymalik/go1_arm_lab
+12:55:39 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:39 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/kabirraymalik/go1_arm_lab
+12:55:39 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:39 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:39 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:39 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:39 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:39 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:39 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 81 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:39 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=81 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:55:39 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 230 ms (success=7, failed=0, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] asyncio: Using selector: EpollSelector
+12:56:16 [DEBUG] asyncio: Using selector: EpollSelector
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/mroxas04/SWE-Course-Project
+12:56:16 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/mroxas04/SWE-Course-Project
+12:56:16 [INFO] root: Bus Factor Metric -> contributors=6, top_share=0.28, score=0.79
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/mroxas04/SWE-Course-Project
+12:56:16 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 153 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=153 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/mroxas04/SWE-Course-Project
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/mroxas04/SWE-Course-Project
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/mroxas04/SWE-Course-Project
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/mroxas04/SWE-Course-Project
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 237 ms (success=7, failed=0, url=https://github.com/mroxas04/SWE-Course-Project)
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/kabirraymalik/go1_arm_lab
+12:56:16 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/kabirraymalik/go1_arm_lab
+12:56:16 [INFO] root: Bus Factor Metric -> contributors=2, top_share=0.92, score=0.25
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/kabirraymalik/go1_arm_lab
+12:56:16 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 164 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=164 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/kabirraymalik/go1_arm_lab
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/kabirraymalik/go1_arm_lab
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/kabirraymalik/go1_arm_lab
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/kabirraymalik/go1_arm_lab
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:56:16 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 248 ms (success=7, failed=0, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:54 [DEBUG] asyncio: Using selector: EpollSelector
+12:57:54 [DEBUG] asyncio: Using selector: EpollSelector
+12:57:54 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:54 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:54 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:54 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/mroxas04/SWE-Course-Project
+12:57:54 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:57:54 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:54 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:54 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:54 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/mroxas04/SWE-Course-Project
+12:57:54 [INFO] root: Bus Factor Metric -> contributors=6, top_share=0.28, score=0.79
+12:57:54 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:54 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:54 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:54 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/mroxas04/SWE-Course-Project
+12:57:55 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:57:55 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 163 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=163 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/mroxas04/SWE-Course-Project
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/mroxas04/SWE-Course-Project
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/mroxas04/SWE-Course-Project
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/mroxas04/SWE-Course-Project
+12:57:55 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:55 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:55 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:55 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 81 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=81 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:55 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 249 ms (success=7, failed=0, url=https://github.com/mroxas04/SWE-Course-Project)
+12:57:55 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/kabirraymalik/go1_arm_lab
+12:57:55 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:57:55 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/kabirraymalik/go1_arm_lab
+12:57:55 [INFO] root: Bus Factor Metric -> contributors=2, top_share=0.92, score=0.25
+12:57:55 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/kabirraymalik/go1_arm_lab
+12:57:55 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:57:55 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 154 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=154 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/kabirraymalik/go1_arm_lab
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/kabirraymalik/go1_arm_lab
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/kabirraymalik/go1_arm_lab
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/kabirraymalik/go1_arm_lab
+12:57:55 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 81 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=81 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:57:55 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 239 ms (success=7, failed=0, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] asyncio: Using selector: EpollSelector
+12:58:59 [DEBUG] asyncio: Using selector: EpollSelector
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/mroxas04/SWE-Course-Project
+12:58:59 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/mroxas04/SWE-Course-Project
+12:58:59 [INFO] root: Bus Factor Metric -> contributors=6, top_share=0.28, score=0.79
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/mroxas04/SWE-Course-Project
+12:58:59 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 167 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=167 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/mroxas04/SWE-Course-Project
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/mroxas04/SWE-Course-Project
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/mroxas04/SWE-Course-Project
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/mroxas04/SWE-Course-Project
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 4 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=4 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 253 ms (success=7, failed=0, url=https://github.com/mroxas04/SWE-Course-Project)
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/kabirraymalik/go1_arm_lab
+12:58:59 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/kabirraymalik/go1_arm_lab
+12:58:59 [INFO] root: Bus Factor Metric -> contributors=2, top_share=0.92, score=0.25
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/kabirraymalik/go1_arm_lab
+12:58:59 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 158 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=158 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/kabirraymalik/go1_arm_lab
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/kabirraymalik/go1_arm_lab
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/kabirraymalik/go1_arm_lab
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/kabirraymalik/go1_arm_lab
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://github.com/kabirraymalik/go1_arm_lab)
+12:58:59 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 242 ms (success=7, failed=0, url=https://github.com/kabirraymalik/go1_arm_lab)
+13:08:29 [DEBUG] asyncio: Using selector: EpollSelector
+13:08:29 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:29 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): huggingface.co:443
+13:08:29 [DEBUG] urllib3.connectionpool: https://huggingface.co:443 "GET /api/models/google/gemma-2b?blobs=True HTTP/1.1" 200 6722
+13:08:29 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask HTTP/1.1" 200 1503
+13:08:29 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:29 [DEBUG] urllib3.connectionpool: https://huggingface.co:443 "HEAD /google/gemma-2b/resolve/main/README.md HTTP/1.1" 200 0
+13:08:29 [DEBUG] filelock: Attempting to acquire lock 140404051893296 on /home/shay/a/kabirrm/.cache/huggingface/hub/.locks/models--google--gemma-2b/806ec73bb330bb3a9dcd4fc401f1223444ef5060.lock
+13:08:29 [DEBUG] filelock: Lock 140404051893296 acquired on /home/shay/a/kabirrm/.cache/huggingface/hub/.locks/models--google--gemma-2b/806ec73bb330bb3a9dcd4fc401f1223444ef5060.lock
+13:08:29 [DEBUG] urllib3.connectionpool: https://huggingface.co:443 "GET /google/gemma-2b/resolve/main/README.md HTTP/1.1" 200 21505
+13:08:29 [DEBUG] filelock: Attempting to release lock 140404051893296 on /home/shay/a/kabirrm/.cache/huggingface/hub/.locks/models--google--gemma-2b/806ec73bb330bb3a9dcd4fc401f1223444ef5060.lock
+13:08:29 [DEBUG] filelock: Lock 140404051893296 released on /home/shay/a/kabirrm/.cache/huggingface/hub/.locks/models--google--gemma-2b/806ec73bb330bb3a9dcd4fc401f1223444ef5060.lock
+13:08:29 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:29 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/readme HTTP/1.1" 200 1694
+13:08:29 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:30 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google-research-datasets/natural-questions HTTP/1.1" 200 1600
+13:08:30 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:30 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contributors?per_page=100&anon=1 HTTP/1.1" 200 None
+13:08:30 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:30 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google-research-datasets/natural-questions/readme HTTP/1.1" 200 None
+13:08:30 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:30 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/git/trees/main?recursive=1 HTTP/1.1" 200 None
+13:08:30 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:30 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google-research-datasets/natural-questions/contributors?per_page=100&anon=1 HTTP/1.1" 200 490
+13:08:30 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:30 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/.github/ISSUE_TEMPLATE/bug-report.md?ref=main HTTP/1.1" 200 885
+13:08:30 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:30 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google-research-datasets/natural-questions/git/trees/master?recursive=1 HTTP/1.1" 200 1618
+13:08:30 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:30 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/.github/ISSUE_TEMPLATE/feature-request.md?ref=main HTTP/1.1" 200 708
+13:08:30 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:30 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google-research-datasets/natural-questions/contents/CONTRIBUTING.md?ref=master HTTP/1.1" 200 1274
+13:08:30 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:30 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/.github/pull_request_template.md?ref=main HTTP/1.1" 200 1032
+13:08:30 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:30 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google-research-datasets/natural-questions/contents/LICENSE?ref=master HTTP/1.1" 200 None
+13:08:30 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:31 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/CHANGES.rst?ref=main HTTP/1.1" 200 None
+13:08:31 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google-research-datasets/natural-questions/contents/README.md?ref=master HTTP/1.1" 200 None
+13:08:31 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:31 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:31 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google-research-datasets/natural-questions/contents/competition.md?ref=master HTTP/1.1" 200 3173
+13:08:31 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:31 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/LICENSE.txt?ref=main HTTP/1.1" 200 1522
+13:08:31 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:31 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google-research-datasets/natural-questions/contents/nq_open/README.md?ref=master HTTP/1.1" 200 None
+13:08:31 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:31 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/README.md?ref=main HTTP/1.1" 200 1694
+13:08:31 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:31 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google-research-datasets/natural-questions/contents/toy_example.md?ref=master HTTP/1.1" 200 1697
+13:08:31 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:31 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/api.rst?ref=main HTTP/1.1" 200 None
+13:08:31 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:31 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google/jax HTTP/1.1" 301 198
+13:08:31 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/appcontext.rst?ref=main HTTP/1.1" 200 None
+13:08:31 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:31 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repositories/154739597 HTTP/1.1" 200 1500
+13:08:31 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:31 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/async-await.rst?ref=main HTTP/1.1" 200 None
+13:08:31 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:31 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google/jax/readme HTTP/1.1" 301 205
+13:08:32 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/blueprints.rst?ref=main HTTP/1.1" 200 None
+13:08:32 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:32 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repositories/154739597/readme HTTP/1.1" 200 None
+13:08:32 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:32 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google/jax/contributors?per_page=100&anon=1 HTTP/1.1" 403 278
+13:08:32 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:32 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/changes.rst?ref=main HTTP/1.1" 200 340
+13:08:32 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:32 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google/jax/git/trees/main?recursive=1 HTTP/1.1" 403 278
+13:08:32 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/cli.rst?ref=main HTTP/1.1" 403 278
+13:08:32 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:32 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/config.rst?ref=main HTTP/1.1" 403 278
+13:08:32 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:32 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/contributing.rst?ref=main HTTP/1.1" 403 278
+13:08:32 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:32 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/debugging.rst?ref=main HTTP/1.1" 403 278
+13:08:32 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:32 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/apache-httpd.rst?ref=main HTTP/1.1" 403 278
+13:08:32 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:32 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/asgi.rst?ref=main HTTP/1.1" 403 278
+13:08:32 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:32 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/eventlet.rst?ref=main HTTP/1.1" 403 278
+13:08:32 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:32 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/gevent.rst?ref=main HTTP/1.1" 403 278
+13:08:32 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:33 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/gunicorn.rst?ref=main HTTP/1.1" 403 278
+13:08:33 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:33 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/index.rst?ref=main HTTP/1.1" 403 278
+13:08:33 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:33 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/mod_wsgi.rst?ref=main HTTP/1.1" 403 278
+13:08:33 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:33 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/nginx.rst?ref=main HTTP/1.1" 403 278
+13:08:33 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:33 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/proxy_fix.rst?ref=main HTTP/1.1" 403 278
+13:08:33 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:33 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/uwsgi.rst?ref=main HTTP/1.1" 403 278
+13:08:33 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:33 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/waitress.rst?ref=main HTTP/1.1" 403 278
+13:08:33 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:33 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/design.rst?ref=main HTTP/1.1" 403 278
+13:08:33 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:33 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/errorhandling.rst?ref=main HTTP/1.1" 403 278
+13:08:33 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:33 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/extensiondev.rst?ref=main HTTP/1.1" 403 278
+13:08:33 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:33 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/extensions.rst?ref=main HTTP/1.1" 403 278
+13:08:33 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:33 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/index.rst?ref=main HTTP/1.1" 403 278
+13:08:33 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:34 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/installation.rst?ref=main HTTP/1.1" 403 278
+13:08:34 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:34 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/license.rst?ref=main HTTP/1.1" 403 278
+13:08:34 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:34 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/lifecycle.rst?ref=main HTTP/1.1" 403 278
+13:08:34 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:34 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/logging.rst?ref=main HTTP/1.1" 403 278
+13:08:34 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:34 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/appdispatch.rst?ref=main HTTP/1.1" 403 278
+13:08:34 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:34 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/appfactories.rst?ref=main HTTP/1.1" 403 278
+13:08:34 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:34 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/caching.rst?ref=main HTTP/1.1" 403 278
+13:08:34 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:34 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/celery.rst?ref=main HTTP/1.1" 403 278
+13:08:34 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:34 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/deferredcallbacks.rst?ref=main HTTP/1.1" 403 278
+13:08:34 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:34 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/favicon.rst?ref=main HTTP/1.1" 403 278
+13:08:34 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:34 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/fileuploads.rst?ref=main HTTP/1.1" 403 278
+13:08:34 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:34 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/flashing.rst?ref=main HTTP/1.1" 403 278
+13:08:34 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:35 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/index.rst?ref=main HTTP/1.1" 403 278
+13:08:35 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:35 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/javascript.rst?ref=main HTTP/1.1" 403 278
+13:08:35 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:35 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/jquery.rst?ref=main HTTP/1.1" 403 278
+13:08:35 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:35 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/lazyloading.rst?ref=main HTTP/1.1" 403 278
+13:08:35 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:35 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/methodoverrides.rst?ref=main HTTP/1.1" 403 278
+13:08:35 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:35 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/mongoengine.rst?ref=main HTTP/1.1" 403 278
+13:08:35 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:35 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/packages.rst?ref=main HTTP/1.1" 403 278
+13:08:35 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:35 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/requestchecksum.rst?ref=main HTTP/1.1" 403 278
+13:08:35 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:35 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/singlepageapplications.rst?ref=main HTTP/1.1" 403 278
+13:08:35 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:35 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/sqlalchemy.rst?ref=main HTTP/1.1" 403 278
+13:08:35 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:35 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/sqlite3.rst?ref=main HTTP/1.1" 403 278
+13:08:35 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:35 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/streaming.rst?ref=main HTTP/1.1" 403 278
+13:08:35 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:36 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/subclassing.rst?ref=main HTTP/1.1" 403 278
+13:08:36 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:36 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/templateinheritance.rst?ref=main HTTP/1.1" 403 278
+13:08:36 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:36 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/urlprocessors.rst?ref=main HTTP/1.1" 403 278
+13:08:36 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:36 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/viewdecorators.rst?ref=main HTTP/1.1" 403 278
+13:08:36 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:36 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/patterns/wtforms.rst?ref=main HTTP/1.1" 403 278
+13:08:36 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:36 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/quickstart.rst?ref=main HTTP/1.1" 403 278
+13:08:36 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:36 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/reqcontext.rst?ref=main HTTP/1.1" 403 278
+13:08:36 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:36 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/server.rst?ref=main HTTP/1.1" 403 278
+13:08:36 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:36 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/shell.rst?ref=main HTTP/1.1" 403 278
+13:08:36 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:36 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/signals.rst?ref=main HTTP/1.1" 403 278
+13:08:36 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:36 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/templating.rst?ref=main HTTP/1.1" 403 278
+13:08:36 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:36 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/testing.rst?ref=main HTTP/1.1" 403 278
+13:08:36 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:37 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/tutorial/blog.rst?ref=main HTTP/1.1" 403 278
+13:08:37 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:37 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/tutorial/database.rst?ref=main HTTP/1.1" 403 278
+13:08:37 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:37 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/tutorial/deploy.rst?ref=main HTTP/1.1" 403 278
+13:08:37 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:37 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/tutorial/factory.rst?ref=main HTTP/1.1" 403 278
+13:08:37 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:37 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/tutorial/index.rst?ref=main HTTP/1.1" 403 278
+13:08:37 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:37 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/tutorial/install.rst?ref=main HTTP/1.1" 403 278
+13:08:37 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:37 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/tutorial/layout.rst?ref=main HTTP/1.1" 403 278
+13:08:37 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:37 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/tutorial/next.rst?ref=main HTTP/1.1" 403 278
+13:08:37 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:37 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/tutorial/static.rst?ref=main HTTP/1.1" 403 278
+13:08:37 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:37 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/tutorial/templates.rst?ref=main HTTP/1.1" 403 278
+13:08:37 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:37 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/tutorial/tests.rst?ref=main HTTP/1.1" 403 278
+13:08:37 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:37 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/tutorial/views.rst?ref=main HTTP/1.1" 403 278
+13:08:37 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:38 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/views.rst?ref=main HTTP/1.1" 403 278
+13:08:38 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:38 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/web-security.rst?ref=main HTTP/1.1" 429 193
+13:08:38 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:38 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/examples/celery/README.md?ref=main HTTP/1.1" 429 193
+13:08:38 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:38 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/examples/javascript/README.rst?ref=main HTTP/1.1" 429 193
+13:08:38 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:38 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/examples/tutorial/README.rst?ref=main HTTP/1.1" 429 193
+13:08:38 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:38 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/pyproject.toml?ref=main HTTP/1.1" 429 193
+13:08:38 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:38 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/src/flask/sansio/README.md?ref=main HTTP/1.1" 429 193
+13:08:38 [DEBUG] asyncio: Using selector: EpollSelector
+13:08:38 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://huggingface.co/google/gemma-2b
+13:08:38 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+13:08:38 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://huggingface.co/google/gemma-2b
+13:08:38 [INFO] root: Bus Factor Metric -> contributors=3, top_share=0.61, score=0.54
+13:08:38 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://huggingface.co/google/gemma-2b
+13:08:38 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+13:08:38 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 175 ms (url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=175 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://huggingface.co/google/gemma-2b
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://huggingface.co/google/gemma-2b
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://huggingface.co/google/gemma-2b
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://huggingface.co/google/gemma-2b
+13:08:38 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 8 ms (url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=8 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+13:08:38 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+13:08:38 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+13:08:38 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 81 ms (url=https://huggingface.co/google/gemma-2b)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=81 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+13:08:38 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 266 ms (success=7, failed=0, url=https://huggingface.co/google/gemma-2b)
+13:08:38 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/pallets/flask)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/pallets/flask)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/pallets/flask)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/pallets/flask
+13:08:38 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+13:08:38 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/pallets/flask)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/pallets/flask)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/pallets/flask)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/pallets/flask
+13:08:38 [INFO] root: Bus Factor Metric -> contributors=100, top_share=0.39, score=0.78
+13:08:38 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/pallets/flask)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/pallets/flask)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/pallets/flask)
+13:08:38 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/pallets/flask
+13:08:39 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+13:08:39 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 172 ms (url=https://github.com/pallets/flask)
+13:08:39 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=172 ms, error=False, url=https://github.com/pallets/flask)
+13:08:39 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/pallets/flask)
+13:08:39 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/pallets/flask
+13:08:39 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/pallets/flask)
+13:08:39 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/pallets/flask
+13:08:39 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/pallets/flask)
+13:08:39 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/pallets/flask
+13:08:39 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/pallets/flask)
+13:08:39 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/pallets/flask
+13:08:39 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/pallets/flask)
+13:08:39 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/pallets/flask)
+13:08:39 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/pallets/flask)
+13:08:39 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/pallets/flask)
+13:08:39 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/pallets/flask)
+13:08:39 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/pallets/flask)
+13:08:39 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://github.com/pallets/flask)
+13:08:39 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://github.com/pallets/flask)
+13:08:39 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 258 ms (success=7, failed=0, url=https://github.com/pallets/flask)
+13:08:47 [DEBUG] asyncio: Using selector: EpollSelector
+13:08:47 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:47 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google-research-datasets/natural-questions HTTP/1.1" 429 193
+13:08:47 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:08:47 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google/jax HTTP/1.1" 429 193
+13:08:47 [DEBUG] asyncio: Using selector: EpollSelector
+13:08:47 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://huggingface.co/google/gemma-2b
+13:08:47 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+13:08:47 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://huggingface.co/google/gemma-2b
+13:08:47 [ERROR] src.orchestration.metric_orchestrator: Metric bus factor failed after 0 ms (url=https://huggingface.co/google/gemma-2b): list index out of range
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=True, url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://huggingface.co/google/gemma-2b
+13:08:47 [ERROR] src.orchestration.metric_orchestrator: Metric code quality failed after 0 ms (url=https://huggingface.co/google/gemma-2b): list index out of range
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=0 ms, error=True, url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://huggingface.co/google/gemma-2b
+13:08:47 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 0 ms (url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=0 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://huggingface.co/google/gemma-2b
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://huggingface.co/google/gemma-2b
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://huggingface.co/google/gemma-2b
+13:08:47 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+13:08:47 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 1 ms (url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=1 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+13:08:47 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://huggingface.co/google/gemma-2b)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+13:08:47 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 85 ms (success=5, failed=2, url=https://huggingface.co/google/gemma-2b)
+13:08:47 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/pallets/flask)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/pallets/flask)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/pallets/flask)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/pallets/flask
+13:08:47 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+13:08:47 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/pallets/flask)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/pallets/flask)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/pallets/flask)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/pallets/flask
+13:08:47 [INFO] root: Bus Factor Metric -> contributors=100, top_share=0.39, score=0.78
+13:08:47 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/pallets/flask)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/pallets/flask)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/pallets/flask)
+13:08:47 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/pallets/flask
+13:08:48 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+13:08:48 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 171 ms (url=https://github.com/pallets/flask)
+13:08:48 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=171 ms, error=False, url=https://github.com/pallets/flask)
+13:08:48 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/pallets/flask)
+13:08:48 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/pallets/flask
+13:08:48 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/pallets/flask)
+13:08:48 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/pallets/flask
+13:08:48 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/pallets/flask)
+13:08:48 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/pallets/flask
+13:08:48 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/pallets/flask)
+13:08:48 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/pallets/flask
+13:08:48 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/pallets/flask)
+13:08:48 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/pallets/flask)
+13:08:48 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/pallets/flask)
+13:08:48 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/pallets/flask)
+13:08:48 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/pallets/flask)
+13:08:48 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/pallets/flask)
+13:08:48 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://github.com/pallets/flask)
+13:08:48 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://github.com/pallets/flask)
+13:08:48 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 256 ms (success=7, failed=0, url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] asyncio: Using selector: EpollSelector
+13:17:07 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:17:07 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google-research-datasets/natural-questions HTTP/1.1" 403 278
+13:17:07 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+13:17:07 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google/jax HTTP/1.1" 403 278
+13:17:07 [DEBUG] asyncio: Using selector: EpollSelector
+13:17:07 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://huggingface.co/google/gemma-2b
+13:17:07 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+13:17:07 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://huggingface.co/google/gemma-2b
+13:17:07 [ERROR] src.orchestration.metric_orchestrator: Metric bus factor failed after 0 ms (url=https://huggingface.co/google/gemma-2b): list index out of range
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=True, url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://huggingface.co/google/gemma-2b
+13:17:07 [ERROR] src.orchestration.metric_orchestrator: Metric code quality failed after 0 ms (url=https://huggingface.co/google/gemma-2b): list index out of range
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=0 ms, error=True, url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://huggingface.co/google/gemma-2b
+13:17:07 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 0 ms (url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=0 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://huggingface.co/google/gemma-2b
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://huggingface.co/google/gemma-2b
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://huggingface.co/google/gemma-2b
+13:17:07 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 1 ms (url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=1 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+13:17:07 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 1 ms (url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=1 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+13:17:07 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://huggingface.co/google/gemma-2b)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+13:17:07 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 84 ms (success=5, failed=2, url=https://huggingface.co/google/gemma-2b)
+13:17:07 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance (url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance for url=https://github.com/pallets/flask
+13:17:07 [ERROR] root: GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail
+13:17:07 [INFO] src.orchestration.metric_orchestrator: Metric performance succeeded in 0 ms (url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Finished performance (latency=0 ms, error=False, url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus factor (url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus factor for url=https://github.com/pallets/flask
+13:17:07 [INFO] root: Bus Factor Metric -> contributors=100, top_share=0.39, score=0.78
+13:17:07 [INFO] src.orchestration.metric_orchestrator: Metric bus factor succeeded in 0 ms (url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Finished bus factor (latency=0 ms, error=False, url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code quality (url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code quality for url=https://github.com/pallets/flask
+13:17:07 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+13:17:07 [INFO] src.orchestration.metric_orchestrator: Metric code quality succeeded in 163 ms (url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Finished code quality (latency=163 ms, error=False, url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license check  (url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license check  for url=https://github.com/pallets/flask
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_b (url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_b for url=https://github.com/pallets/flask
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_c (url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_c for url=https://github.com/pallets/flask
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for metric_d (url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Starting metric metric_d for url=https://github.com/pallets/flask
+13:17:07 [INFO] src.orchestration.metric_orchestrator: Metric license check  succeeded in 3 ms (url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Finished license check  (latency=3 ms, error=False, url=https://github.com/pallets/flask)
+13:17:07 [INFO] src.orchestration.metric_orchestrator: Metric metric_c succeeded in 2 ms (url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_c (latency=2 ms, error=False, url=https://github.com/pallets/flask)
+13:17:07 [INFO] src.orchestration.metric_orchestrator: Metric metric_d succeeded in 2 ms (url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_d (latency=2 ms, error=False, url=https://github.com/pallets/flask)
+13:17:07 [INFO] src.orchestration.metric_orchestrator: Metric metric_b succeeded in 80 ms (url=https://github.com/pallets/flask)
+13:17:07 [DEBUG] src.orchestration.metric_orchestrator: Finished metric_b (latency=80 ms, error=False, url=https://github.com/pallets/flask)
+13:17:07 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 247 ms (success=7, failed=0, url=https://github.com/pallets/flask)

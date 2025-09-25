@@ -62,7 +62,7 @@ async def run_metrics_on_contexts(
 
 
 # 4) Print results in NDJSON (one line per URL)
-def print_ndjson(urls: List[str], reports: Dict[str, OrchestrationReport]) -> None:
+def print_ndjson(urls: List[str], ctx_map: Dict[str, EvalContext], reports: Dict[str, OrchestrationReport]) -> None:
     # for u in urls:
     #     rep = reports.get(u)
     #     if not rep:
@@ -85,14 +85,18 @@ def print_ndjson(urls: List[str], reports: Dict[str, OrchestrationReport]) -> No
         if not rep:
             continue
 
+        ctx = ctx_map.get(u)  # has .category set by prepare_eval_context
+        category = ctx.category if ctx else None
+
         # derive a short name from the URL (last path component)
         path = urlparse(u).path.strip("/")
-        repo_name = path.split("/")[-1] if path else u
+        name = path.split("/")[-1] if path else u
 
         out = {
-            "name": repo_name,
-            "category": "REPO",
+            "name": name,
         }
+        if category is not None:
+            out["category"] = category  # "MODEL" | "DATASET" | "CODE"
 
         for label, r in rep.results.items():
             out[label] = r.value
@@ -109,5 +113,5 @@ def run_eval(url_file: str) -> None:
     asyncio.run(setup_logging())
     ctx_map = asyncio.run(prep_contexts(urls))
     reports = asyncio.run(run_metrics_on_contexts(urls, ctx_map, limit=4))
-    print_ndjson(urls, reports)
+    print_ndjson(urls, ctx_map, reports)
     sys.exit(0)
