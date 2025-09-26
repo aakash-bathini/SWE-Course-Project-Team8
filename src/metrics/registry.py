@@ -1,6 +1,6 @@
 from typing import List
 from src.models.types import MetricFn, MetricItem
-from . import license_check, metric_b, metric_c, metric_d, performance_metric, code_quality_metric, bus_factor_metric
+from . import license_check, metric_b, metric_c, metric_d, performance_metric, code_quality_metric, bus_factor_metric, dataset_quality
 
 def get_all_metrics() -> List[MetricItem]:
     return [
@@ -8,6 +8,7 @@ def get_all_metrics() -> List[MetricItem]:
         ("bus factor", bus_factor_metric.metric),
         ("code quality", code_quality_metric.metric),
         ("license check", license_check.metric),
+        ("dataset quality", dataset_quality.metric),
         ("metric_b", metric_b.metric),
         ("metric_c", metric_c.metric),
         ("metric_d", metric_d.metric),

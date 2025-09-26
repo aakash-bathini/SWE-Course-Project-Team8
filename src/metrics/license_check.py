@@ -1,5 +1,4 @@
 import asyncio
-import time
 import logging
 from typing import Optional, Dict
 from src.models.types import EvalContext
