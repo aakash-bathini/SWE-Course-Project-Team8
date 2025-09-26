@@ -100,4 +100,4 @@ async def metric(ctx: EvalContext) -> float:
 
     code_score = max(0.0, min(1.0, code_score))
 
-    return float(code_score)
+    return float(round(code_score, 2))

@@ -45,4 +45,4 @@ async def metric(ctx: EvalContext) -> float:
         f"top_share={top_share:.2f}, score={score:.2f}"
     )
 
-    return float(score)
+    return float(round(score,2))
