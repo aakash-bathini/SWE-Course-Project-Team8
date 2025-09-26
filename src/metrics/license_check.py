@@ -1,5 +1,5 @@
 import asyncio
-import time
+import logging
 from typing import Optional, Dict
 from src.models.types import EvalContext
 from src.config_parsers_nlp.readme_parser import extract_license_evidence
@@ -44,11 +44,11 @@ async def metric(ctx: EvalContext) -> float:
     """
     gh = getattr(ctx, "gh_data", None) or {} # list of github profiles
     if not gh:
-        print("license_check: no github data available")
+        logging.warning("license_check: no github data available")
         return 0.0 # no github data to check
     gh_profile = gh[0] # just check the first repo for now
     if not gh_profile:
-        print("license_check: empty github profile")
+        logging.warning("license_check: empty github profile")
         return 0.0
     
 
@@ -65,9 +65,9 @@ async def metric(ctx: EvalContext) -> float:
 
         if gh_spdx and not spdx_ids:
             spdx_ids = [gh_spdx] # use github's detected license if nothing else found
-        score, ratiionale = spdx.classify_license(spdx_ids[0]) if spdx_ids else (0.0, "No license found")
+        score, rationale = spdx.classify_license(spdx_ids[0]) if spdx_ids else (0.0, "No license found")
         try:
-            #print(f"license_check: source={source}, spdx_ids={spdx_ids}, hints={hints} => {ratiionale}")
+            logging.info(f"license_check: source={source}, spdx_ids={spdx_ids}, hints={hints} => {rationale}")
             return float(score)
         except Exception:
             return 0.0
