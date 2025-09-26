@@ -28,8 +28,8 @@ async def metric(ctx: EvalContext) -> float:
     community_score = min(community_score, 1.0)  # cap at 1.0
     logging.info(f"Dataset community score: likes={likes} ({likes_norm:.3f}), downloads={downloads} ({downloads_norm:.3f}), combined={community_score:.3f}")
 
-    # compute documentation score from presence of readme and examples
-    doc = (hf_profile.get("card_yaml") or "").lower()
+    # compute documentation score from presence of dataset card sections
+    doc = (hf_profile.get("card_yaml") or "")
     checks = {
     "description": ["dataset", "summary", "description"],
     "intended_use": ["intended use", "task", "purpose"],
