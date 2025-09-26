@@ -14,6 +14,25 @@ from src.orchestration.prep_eval_orchestrator import prep_eval_many
 from src.orchestration.metric_orchestrator import orchestrate
 from src.models.types import EvalContext, OrchestrationReport
 
+def normalize_url(u: str) -> str:
+    """
+    Normalize Hugging Face and GitHub URLs to their base project URL.
+    - Removes `/tree/<branch>` or `/blob/<branch>` parts for Hugging Face/GitHub
+    - Leaves dataset and repo URLs intact
+    """
+    parsed = urlparse(u)
+    if "huggingface.co" in parsed.netloc:
+        parts = parsed.path.strip("/").split("/")
+        # Hugging Face model or dataset structure: /org/name[/tree/branch/...]
+        if len(parts) >= 2 and parts[2:] and parts[2] in ("tree", "blob"):
+            return f"{parsed.scheme}://{parsed.netloc}/{parts[0]}/{parts[1]}"
+    if "github.com" in parsed.netloc:
+        parts = parsed.path.strip("/").split("/")
+        # GitHub repo base: /org/repo[/tree/branch/...]
+        if len(parts) >= 2 and parts[2:] and parts[2] in ("tree", "blob"):
+            return f"{parsed.scheme}://{parsed.netloc}/{parts[0]}/{parts[1]}"
+    return u
+
 # 1) Parse URLs from an ASCII file → List[str]
 def parse_urls_from_file(path: str) -> List[str]:
     p = Path(path)
@@ -21,11 +40,10 @@ def parse_urls_from_file(path: str) -> List[str]:
         print(f"Error: URL file not found: {path}", file=sys.stderr)
         sys.exit(1)
     try:
-        return [s for s in _read_lines_ascii(p)]
+        return [normalize_url(s) for s in _read_lines_ascii(p)]
     except UnicodeError:
         print("Error: URL file must be ASCII-encoded.", file=sys.stderr)
         sys.exit(1)
-
 
 def _read_lines_ascii(p: Path) -> Iterable[str]:
     with p.open("r", encoding="ascii", errors="strict") as f:
