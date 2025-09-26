@@ -13,7 +13,12 @@ async def metric(ctx: EvalContext) -> float:
     - Use a simple inverse concentration (like HHI or top-contributor share).
     """
 
-    gh = ctx.gh_data[0]
+    try:
+        gh = ctx.gh_data[0]
+    except (IndexError, KeyError):
+        logging.info("No GitHub data in EvalContext, skipping bus_factor metric")
+        return 0.0
+
     contributors: dict[str, int] = gh.get("contributors", {})
 
     if not contributors:

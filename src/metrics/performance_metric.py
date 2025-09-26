@@ -9,6 +9,8 @@ from src.models.types import EvalContext
 import logging
 import requests
 
+
+MAX_INPUT_CHARS = 7750  # ~2-3k tokens, well within most API limits
 # Configure Gemini API key from environment variable
 api_key = os.getenv("GEMINI_API_KEY")
 purdue_api_key = os.getenv("GEN_AI_STUDIO_API_KEY")
@@ -20,7 +22,11 @@ async def metric(ctx: EvalContext) -> float:
     if not api_key and not purdue_api_key:
         logging.error("GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY environment variables not set, performance_metric will fail")
         return 0.0
-    gh = ctx.gh_data[0]
+    try:
+        gh = ctx.gh_data[0]
+    except (IndexError, KeyError):
+        logging.info("No GitHub data in EvalContext, skipping performance metric")
+        return 0.0
     """
     Analyze the README content from EvalContext for performance claims
     and evidence quality using Gemini.
@@ -28,6 +34,8 @@ async def metric(ctx: EvalContext) -> float:
     """
 
     readme_content = gh.get("readme_text")
+
+    readme_content = readme_content[:MAX_INPUT_CHARS]
 
     prompt = f"""
     Analyze the following README content for performance claims and evidence quality. 
@@ -103,15 +111,22 @@ async def metric(ctx: EvalContext) -> float:
         body = {
             "model": "llama4:latest",
             "messages": [
-            {
-                "role": "a very needed Engineer looking at README files for performance claims",
-                "content": prompt
-            }
-            ],
-            "stream": False
+        {
+            "role": "system",
+            "content": "You are a very needed engineer analyzing README files for performance claims."
+        },
+        {
+            "role": "user",
+            "content": prompt
+        }
+    ],
+            "stream": False,
+            "max_tokens": 1024
     }
+        logging.debug("Purdue GenAI request body: %s", body)
         response = requests.post(url, headers=headers, json=body)
         analysis_text = response.json()['choices'][0]['message']['content']
+        logging.info(("Purdue GenAI response: %s", analysis_text))
         # Try parsing into JSON
         try:
             cleaned = re.sub(r"^```json\s*|\s*```$", "", analysis_text.strip(), flags=re.DOTALL)

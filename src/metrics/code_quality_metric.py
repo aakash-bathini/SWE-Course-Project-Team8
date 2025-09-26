@@ -76,7 +76,11 @@ async def metric(ctx: EvalContext) -> float:
       - maintainability (0.2)
     """
 
-    gh = ctx.gh_data[0]
+    try:
+        gh = ctx.gh_data[0]
+    except (IndexError, KeyError):
+        logging.info("No GitHub data in EvalContext, skipping code_quality metric")
+        return 0.0
     repo_path = gh.get("local_repo_path", ".")  # assume repo is cloned locally
 
     # Run each analysis
