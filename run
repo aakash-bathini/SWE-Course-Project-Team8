@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: ./run {install|test|URL_FILE}" >&2
+  exit 1
+fi
+
+cmd="$1"
+shift || true
+
+if [[ "$cmd" == "install" ]]; then
+    echo "installing requirements..."
+    pip install -r requirements.txt
+    pip install -q -U google-genai
+    echo "requirements installed!"
+  # exec python3 -m src.commands.cli install
+elif [[ "$cmd" == "test" ]]; then
+  exec python3 -m src.commands.cli test
+else
+  # Treat single arg as URL file path
+  exec python3 -m src.commands.cli eval "$cmd"
+fi
