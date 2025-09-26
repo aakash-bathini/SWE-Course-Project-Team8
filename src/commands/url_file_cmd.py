@@ -1,4 +1,3 @@
-# src/commands/url_file_cmd.py
 from __future__ import annotations
 import asyncio
 import json
@@ -7,12 +6,14 @@ from pathlib import Path
 from typing import Dict, Iterable, List
 import os
 import logging
+import re
 from urllib.parse import urlparse
 
 from src.orchestration.logging_util import setup_logging_util
 from src.orchestration.prep_eval_orchestrator import prep_eval_many
 from src.orchestration.metric_orchestrator import orchestrate
 from src.models.types import EvalContext, OrchestrationReport
+
 
 def normalize_url(u: str) -> str:
     """
@@ -33,23 +34,40 @@ def normalize_url(u: str) -> str:
             return f"{parsed.scheme}://{parsed.netloc}/{parts[0]}/{parts[1]}"
     return u
 
+
 # 1) Parse URLs from an ASCII file → List[str]
 def parse_urls_from_file(path: str) -> List[str]:
     p = Path(path)
     if not p.exists():
-        print(f"Error: URL file not found: {path}", file=sys.stderr)
+        #print(f"Error: URL file not found: {path}", file=sys.stderr)
+        logging.error(f"URL file not found: {path}")
         sys.exit(1)
     try:
+        # normalize each URL after cleaning it
         return [normalize_url(s) for s in _read_lines_ascii(p)]
     except UnicodeError:
-        print("Error: URL file must be ASCII-encoded.", file=sys.stderr)
+        #print("Error: URL file must be ASCII-encoded.", file=sys.stderr)
+        logging.error("URL file must be ASCII-encoded.")
         sys.exit(1)
 
+
 def _read_lines_ascii(p: Path) -> Iterable[str]:
+    """
+    Reads each line from the file, cleans it up, and ensures it's a valid URL.
+    - Splits on commas and spaces if multiple URLs are in one line
+    - Removes leading/trailing commas and spaces
+    - Skips empty strings
+    - Auto-adds 'https://' if missing
+    """
     with p.open("r", encoding="ascii", errors="strict") as f:
         for line in f:
-            s = line.strip()
-            if s:
+            # Split on commas and whitespace
+            parts = [part.strip() for part in re.split(r"[,\s]+", line) if part.strip()]
+            for s in parts:
+                if not s:
+                    continue
+                if not s.startswith("http://") and not s.startswith("https://"):
+                    s = "https://" + s
                 yield s
 
 
@@ -60,7 +78,8 @@ async def prep_contexts(urls: List[str]) -> Dict[str, EvalContext]:
 
 async def setup_logging() -> None:
     setup_logging_util(False)
-   
+
+
 # 3) Run metrics one URL at a time (sequential for simplicity)
 #    → Dict[url, OrchestrationReport]
 async def run_metrics_on_contexts(
@@ -79,24 +98,11 @@ async def run_metrics_on_contexts(
 
 
 # 4) Print results in NDJSON (one line per URL)
-def print_ndjson(urls: List[str], ctx_map: Dict[str, EvalContext], reports: Dict[str, OrchestrationReport]) -> None:
-    # for u in urls:
-    #     rep = reports.get(u)
-    #     if not rep:
-    #         continue
-    #     payload = {
-    #         "URL": u,
-    #         "total_latency_ms": rep.total_latency_ms,
-    #         "results": {
-    #             name: {
-    #                 "value": r.value,
-    #                 "latency_ms": r.latency_ms,
-    #                 **({"error": r.error} if r.error else {}),
-    #             }
-    #             for name, r in rep.results.items()
-    #         },
-    #     }
-    #     print(json.dumps(payload, separators=(",", ":"), ensure_ascii=True))
+def print_ndjson(
+    urls: List[str], 
+    ctx_map: Dict[str, EvalContext], 
+    reports: Dict[str, OrchestrationReport]
+) -> None:
     for u in urls:
         rep = reports.get(u)
         if not rep:
@@ -109,9 +115,7 @@ def print_ndjson(urls: List[str], ctx_map: Dict[str, EvalContext], reports: Dict
         path = urlparse(u).path.strip("/")
         name = path.split("/")[-1] if path else u
 
-        out = {
-            "name": name,
-        }
+        out = {"name": name}
         if category is not None:
             out["category"] = category  # "MODEL" | "DATASET" | "CODE"
 
