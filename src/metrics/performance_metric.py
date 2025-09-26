@@ -131,4 +131,4 @@ async def metric(ctx: EvalContext) -> float:
         f"Benchmark Count: {summary.get('benchmark_count', 0)}, Has Tables/Charts: {summary.get('has_tables_or_charts', False)}"
     )
     # print(f"Performance Metric - Quality: {quality}, Specificity: {specificity}")
-    return float((quality + specificity) / 2.0)
+    return float(round(((quality + specificity) / 2.0),2))
