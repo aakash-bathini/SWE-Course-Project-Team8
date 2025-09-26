@@ -4,14 +4,11 @@ from . import license_check, metric_b, metric_c, metric_d, performance_metric, c
 
 def get_all_metrics() -> List[MetricItem]:
     return [
-        ("performance", performance_metric.metric),
-        ("bus factor", bus_factor_metric.metric),
-        ("code quality", code_quality_metric.metric),
-        ("license check", license_check.metric),
-        ("dataset quality", dataset_quality.metric),
-        ("ramp up time", ramp_up_time.metric),
-        ("available dataset/code", available_dataset_code.metric),
-        ("metric_b", metric_b.metric),
-        ("metric_c", metric_c.metric),
-        ("metric_d", metric_d.metric),
+        ("performance_claims", performance_metric.metric),
+        ("bus_factor", bus_factor_metric.metric),
+        ("code_quality", code_quality_metric.metric),
+        ("license", license_check.metric),
+        ("dataset_quality", dataset_quality.metric),
+        ("ramp_up_time", ramp_up_time.metric),
+        ("dataset_and_code_score", available_dataset_code.metric)
     ]

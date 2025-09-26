@@ -41,8 +41,7 @@ async def prep_contexts(urls: List[str]) -> Dict[str, EvalContext]:
 
 
 async def setup_logging() -> None:
-    log_file = os.path.join(os.path.dirname(__file__), "temp.log")
-    setup_logging_util(level=2, log_file=log_file, also_stderr=False)
+    setup_logging_util(False)
    
 # 3) Run metrics one URL at a time (sequential for simplicity)
 #    → Dict[url, OrchestrationReport]

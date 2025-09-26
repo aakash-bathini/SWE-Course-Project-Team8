@@ -1,0 +1,196 @@
+15:52:13 [DEBUG] asyncio: Using selector: EpollSelector
+15:52:13 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:14 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask HTTP/1.1" 200 None
+15:52:14 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:14 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/readme HTTP/1.1" 200 None
+15:52:14 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:14 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contributors?per_page=100&anon=1 HTTP/1.1" 200 None
+15:52:14 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:14 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/git/trees/main?recursive=1 HTTP/1.1" 200 None
+15:52:15 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:15 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/.github/ISSUE_TEMPLATE/bug-report.md?ref=main HTTP/1.1" 200 None
+15:52:15 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:15 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/.github/ISSUE_TEMPLATE/feature-request.md?ref=main HTTP/1.1" 200 None
+15:52:15 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:15 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/.github/pull_request_template.md?ref=main HTTP/1.1" 200 None
+15:52:15 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:15 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/CHANGES.rst?ref=main HTTP/1.1" 200 None
+15:52:15 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:15 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/LICENSE.txt?ref=main HTTP/1.1" 200 None
+15:52:15 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:16 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/README.md?ref=main HTTP/1.1" 200 None
+15:52:16 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:16 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/api.rst?ref=main HTTP/1.1" 200 None
+15:52:16 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:16 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/appcontext.rst?ref=main HTTP/1.1" 200 None
+15:52:16 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:16 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/async-await.rst?ref=main HTTP/1.1" 200 None
+15:52:16 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:17 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/blueprints.rst?ref=main HTTP/1.1" 200 None
+15:52:17 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:17 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/changes.rst?ref=main HTTP/1.1" 200 None
+15:52:17 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:17 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/cli.rst?ref=main HTTP/1.1" 200 None
+15:52:17 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:17 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/config.rst?ref=main HTTP/1.1" 200 None
+15:52:17 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:17 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/contributing.rst?ref=main HTTP/1.1" 200 None
+15:52:17 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:18 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/debugging.rst?ref=main HTTP/1.1" 200 None
+15:52:18 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:18 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/apache-httpd.rst?ref=main HTTP/1.1" 200 None
+15:52:18 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:18 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/asgi.rst?ref=main HTTP/1.1" 200 None
+15:52:18 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:18 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/eventlet.rst?ref=main HTTP/1.1" 200 None
+15:52:18 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:18 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/gevent.rst?ref=main HTTP/1.1" 200 None
+15:52:18 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:19 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/gunicorn.rst?ref=main HTTP/1.1" 200 None
+15:52:19 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:19 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/index.rst?ref=main HTTP/1.1" 200 None
+15:52:19 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:19 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/mod_wsgi.rst?ref=main HTTP/1.1" 200 None
+15:52:19 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:19 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/nginx.rst?ref=main HTTP/1.1" 200 None
+15:52:19 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:19 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/proxy_fix.rst?ref=main HTTP/1.1" 200 None
+15:52:19 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+15:52:20 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/pallets/flask/contents/docs/deploying/uwsgi.rst?ref=main HTTP/1.1" 200 None
+15:52:20 [DEBUG] asyncio: Using selector: EpollSelector
+15:52:20 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://huggingface.co/google/gemma-2b)
+15:52:20 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://huggingface.co/google/gemma-2b)
+15:52:20 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance_claims (url=https://huggingface.co/google/gemma-2b)
+15:52:20 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance_claims for url=https://huggingface.co/google/gemma-2b
+15:52:20 [INFO] root: Calling Purdue GenAI with prompt for performance metric:      Analyze the following README content for performance claims and evidence quality.       Look for:     1. Quantitative benchmark results (specific numbers, scores, metrics)     2. Comparisons with other models (with data)     3. Dataset evaluations and test results     4. Performance metrics (accuracy, F1, BLEU, etc.)     5. Subjective claims without evidence ("best in class", "state-of-the-art" without data)      Rate each type of claim on evidence quality and specificity.      README Conte...
+15:52:20 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+15:52:40 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/1.1" 200 762
+15:52:40 [INFO] root: Performance Metric -> Quality: 1.0, Specificity: 1.0, Total Claims: 5, Quantitative Claims: 5, Benchmark Count: 5, Has Tables/Charts: True
+15:52:40 [INFO] src.orchestration.metric_orchestrator: Metric performance_claims succeeded in 20186 ms (url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Finished performance_claims (latency=20186 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus_factor (url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus_factor for url=https://huggingface.co/google/gemma-2b
+15:52:40 [INFO] root: Bus Factor Metric -> contributors=3, top_share=0.61, score=0.54
+15:52:40 [INFO] src.orchestration.metric_orchestrator: Metric bus_factor succeeded in 0 ms (url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Finished bus_factor (latency=0 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code_quality (url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code_quality for url=https://huggingface.co/google/gemma-2b
+15:52:40 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+15:52:40 [INFO] src.orchestration.metric_orchestrator: Metric code_quality succeeded in 184 ms (url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Finished code_quality (latency=184 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license (url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license for url=https://huggingface.co/google/gemma-2b
+15:52:40 [INFO] root: license_check: source=LICENSE, spdx_ids=['Apache-2.0'], hints=['apache license', 'apache'] => Explicit SPDX whitelist: Apache-2.0
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for dataset_quality (url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric dataset_quality for url=https://huggingface.co/google/gemma-2b
+15:52:40 [INFO] root: dataset_quality: not a dataset
+15:52:40 [INFO] src.orchestration.metric_orchestrator: Metric dataset_quality succeeded in 0 ms (url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Finished dataset_quality (latency=0 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for ramp_up_time (url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric ramp_up_time for url=https://huggingface.co/google/gemma-2b
+15:52:40 [INFO] root: Repo README subscore: install=1.0, usage=1.0, desc=1.0, io=1.0, links=1.0 => 1.000
+15:52:40 [DEBUG] root: TOTAL PATHS: 1911
+15:52:40 [DEBUG] root: PATH: 'tests/distributed_test.py'
+15:52:40 [DEBUG] root: PATH: 'jax/experimental/mosaic/gpu'
+15:52:40 [DEBUG] root: PATH: 'docs/jep/17111-shmap-transpose.md'
+15:52:40 [DEBUG] root: PATH: 'jax/_src/buffer_callback.py'
+15:52:40 [DEBUG] root: PATH: 'tests/optimizers_test.py'
+15:52:40 [DEBUG] root: PATH: 'jax/_src/internal_test_util/export_back_compat_test_data/pallas/__init__.py'
+15:52:40 [DEBUG] root: PATH: 'jaxlib/mosaic/gpu/runtime.cc'
+15:52:40 [DEBUG] root: PATH: 'docs/notebooks/Neural_Network_and_Data_Loading.ipynb'
+15:52:40 [DEBUG] root: PATH: '.github/actions'
+15:52:40 [DEBUG] root: PATH: 'jax/_src/scipy/cluster/__init__.py'
+15:52:40 [DEBUG] root: PATH: 'jax/_src/pallas/mosaic_gpu/primitives.py'
+15:52:40 [DEBUG] root: PATH: 'tests/pallas/export_pallas_test.py'
+15:52:40 [DEBUG] root: PATH: 'jax/extend/core/primitives.py'
+15:52:40 [DEBUG] root: PATH: 'jaxlib/mlir/BUILD.bazel'
+15:52:40 [DEBUG] root: PATH: 'jaxlib/gpu/prng_kernels.cc'
+15:52:40 [DEBUG] root: PATH: 'jax/experimental/pallas/ops/tpu/splash_attention/splash_attention_mask_info.py'
+15:52:40 [DEBUG] root: PATH: 'tests/pallas/mgpu_matmul_test.py'
+15:52:40 [DEBUG] root: PATH: 'docs/notebooks/Writing_custom_interpreters_in_Jax.md'
+15:52:40 [DEBUG] root: PATH: 'jax/extend/mlir/dialects/func.py'
+15:52:40 [DEBUG] root: PATH: 'jaxlib/mlir/_mlir_libs/traceback_to_location.h'
+15:52:40 [DEBUG] root: PATH: 'build/rocm/dev_build_rocm.py'
+15:52:40 [DEBUG] root: PATH: 'tests/fft_test.py'
+15:52:40 [DEBUG] root: PATH: 'jaxlib/mlir.cc'
+15:52:40 [DEBUG] root: PATH: 'docs/notes.rst'
+15:52:40 [DEBUG] root: PATH: 'jax/tools/build_defs.bzl'
+15:52:40 [INFO] root: Repo examples subscore: has_nb=True, has_ex=True, py_examples=42 => 0.700
+15:52:40 [INFO] root: Repo manifest subscore: has_reqs=True, has_env=False, has_setup=True, has_pyproj=True, has_conda=False, has_docker=True, has_make=True, has_pipfile=False => 1.000
+15:52:40 [INFO] src.orchestration.metric_orchestrator: Metric ramp_up_time succeeded in 13 ms (url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Finished ramp_up_time (latency=13 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for dataset_and_code_score (url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric dataset_and_code_score for url=https://huggingface.co/google/gemma-2b
+15:52:40 [INFO] src.orchestration.metric_orchestrator: Metric dataset_and_code_score succeeded in 0 ms (url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Finished dataset_and_code_score (latency=0 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+15:52:40 [INFO] src.orchestration.metric_orchestrator: Metric license succeeded in 21 ms (url=https://huggingface.co/google/gemma-2b)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Finished license (latency=21 ms, error=False, url=https://huggingface.co/google/gemma-2b)
+15:52:40 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 20396 ms (success=7, failed=0, url=https://huggingface.co/google/gemma-2b)
+15:52:40 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 7 metrics (limit=4, url=https://github.com/pallets/flask)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 7 tasks (url=https://github.com/pallets/flask)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance_claims (url=https://github.com/pallets/flask)
+15:52:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance_claims for url=https://github.com/pallets/flask
+15:52:40 [INFO] root: Calling Purdue GenAI with prompt for performance metric:      Analyze the following README content for performance claims and evidence quality.       Look for:     1. Quantitative benchmark results (specific numbers, scores, metrics)     2. Comparisons with other models (with data)     3. Dataset evaluations and test results     4. Performance metrics (accuracy, F1, BLEU, etc.)     5. Subjective claims without evidence ("best in class", "state-of-the-art" without data)      Rate each type of claim on evidence quality and specificity.      README Conte...
+15:52:40 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+15:52:43 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/1.1" 200 351
+15:52:43 [INFO] root: Performance Metric -> Quality: 0.0, Specificity: 0.0, Total Claims: 0, Quantitative Claims: 0, Benchmark Count: 0, Has Tables/Charts: False
+15:52:43 [INFO] src.orchestration.metric_orchestrator: Metric performance_claims succeeded in 3066 ms (url=https://github.com/pallets/flask)
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Finished performance_claims (latency=3066 ms, error=False, url=https://github.com/pallets/flask)
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus_factor (url=https://github.com/pallets/flask)
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus_factor for url=https://github.com/pallets/flask
+15:52:43 [INFO] root: Bus Factor Metric -> contributors=100, top_share=0.39, score=0.78
+15:52:43 [INFO] src.orchestration.metric_orchestrator: Metric bus_factor succeeded in 0 ms (url=https://github.com/pallets/flask)
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Finished bus_factor (latency=0 ms, error=False, url=https://github.com/pallets/flask)
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code_quality (url=https://github.com/pallets/flask)
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code_quality for url=https://github.com/pallets/flask
+15:52:43 [INFO] root: Linting=1.0, Typing=1.0, Tests=0.7, Maintainability=0.0
+15:52:43 [INFO] src.orchestration.metric_orchestrator: Metric code_quality succeeded in 201 ms (url=https://github.com/pallets/flask)
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Finished code_quality (latency=201 ms, error=False, url=https://github.com/pallets/flask)
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license (url=https://github.com/pallets/flask)
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license for url=https://github.com/pallets/flask
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for dataset_quality (url=https://github.com/pallets/flask)
+15:52:43 [INFO] root: license_check: source=LICENSE, spdx_ids=['BSD-3-Clause'], hints=[] => Explicit SPDX whitelist: BSD-3-Clause
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Starting metric dataset_quality for url=https://github.com/pallets/flask
+15:52:43 [WARNING] root: dataset_quality: no huggingface data available
+15:52:43 [INFO] src.orchestration.metric_orchestrator: Metric dataset_quality succeeded in 0 ms (url=https://github.com/pallets/flask)
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Finished dataset_quality (latency=0 ms, error=False, url=https://github.com/pallets/flask)
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for ramp_up_time (url=https://github.com/pallets/flask)
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Starting metric ramp_up_time for url=https://github.com/pallets/flask
+15:52:43 [INFO] root: Repo README subscore: install=0.0, usage=1.0, desc=0.0, io=1.0, links=1.0 => 0.600
+15:52:43 [DEBUG] root: TOTAL PATHS: 285
+15:52:43 [DEBUG] root: PATH: 'examples/tutorial/LICENSE.txt'
+15:52:43 [DEBUG] root: PATH: 'examples/celery/src/task_app/views.py'
+15:52:43 [DEBUG] root: PATH: 'docs/conf.py'
+15:52:43 [DEBUG] root: PATH: 'tests/test_apps/blueprintapp/apps/admin/templates/admin/index.html'
+15:52:43 [DEBUG] root: PATH: 'tests/test_converters.py'
+15:52:43 [DEBUG] root: PATH: 'src/flask/logging.py'
+15:52:43 [DEBUG] root: PATH: 'docs/_static/pycharm-run-config.png'
+15:52:43 [DEBUG] root: PATH: '.github/ISSUE_TEMPLATE/bug-report.md'
+15:52:43 [DEBUG] root: PATH: 'docs/patterns/methodoverrides.rst'
+15:52:43 [DEBUG] root: PATH: 'docs/patterns/subclassing.rst'
+15:52:43 [DEBUG] root: PATH: 'examples/tutorial/flaskr/auth.py'
+15:52:43 [DEBUG] root: PATH: 'docs/deploying/nginx.rst'
+15:52:43 [DEBUG] root: PATH: '.github/ISSUE_TEMPLATE'
+15:52:43 [DEBUG] root: PATH: 'examples/celery/pyproject.toml'
+15:52:43 [DEBUG] root: PATH: 'examples/tutorial/tests/data.sql'
+15:52:43 [DEBUG] root: PATH: 'tests/templates'
+15:52:43 [DEBUG] root: PATH: 'docs/patterns/viewdecorators.rst'
+15:52:43 [DEBUG] root: PATH: 'src/flask/json/provider.py'
+15:52:43 [DEBUG] root: PATH: 'tests/type_check/typing_app_decorators.py'
+15:52:43 [DEBUG] root: PATH: 'docs/templating.rst'
+15:52:43 [DEBUG] root: PATH: 'tests/type_check/typing_route.py'
+15:52:43 [DEBUG] root: PATH: 'src/flask/views.py'
+15:52:43 [DEBUG] root: PATH: 'docs/tutorial/views.rst'
+15:52:43 [DEBUG] root: PATH: 'docs/web-security.rst'
+15:52:43 [DEBUG] root: PATH: 'src/flask/blueprints.py'
+15:52:43 [INFO] root: Repo examples subscore: has_nb=True, has_ex=True, py_examples=17 => 0.700
+15:52:43 [INFO] root: Repo manifest subscore: has_reqs=True, has_env=False, has_setup=False, has_pyproj=True, has_conda=False, has_docker=False, has_make=True, has_pipfile=False => 1.000
+15:52:43 [INFO] src.orchestration.metric_orchestrator: Metric ramp_up_time succeeded in 9 ms (url=https://github.com/pallets/flask)
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Finished ramp_up_time (latency=9 ms, error=False, url=https://github.com/pallets/flask)
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for dataset_and_code_score (url=https://github.com/pallets/flask)
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Starting metric dataset_and_code_score for url=https://github.com/pallets/flask
+15:52:43 [INFO] src.orchestration.metric_orchestrator: Metric dataset_and_code_score succeeded in 0 ms (url=https://github.com/pallets/flask)
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Finished dataset_and_code_score (latency=0 ms, error=False, url=https://github.com/pallets/flask)
+15:52:43 [INFO] src.orchestration.metric_orchestrator: Metric license succeeded in 14 ms (url=https://github.com/pallets/flask)
+15:52:43 [DEBUG] src.orchestration.metric_orchestrator: Finished license (latency=14 ms, error=False, url=https://github.com/pallets/flask)
+15:52:43 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 3286 ms (success=7, failed=0, url=https://github.com/pallets/flask)
