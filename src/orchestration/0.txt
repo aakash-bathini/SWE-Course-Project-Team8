@@ -1,0 +1,10 @@
+This is the equivalent of the CLI/Orchestration folder from our UML, so it has logging
+and all the orchestrators. For now there is the metric orchestrator that runs all metrics
+on one url in parallell, and I have put logging in here for good measure, but we may want
+to move it later.
+
+How to Log:
+Just add the sample lines below and modify for your purpose
+
+logger.debug("Starting metric %s for url=%s", name, ctx.url)
+logger.info("Metric %s succeeded in %d ms (url=%s)", name, latency, ctx.url)

@@ -1,0 +1,3 @@
+This is the scoring folder where the weights will be, and every time a new metric is
+added a weight should be added, otherwise the netscorer will still work, but the
+weight for the new metric is assumed to be 0.
