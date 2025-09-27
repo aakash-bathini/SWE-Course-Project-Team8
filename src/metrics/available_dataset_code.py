@@ -42,7 +42,7 @@ def _dataset_subscore(texts: list[str], ctx: EvalContext) -> float:
     # Named dataset mention (only adds if no strong link already found)
     if any((" "+name+" ") in (" "+blob+" ") for name in NAMED_DATASETS):
         score += 0.2
-    if isinstance(hf["datasets"], list) and len(hf["datasets"]) > 0:
+    if isinstance(hf.get("datasets"), list) and len(hf.get("datasets")) > 0:
         score += 0.2
     if LOAD_SNIPPET_RE.search(blob):
         score += 0.1
@@ -87,27 +87,26 @@ def _code_subscore(texts: list[str], paths: set[str]) -> float:
 
 
 async def metric(ctx: EvalContext) -> float:
-    # """
-    # Dataset and Code Availability Metric
-    # - returns a score in [0.0, 1.0] based on dataset and code availability indicators
-    # - consumes dataset metadata from EvalContext (ctx.dataset) and github data (ctx.github)
-    # """
-    # gh_list = ctx.gh_data or []
-    # paths = _norm_parts(collect_paths(gh_list))
-    # hf = (ctx.hf_data or [{}])[0]
-    # texts = []
-    # if isinstance(hf.get("readme_text"), str):
-    #     texts.append(hf["readme_text"])
-    # for gh in gh_list:
-    #     if isinstance(gh.get("readme_text"), str):
-    #         texts.append(gh["readme_text"])
-    #     for doc in (gh.get("doc_texts") or {}).values():
-    #         if isinstance(doc, str):
-    #             texts.append(doc)
-    # dscore = _dataset_subscore(texts, ctx)
-    # cscore = _code_subscore(texts, paths)
-    # final = min(1.0, dscore + cscore)
-    # logging.info(f"Final dataset/code availability score: {final:.3f} (dataset: {dscore:.3f}, code: {cscore:.3f})")
-    # return round(final, 2)
+    """
+    Dataset and Code Availability Metric
+    - returns a score in [0.0, 1.0] based on dataset and code availability indicators
+    - consumes dataset metadata from EvalContext (ctx.dataset) and github data (ctx.github)
+    """
+    gh_list = ctx.gh_data or []
+    paths = collect_paths(ctx)
+    hf = (ctx.hf_data or [{}])[0]
+    texts = []
+    if isinstance(hf.get("readme_text"), str):
+        texts.append(hf["readme_text"])
+    for gh in gh_list:
+        if isinstance(gh.get("readme_text"), str):
+            texts.append(gh["readme_text"])
+        for doc in (gh.get("doc_texts") or {}).values():
+            if isinstance(doc, str):
+                texts.append(doc)
+    dscore = _dataset_subscore(texts, ctx)
+    cscore = _code_subscore(texts, paths)
+    final = min(1.0, dscore + cscore)
+    logging.info(f"Final dataset/code availability score: {final:.3f} (dataset: {dscore:.3f}, code: {cscore:.3f})")
+    return round(final, 2)
 
-    return 0.0  # TEMP DISABLE UNTIL FURTHER NOTICE

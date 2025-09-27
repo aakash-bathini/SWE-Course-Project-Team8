@@ -48,9 +48,9 @@ def _json_default(o):
 def _save_cache(cache: Dict[str, Any]) -> None:
     path = _cache_path()
     tmp = path + ".tmp"
-    with open(tmp, "w") as f:
+    with open(path, "w") as f: # "CONFIRM THAT THIS IS THE RIGHT PATH" (changed from tmp to path)
         json.dump(cache, f, default=_json_default)
-    os.replace(tmp, path)
+    # os.replace(tmp, path)
 
 # within TTL range?
 def _is_fresh(entry: Dict[str, Any]) -> bool:
