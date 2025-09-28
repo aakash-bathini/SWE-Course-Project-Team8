@@ -106,7 +106,8 @@ async def metric(ctx: EvalContext) -> float:
                 texts.append(doc)
     dscore = _dataset_subscore(texts, ctx)
     cscore = _code_subscore(texts, paths)
-    final = min(1.0, dscore + cscore)
+    avg = (dscore + cscore) / 2
+    final = min(1.0, avg)
     logging.info(f"Final dataset/code availability score: {final:.3f} (dataset: {dscore:.3f}, code: {cscore:.3f})")
     return round(final, 2)
 
