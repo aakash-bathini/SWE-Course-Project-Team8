@@ -31,7 +31,12 @@ def setup_logging_util(also_stderr: bool = False) -> int:
     # reset any previous handlers
     for h in list(root.handlers):
         root.removeHandler(h)
-    root.setLevel(logging.DEBUG)  # handlers do filtering
+
+
+    if lvl == 0:
+        root.setLevel(logging.CRITICAL + 1)  # effectively disables all logs
+    else:
+        root.setLevel(logging.DEBUG)  # handlers will filter
 
     fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s", "%H:%M:%S")
 

@@ -196,6 +196,12 @@ def print_ndjson(
 
 # 5) Final entrypoint that calls the 4 above
 def run_eval(url_file: str) -> None:
+
+    log_file = os.getenv("LOG_FILE", "./acme.log")
+    if not Path(log_file).exists():
+        print(f"Error: LOG_FILE does not exist: {log_file}", file=sys.stderr)
+        sys.exit(1)
+
     urls = parse_urls_from_file(url_file)
     asyncio.run(setup_logging())
     ctx_map = asyncio.run(prep_contexts(urls))
