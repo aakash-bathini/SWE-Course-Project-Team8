@@ -16,6 +16,9 @@ async def _run_one(item: MetricItem, ctx: EvalContext) -> MetricRun:
         val = await fn(ctx)  # pass context into metric
         latency = int((time.perf_counter() - t0) * 1000)
         logger.info("Metric %s succeeded in %d ms (url=%s)", name, latency, ctx.url)
+        acceptable = set(["raspberry_pi", "jetson_nano", "desktop_pc", "aws_server"])
+        if(val in acceptable):
+            return MetricRun(name=name, value=val, latency_ms=latency)
         return MetricRun(name=name, value=float(val), latency_ms=latency)
     except Exception as e:
         latency = int((time.perf_counter() - t0) * 1000)
