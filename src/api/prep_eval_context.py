@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 from src.models.types import EvalContext, Category
 from src.api.huggingface import scrape_hf_url
 from src.api.github import scrape_github_url
+import logging
 
 def prepare_eval_context(url: str | None = None) -> EvalContext:
     """
@@ -49,4 +50,5 @@ def prepare_eval_context(url: str | None = None) -> EvalContext:
         gh_data = [gh_profile]  # always a list
         return EvalContext(url=url, category="CODE", hf_data=[], gh_data=gh_data)
 
-    raise ValueError(f"prep_eval_context error: unsupported URL host: {host}")
+    logging.debug("prep_eval_context: unsupported URL host=%s (url=%s)", host, url)
+    return EvalContext(url=url, category=None, hf_data=[], gh_data=[])
