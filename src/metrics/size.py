@@ -336,6 +336,7 @@ async def metric(ctx: EvalContext) -> Dict[str, float]:
         if cat in ("MODEL", "DATASET"):
             if not ctx.hf_data or not isinstance(ctx.hf_data, list) or not ctx.hf_data:
                 size_scores = {d: 1.0 for d in DEVICE_WEIGHTS}
+                size_scores = _round_scores(size_scores)
                 best = _best_device(size_scores)
                 ctx.__dict__["size_score"] = size_scores
                 ctx.__dict__["size_best_device"] = best
@@ -360,6 +361,7 @@ async def metric(ctx: EvalContext) -> Dict[str, float]:
                 kind = "explicit_mem" if mem_req > hf_size else "hf_size"
 
             size_scores = _score_required_vs_budget(required, budgets, UTIL_THRESH)
+            size_scores = _round_scores(size_scores)
             best = _best_device(size_scores)
             ctx.__dict__["size_score"] = size_scores
             ctx.__dict__["size_best_device"] = best
@@ -397,6 +399,7 @@ async def metric(ctx: EvalContext) -> Dict[str, float]:
                 budgets = BUDGETS_MODEL_CODE
 
             size_scores = _score_required_vs_budget(required, budgets, UTIL_THRESH)
+            size_scores = _round_scores(size_scores)
             best = _best_device(size_scores)
             ctx.__dict__["size_score"] = size_scores
             ctx.__dict__["size_best_device"] = best
@@ -408,6 +411,7 @@ async def metric(ctx: EvalContext) -> Dict[str, float]:
 
         # Unknown category fallback
         size_scores = {d: 1.0 for d in DEVICE_WEIGHTS}
+        size_scores = _round_scores(size_scores)
         best = _best_device(size_scores)
         ctx.__dict__["size_score"] = size_scores
         ctx.__dict__["size_best_device"] = best
@@ -417,7 +421,11 @@ async def metric(ctx: EvalContext) -> Dict[str, float]:
     except Exception as e:
         logging.exception("size metric: unexpected error: %s", e)
         size_scores = {d: 1.0 for d in DEVICE_WEIGHTS}
+        size_scores = _round_scores(size_scores)
         ctx.__dict__["size_score"] = size_scores
         ctx.__dict__["size_best_device"] = "raspberry_pi"
         ctx.__dict__["size_required_bytes"] = 0
         return size_scores
+
+def _round_scores(scores: Dict[str, float]) -> Dict[str, float]:
+    return {d: round(float(s), 2) for d, s in scores.items()}

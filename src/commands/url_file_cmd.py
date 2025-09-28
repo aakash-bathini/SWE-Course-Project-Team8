@@ -162,7 +162,26 @@ def print_ndjson(
 
         # add each metric result
         for label, r in rep.results.items():
-            out[label] = r.value
+            val = r.value
+
+            if label == "size_score":
+                if isinstance(val, dict):
+                    # ✅ normal case: already a dict of device -> score
+                    out[label] = val
+                elif isinstance(val, str):
+                    # ⚠️ legacy case: best-device string, wrap into dict
+                    out[label] = {
+                        "raspberry_pi": 1.0 if val == "raspberry_pi" else 0.0,
+                        "jetson_nano": 1.0 if val == "jetson_nano" else 0.0,
+                        "desktop_pc": 1.0 if val == "desktop_pc" else 0.0,
+                        "aws_server": 1.0 if val == "aws_server" else 0.0,
+                    }
+                else:
+                    # fallback: default to all 0.0
+                    out[label] = {d: 0.0 for d in ["raspberry_pi","jetson_nano","desktop_pc","aws_server"]}
+            else:
+                out[label] = val
+
             out[f"{label}_latency"] = int(r.latency_ms)
             if getattr(r, "error", None):
                 out[f"{label}_error"] = r.error

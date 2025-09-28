@@ -26,7 +26,10 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     # Fallback: treat first arg as URL file path
-    run_eval(sub)
+    try:
+        run_eval(sub)
+    except:
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

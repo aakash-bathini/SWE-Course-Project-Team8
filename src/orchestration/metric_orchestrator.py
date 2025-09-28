@@ -13,19 +13,28 @@ async def _run_one(item: MetricItem, ctx: EvalContext) -> MetricRun:
     t0 = time.perf_counter()
     try:
         logger.debug("Starting metric %s for url=%s", name, ctx.url)
-        val = await fn(ctx)  # pass context into metric
+        val = await fn(ctx)
         latency = int((time.perf_counter() - t0) * 1000)
-        logger.info("Metric %s succeeded in %d ms (url=%s)", name, latency, ctx.url)
-        acceptable = set(["raspberry_pi", "jetson_nano", "desktop_pc", "aws_server"])
-        if(val in acceptable):
+
+        # Special handling for size_score (dict output)
+        if name == "size_score" and isinstance(val, dict):
             return MetricRun(name=name, value=val, latency_ms=latency)
+
+        # Compatibility: older size metric returned best-device string
+        acceptable = {"raspberry_pi", "jetson_nano", "desktop_pc", "aws_server"}
+        if isinstance(val, str) and val in acceptable:
+            return MetricRun(name=name, value=val, latency_ms=latency)
+
+        # All other metrics must be floats
         return MetricRun(name=name, value=float(val), latency_ms=latency)
+
     except Exception as e:
         latency = int((time.perf_counter() - t0) * 1000)
-        logger.error("Metric %s failed after %d ms (url=%s): %s", name, latency, ctx.url, e)
+        logger.error("Metric %s failed after %d ms (url=%s): %s",
+                     name, latency, ctx.url, e)
         return MetricRun(name=name, value=None, latency_ms=latency,
                          error=f"{type(e).__name__}: {e}")
-
+    
 async def orchestrate(ctx: EvalContext, limit: int = 4) -> OrchestrationReport:
     items: List[MetricItem] = get_all_metrics()
     logger.info("Starting orchestration with %d metrics (limit=%d, url=%s)", len(items), limit, ctx.url)

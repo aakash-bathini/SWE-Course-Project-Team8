@@ -4,7 +4,19 @@ from typing import Dict, Tuple
 from src.models.types import MetricRun, OrchestrationReport, ScoreBundle
 
 def subscores_from_results(results: Dict[str, MetricRun]) -> Dict[str, float]:
-    return {k: r.value for k, r in results.items() if r.value is not None}
+    subs: Dict[str, float] = {}
+    for k, r in results.items():
+        v = r.value
+        if isinstance(v, (int, float)):
+            subs[k] = float(v)
+        elif isinstance(v, dict):  # special case for size_score
+            # use the maximum score across devices
+            try:
+                subs[k] = max(float(x) for x in v.values())
+            except Exception:
+                subs[k] = 0.0
+        # ignore strings and other types
+    return subs
 
 def net_score(
     subscores: Dict[str, float],
