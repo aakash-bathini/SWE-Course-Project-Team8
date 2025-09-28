@@ -44,11 +44,11 @@ async def metric(ctx: EvalContext) -> float:
     """
     gh = getattr(ctx, "gh_data", None) or {} # list of github profiles
     if not gh:
-        logging.warning("license_check: no github data available")
+        logging.debug("license_check: no github data available")
         return 0.0 # no github data to check
     gh_profile = gh[0] # just check the first repo for now
     if not gh_profile:
-        logging.warning("license_check: empty github profile")
+        logging.debug("license_check: empty github profile")
         return 0.0
     
 

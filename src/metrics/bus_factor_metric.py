@@ -22,7 +22,7 @@ async def metric(ctx: EvalContext) -> float:
     contributors: dict[str, int] = gh.get("contributors", {})
 
     if not contributors:
-        logging.warning("No contributor data found; returning 0.")
+        logging.debug("No contributor data found; returning 0.")
         return 0.0
 
     total_commits = sum(contributors.values()) or 1

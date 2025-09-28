@@ -12,7 +12,7 @@ async def metric(ctx: EvalContext) -> float:
     """
     hf_list = ctx.hf_data or []  # list of huggingface profiles
     if not hf_list:
-        logging.warning("dataset_quality: no huggingface data available")
+        logging.debug("dataset_quality: no huggingface data available")
         return 0.0  # no huggingface data to check
     hf_profile = hf_list[0]  # just check the first dataset for now
     if hf_profile.get("repo_type") != "dataset":

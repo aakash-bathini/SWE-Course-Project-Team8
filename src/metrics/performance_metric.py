@@ -70,7 +70,7 @@ async def metric(ctx: EvalContext) -> float:
             break  # ✅ success, stop retrying
 
         except Exception as e:
-            logging.warning("Performance metric attempt %d failed: %s", attempt, e)
+            logging.debug("Performance metric attempt %d failed: %s", attempt, e)
             continue  # try again
 
     if not analysis_json:
