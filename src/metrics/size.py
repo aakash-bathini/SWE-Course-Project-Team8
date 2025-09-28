@@ -204,15 +204,130 @@ def _best_device(scores: Dict[str, float]) -> str:
         return "raspberry_pi"
     return winners[0] if winners else "raspberry_pi"
 
-# ===================== Metric =====================
-async def metric(ctx: EvalContext) -> str:
+# # ===================== Metric =====================
+# async def metric(ctx: EvalContext) -> str:
+#     """
+#     Returns recommended device name (string) and stores details on ctx:
+#       - ctx.size_score: { device: score }
+#       - ctx.size_best_device: str
+#       - ctx.size_required_bytes: int
+#     MODEL/DATASET use HF size or README/card text for disk hints.
+#     CODE uses README/docs memory or disk; fallback to repo size.
+#     """
+#     try:
+#         cat = ctx.category
+#         logging.info("size metric: start category=%s", cat)
+
+#         if cat in ("MODEL", "DATASET"):
+#             if not ctx.hf_data or not isinstance(ctx.hf_data, list) or not ctx.hf_data:
+#                 logging.info("size metric: no HF data for %s → default Pi", cat)
+#                 size_scores = {d: 1.0 for d in DEVICE_WEIGHTS}
+#                 best = _best_device(size_scores)
+#                 ctx.__dict__["size_score"] = size_scores
+#                 ctx.__dict__["size_best_device"] = best
+#                 ctx.__dict__["size_required_bytes"] = 0
+#                 return best
+
+#             hf = ctx.hf_data[0] or {}
+#             readme = hf.get("readme_text") or ""
+#             card_yaml = hf.get("card_yaml") or {}
+#             card_text = _flatten_card_yaml(card_yaml)
+
+#             # For DATASET, try disk requirements first (README/card text), else fallback to size sum
+#             if cat == "DATASET":
+#                 disk_req = _extract_disk_requirements(readme, card_text)
+#                 required = disk_req if disk_req > 0 else _hf_total_size_bytes(hf)
+#                 budgets = BUDGETS_DATASET
+#                 kind = "disk_req" if disk_req > 0 else "hf_size"
+#             else:
+#                 # MODEL: memory/VRAM style; use HF size as a proxy
+#                 # If README/card explicitly mentions memory, use the larger of the two
+#                 mem_req = _extract_mem_requirements(readme, card_text)
+#                 hf_size = _hf_total_size_bytes(hf)
+#                 required = max(mem_req, hf_size)
+#                 budgets = BUDGETS_MODEL_CODE
+#                 kind = "explicit_mem" if mem_req > hf_size else "hf_size"
+
+#             size_scores = _score_required_vs_budget(required, budgets, UTIL_THRESH)
+#             best = _best_device(size_scores)
+#             ctx.__dict__["size_score"] = size_scores
+#             ctx.__dict__["size_best_device"] = best
+#             ctx.__dict__["size_required_bytes"] = required
+
+#             logging.info(
+#                 "size metric[%s]: kind=%s required=%s | util_thresh=%.2f | scores=%s | best=%s",
+#                 cat, kind, _bytes_to_human(required), UTIL_THRESH, size_scores, best
+#             )
+#             return best
+
+#         if cat == "CODE":
+#             if not ctx.gh_data or not isinstance(ctx.gh_data, list) or not ctx.gh_data:
+#                 logging.info("size metric[CODE]: no GH data → default Pi")
+#                 size_scores = {d: 1.0 for d in DEVICE_WEIGHTS}
+#                 best = _best_device(size_scores)
+#                 ctx.__dict__["size_score"] = size_scores
+#                 ctx.__dict__["size_best_device"] = best
+#                 ctx.__dict__["size_required_bytes"] = 0
+#                 return best
+
+#             gh = ctx.gh_data[0] or {}
+#             readme = gh.get("readme_text") or ""
+#             docs_blob = "\n".join((gh.get("doc_texts") or {}).values())[:600_000]
+#             repo_size = _sum_repo_size_from_index(gh.get("files_index") or [])
+
+#             explicit_mem  = _extract_mem_requirements(readme, docs_blob)
+#             explicit_disk = _extract_disk_requirements(readme, docs_blob)
+
+#             # Prefer explicit memory if present; else explicit disk; else repo size as weak proxy
+#             if explicit_mem > 0:
+#                 required = explicit_mem
+#                 budgets = BUDGETS_MODEL_CODE
+#                 kind = "explicit_mem"
+#             elif explicit_disk > 0:
+#                 required = explicit_disk
+#                 budgets = BUDGETS_DATASET
+#                 kind = "explicit_disk"
+#             else:
+#                 required = repo_size
+#                 budgets = BUDGETS_MODEL_CODE
+#                 kind = "repo_size"
+
+#             size_scores = _score_required_vs_budget(required, budgets, UTIL_THRESH)
+#             best = _best_device(size_scores)
+
+#             ctx.__dict__["size_score"] = size_scores
+#             ctx.__dict__["size_best_device"] = best
+#             ctx.__dict__["size_required_bytes"] = required
+
+#             logging.info(
+#                 "size metric[CODE]: kind=%s required=%s | util_thresh=%.2f | scores=%s | best=%s",
+#                 kind, _bytes_to_human(required), UTIL_THRESH, size_scores, best
+#             )
+#             return best
+
+#         logging.info("size metric: unknown category=%s → default Pi", cat)
+#         size_scores = {d: 1.0 for d in DEVICE_WEIGHTS}
+#         best = _best_device(size_scores)
+#         ctx.__dict__["size_score"] = size_scores
+#         ctx.__dict__["size_best_device"] = best
+#         ctx.__dict__["size_required_bytes"] = 0
+#         return best
+
+#     except Exception as e:
+#         logging.exception("size metric: unexpected error: %s", e)
+#         size_scores = {d: 1.0 for d in DEVICE_WEIGHTS}
+#         best = _best_device(size_scores)
+#         ctx.__dict__["size_score"] = size_scores
+#         ctx.__dict__["size_best_device"] = best
+#         ctx.__dict__["size_required_bytes"] = 0
+#         return best
+async def metric(ctx: EvalContext) -> Dict[str, float]:
     """
-    Returns recommended device name (string) and stores details on ctx:
+    Returns a dict of device scores {device: float} for model/dataset/code size.
+    Also stores details on ctx:
       - ctx.size_score: { device: score }
       - ctx.size_best_device: str
       - ctx.size_required_bytes: int
-    MODEL/DATASET use HF size or README/card text for disk hints.
-    CODE uses README/docs memory or disk; fallback to repo size.
     """
     try:
         cat = ctx.category
@@ -220,28 +335,24 @@ async def metric(ctx: EvalContext) -> str:
 
         if cat in ("MODEL", "DATASET"):
             if not ctx.hf_data or not isinstance(ctx.hf_data, list) or not ctx.hf_data:
-                logging.info("size metric: no HF data for %s → default Pi", cat)
                 size_scores = {d: 1.0 for d in DEVICE_WEIGHTS}
                 best = _best_device(size_scores)
                 ctx.__dict__["size_score"] = size_scores
                 ctx.__dict__["size_best_device"] = best
                 ctx.__dict__["size_required_bytes"] = 0
-                return best
+                return size_scores
 
             hf = ctx.hf_data[0] or {}
             readme = hf.get("readme_text") or ""
             card_yaml = hf.get("card_yaml") or {}
             card_text = _flatten_card_yaml(card_yaml)
 
-            # For DATASET, try disk requirements first (README/card text), else fallback to size sum
             if cat == "DATASET":
                 disk_req = _extract_disk_requirements(readme, card_text)
                 required = disk_req if disk_req > 0 else _hf_total_size_bytes(hf)
                 budgets = BUDGETS_DATASET
                 kind = "disk_req" if disk_req > 0 else "hf_size"
             else:
-                # MODEL: memory/VRAM style; use HF size as a proxy
-                # If README/card explicitly mentions memory, use the larger of the two
                 mem_req = _extract_mem_requirements(readme, card_text)
                 hf_size = _hf_total_size_bytes(hf)
                 required = max(mem_req, hf_size)
@@ -254,21 +365,18 @@ async def metric(ctx: EvalContext) -> str:
             ctx.__dict__["size_best_device"] = best
             ctx.__dict__["size_required_bytes"] = required
 
-            logging.info(
-                "size metric[%s]: kind=%s required=%s | util_thresh=%.2f | scores=%s | best=%s",
-                cat, kind, _bytes_to_human(required), UTIL_THRESH, size_scores, best
-            )
-            return best
+            logging.info("size metric[%s]: kind=%s required=%s | scores=%s | best=%s",
+                         cat, kind, _bytes_to_human(required), size_scores, best)
+            return size_scores
 
         if cat == "CODE":
             if not ctx.gh_data or not isinstance(ctx.gh_data, list) or not ctx.gh_data:
-                logging.info("size metric[CODE]: no GH data → default Pi")
                 size_scores = {d: 1.0 for d in DEVICE_WEIGHTS}
                 best = _best_device(size_scores)
                 ctx.__dict__["size_score"] = size_scores
                 ctx.__dict__["size_best_device"] = best
                 ctx.__dict__["size_required_bytes"] = 0
-                return best
+                return size_scores
 
             gh = ctx.gh_data[0] or {}
             readme = gh.get("readme_text") or ""
@@ -278,46 +386,38 @@ async def metric(ctx: EvalContext) -> str:
             explicit_mem  = _extract_mem_requirements(readme, docs_blob)
             explicit_disk = _extract_disk_requirements(readme, docs_blob)
 
-            # Prefer explicit memory if present; else explicit disk; else repo size as weak proxy
             if explicit_mem > 0:
                 required = explicit_mem
                 budgets = BUDGETS_MODEL_CODE
-                kind = "explicit_mem"
             elif explicit_disk > 0:
                 required = explicit_disk
                 budgets = BUDGETS_DATASET
-                kind = "explicit_disk"
             else:
                 required = repo_size
                 budgets = BUDGETS_MODEL_CODE
-                kind = "repo_size"
 
             size_scores = _score_required_vs_budget(required, budgets, UTIL_THRESH)
             best = _best_device(size_scores)
-
             ctx.__dict__["size_score"] = size_scores
             ctx.__dict__["size_best_device"] = best
             ctx.__dict__["size_required_bytes"] = required
 
-            logging.info(
-                "size metric[CODE]: kind=%s required=%s | util_thresh=%.2f | scores=%s | best=%s",
-                kind, _bytes_to_human(required), UTIL_THRESH, size_scores, best
-            )
-            return best
+            logging.info("size metric[CODE]: required=%s | scores=%s | best=%s",
+                         _bytes_to_human(required), size_scores, best)
+            return size_scores
 
-        logging.info("size metric: unknown category=%s → default Pi", cat)
+        # Unknown category fallback
         size_scores = {d: 1.0 for d in DEVICE_WEIGHTS}
         best = _best_device(size_scores)
         ctx.__dict__["size_score"] = size_scores
         ctx.__dict__["size_best_device"] = best
         ctx.__dict__["size_required_bytes"] = 0
-        return best
+        return size_scores
 
     except Exception as e:
         logging.exception("size metric: unexpected error: %s", e)
         size_scores = {d: 1.0 for d in DEVICE_WEIGHTS}
-        best = _best_device(size_scores)
         ctx.__dict__["size_score"] = size_scores
-        ctx.__dict__["size_best_device"] = best
+        ctx.__dict__["size_best_device"] = "raspberry_pi"
         ctx.__dict__["size_required_bytes"] = 0
-        return best
+        return size_scores

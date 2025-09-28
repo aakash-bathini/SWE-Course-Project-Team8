@@ -13,6 +13,8 @@ from src.orchestration.logging_util import setup_logging_util
 from src.orchestration.prep_eval_orchestrator import prep_eval_many
 from src.orchestration.metric_orchestrator import orchestrate
 from src.models.types import EvalContext, OrchestrationReport
+from src.scoring.net_score import bundle_from_report
+from src.scoring.weights import get_weights
 
 
 def normalize_url(u: str) -> str:
@@ -98,9 +100,48 @@ async def run_metrics_on_contexts(
 
 
 # 4) Print results in NDJSON (one line per URL)
+# def print_ndjson(
+#     urls: List[str], 
+#     ctx_map: Dict[str, EvalContext], 
+#     reports: Dict[str, OrchestrationReport]
+# ) -> None:
+#     for u in urls:
+#         rep = reports.get(u)
+#         if not rep:
+#             continue
+
+#         ctx = ctx_map.get(u)
+#         category = ctx.category if ctx else None
+
+#         path = urlparse(u).path.strip("/")
+#         name = path.split("/")[-1] if path else u
+
+#         out = {"name": name}
+#         if category is not None:
+#             out["category"] = category
+
+#         # add each metric result
+#         for label, r in rep.results.items():
+#             if label == "size_score" and isinstance(r.value, dict):
+#                 out[label] = r.value  # dict format
+#             else:
+#                 out[label] = r.value
+#             out[f"{label}_latency"] = r.latency_ms
+#             if getattr(r, "error", None):
+#                 out[f"{label}_error"] = r.error
+
+#         # add net_score bundle
+#         bundle = bundle_from_report(rep, get_weights(), clamp=True)
+#         out["net_score"] = round(bundle.net_score, 2)
+#         out["net_score_latency"] = bundle.net_score_latency_ms
+
+#         print(json.dumps(out, separators=(",", ":"), ensure_ascii=True))
+from src.scoring.net_score import bundle_from_report
+from src.scoring.weights import get_weights
+
 def print_ndjson(
-    urls: List[str], 
-    ctx_map: Dict[str, EvalContext], 
+    urls: List[str],
+    ctx_map: Dict[str, EvalContext],
     reports: Dict[str, OrchestrationReport]
 ) -> None:
     for u in urls:
@@ -108,7 +149,7 @@ def print_ndjson(
         if not rep:
             continue
 
-        ctx = ctx_map.get(u)  # has .category set by prepare_eval_context
+        ctx = ctx_map.get(u)
         category = ctx.category if ctx else None
 
         # derive a short name from the URL (last path component)
@@ -119,11 +160,17 @@ def print_ndjson(
         if category is not None:
             out["category"] = category  # "MODEL" | "DATASET" | "CODE"
 
+        # add each metric result
         for label, r in rep.results.items():
             out[label] = r.value
-            out[f"{label}_latency"] = r.latency_ms
+            out[f"{label}_latency"] = int(r.latency_ms)
             if getattr(r, "error", None):
                 out[f"{label}_error"] = r.error
+
+        # add net_score bundle
+        bundle = bundle_from_report(rep, get_weights(), clamp=True)
+        out["net_score"] = round(bundle.net_score, 2)
+        out["net_score_latency"] = int(bundle.net_score_latency_ms)
 
         print(json.dumps(out, separators=(",", ":"), ensure_ascii=True))
 

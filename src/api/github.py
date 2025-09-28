@@ -39,10 +39,9 @@ def _load_cache() -> Dict[str, Any]:
 # save updated cache data
 def _save_cache(cache: Dict[str, Any]) -> None:
     path = _cache_path()
-    tmp = path + ".tmp"
-    with open(tmp, "w") as f:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(cache, f)
-    os.replace(tmp, path)
 
 # within TTL range?
 def _is_fresh(entry: Dict[str, Any]) -> bool:
