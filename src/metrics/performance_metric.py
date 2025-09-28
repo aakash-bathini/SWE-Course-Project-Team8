@@ -5,7 +5,7 @@ import logging
 import requests
 from src.models.types import EvalContext
 
-MAX_INPUT_CHARS = 7750
+MAX_INPUT_CHARS = 7000
 api_key = os.getenv("GEMINI_API_KEY")
 purdue_api_key = os.getenv("GEN_AI_STUDIO_API_KEY")
 
@@ -14,22 +14,72 @@ async def metric(ctx: EvalContext) -> float:
         logging.error("GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY not set, performance_metric will fail")
         return 0.0
 
+    readme_content = ""
     try:
-        gh = ctx.gh_data[0]
-    except (IndexError, KeyError):
-        logging.info("No GitHub data in EvalContext, skipping performance metric")
+        if ctx.hf_data and isinstance(ctx.hf_data, list) and ctx.hf_data:
+            hf = ctx.hf_data[0] or {}
+            readme_content = hf.get("readme_text") or ""
+            logging.info("Performance metric using Hugging Face README")
+        elif ctx.gh_data and isinstance(ctx.gh_data, list) and ctx.gh_data:
+            gh = ctx.gh_data[0] or {}
+            readme_content = gh.get("readme_text") or ""
+            logging.info("Performance metric using GitHub README")
+        else:
+            logging.info("No README available (HF or GitHub), skipping performance metric")
+            return 0.0
+    except Exception as e:
+        logging.error("Performance metric: error selecting README source: %s", e)
         return 0.0
 
-    readme_content = (gh.get("readme_text") or "")[:MAX_INPUT_CHARS]
+    readme_content = readme_content[:MAX_INPUT_CHARS]
 
     prompt = f"""
-    Analyze the following README content for performance claims and evidence quality. 
-    ...
+    You are analyzing the README of an ML model or dataset to detect performance-related claims.
+    Your job is to extract only claims about performance, benchmarks, or datasets, and score their evidence.
+
+    Step 1: Identify all performance-related claims. Examples include:
+    - Quantitative results (accuracy, F1, BLEU, latency, throughput, etc.)
+    - Comparisons to other models ("better than BERT", "state-of-the-art", etc.)
+    - Dataset usage or evaluation ("evaluated on SQuAD", "trained on 1M examples")
+
+    Step 2: For each claim, record:
+    - claim_text: the raw claim from the README
+    - claim_type: one of ["metric", "benchmark", "comparison", "subjective"]
+    - evidence_quality: score in [0.0, 1.0] → how well-supported is the claim (numbers, citations, datasets)?
+    - specificity: score in [0.0, 1.0] → how precise is the claim (exact metrics vs vague words)?
+    - datasets_mentioned: list of dataset names if any
+    - metrics_mentioned: list of metric names if any
+
+    Step 3: Provide a summary object:
+    - total_claims: number of claims found
+    - overall_evidence_quality: average of evidence_quality values
+    - overall_specificity: average of specificity values
+
+    Return ONLY valid JSON (no extra commentary, no markdown). 
+    Use this schema:
+
+    {{
+    "claims_found": [
+        {{
+        "claim_text": "...",
+        "claim_type": "...",
+        "evidence_quality": 0.0,
+        "specificity": 0.0,
+        "datasets_mentioned": [],
+        "metrics_mentioned": []
+        }}
+    ],
+    "summary": {{
+        "total_claims": 0,
+        "overall_evidence_quality": 0.0,
+        "overall_specificity": 0.0
+    }}
+    }}
+
     README Content:
     ---
     {readme_content}
     ---
-    Please provide a structured analysis in JSON format only.
     """
 
     analysis_json = None

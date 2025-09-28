@@ -18,15 +18,19 @@ async def _run_one(item: MetricItem, ctx: EvalContext) -> MetricRun:
 
         # Special handling for size_score (dict output)
         if name == "size_score" and isinstance(val, dict):
+            logger.info("Metric %s succeeded in %d ms (url=%s, dict_size_score)", name, latency, ctx.url)
             return MetricRun(name=name, value=val, latency_ms=latency)
 
         # Compatibility: older size metric returned best-device string
         acceptable = {"raspberry_pi", "jetson_nano", "desktop_pc", "aws_server"}
         if isinstance(val, str) and val in acceptable:
+            logger.info("Metric %s succeeded in %d ms (url=%s, value=%s)", name, latency, ctx.url, val)
             return MetricRun(name=name, value=val, latency_ms=latency)
 
         # All other metrics must be floats
-        return MetricRun(name=name, value=float(val), latency_ms=latency)
+        fval = float(val)
+        logger.info("Metric %s succeeded in %d ms (url=%s, value=%.2f)", name, latency, ctx.url, fval)
+        return MetricRun(name=name, value=fval, latency_ms=latency)
 
     except Exception as e:
         latency = int((time.perf_counter() - t0) * 1000)
