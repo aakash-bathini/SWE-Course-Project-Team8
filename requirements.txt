@@ -1,2 +1,10 @@
 huggingface_hub
 google-genai
+flake8
+isort
+mypy
+pytest
+pytest-asyncio
+coverage
+pytest-cov
+requests

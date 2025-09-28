@@ -5,7 +5,7 @@ from contextlib import redirect_stdout
 from src.commands.url_file_cmd import run_eval
 
 def run_tests() -> None:
-    print("TEST: dummy handler running", flush=True)
+    # print("TEST: dummy handler running", flush=True)
 
     cov = Coverage(source=["src"])  # keep it simple: line coverage only
     cov.erase()
