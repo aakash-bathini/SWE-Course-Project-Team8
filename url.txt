@@ -7,3 +7,16 @@ https://huggingface.co/google/gemma-3-270m/tree/main
 https://huggingface.co/datasets/xlangai/AgentNet
 https://github.com/SkyworkAI/Matrix-Game
 https://google.com
+https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Instruct
+https://huggingface.co/facebook/bart-large
+https://huggingface.co/datasets/squad
+https://github.com/tensorflow/tensorflow
+https://huggingface.co/microsoft/deberta-v3-base
+https://huggingface.co/datasets/cnn_dailymail
+https://github.com/huggingface/transformers
+https://huggingface.co/meta-llama/Llama-2-7b-hf
+https://huggingface.co/datasets/wikitext
+https://github.com/psf/requests
+https://huggingface.co/google/flan-t5-base
+https://huggingface.co/alexnestorov/phi3-mini-mental-health
+https://huggingface.co/dhalsim33/ball
