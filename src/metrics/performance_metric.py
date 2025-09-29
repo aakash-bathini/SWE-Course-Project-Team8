@@ -11,7 +11,7 @@ purdue_api_key = os.getenv("GEN_AI_STUDIO_API_KEY")
 
 async def metric(ctx: EvalContext) -> float:
     if not api_key and not purdue_api_key:
-        logging.error("GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY not set, performance_metric will fail")
+        logging.debug("GOOGLE_API_KEY and GEN_AI_STUDIO_API_KEY not set, performance_metric will fail")
         return 0.0
 
     readme_content = ""
@@ -28,7 +28,7 @@ async def metric(ctx: EvalContext) -> float:
             logging.info("No README available (HF or GitHub), skipping performance metric")
             return 0.0
     except Exception as e:
-        logging.error("Performance metric: error selecting README source: %s", e)
+        logging.debug("Performance metric: error selecting README source: %s", e)
         return 0.0
 
     readme_content = readme_content[:MAX_INPUT_CHARS]
