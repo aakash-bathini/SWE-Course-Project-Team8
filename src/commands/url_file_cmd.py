@@ -98,44 +98,6 @@ async def run_metrics_on_contexts(
         reports[u] = report
     return reports
 
-
-# 4) Print results in NDJSON (one line per URL)
-# def print_ndjson(
-#     urls: List[str], 
-#     ctx_map: Dict[str, EvalContext], 
-#     reports: Dict[str, OrchestrationReport]
-# ) -> None:
-#     for u in urls:
-#         rep = reports.get(u)
-#         if not rep:
-#             continue
-
-#         ctx = ctx_map.get(u)
-#         category = ctx.category if ctx else None
-
-#         path = urlparse(u).path.strip("/")
-#         name = path.split("/")[-1] if path else u
-
-#         out = {"name": name}
-#         if category is not None:
-#             out["category"] = category
-
-#         # add each metric result
-#         for label, r in rep.results.items():
-#             if label == "size_score" and isinstance(r.value, dict):
-#                 out[label] = r.value  # dict format
-#             else:
-#                 out[label] = r.value
-#             out[f"{label}_latency"] = r.latency_ms
-#             if getattr(r, "error", None):
-#                 out[f"{label}_error"] = r.error
-
-#         # add net_score bundle
-#         bundle = bundle_from_report(rep, get_weights(), clamp=True)
-#         out["net_score"] = round(bundle.net_score, 2)
-#         out["net_score_latency"] = bundle.net_score_latency_ms
-
-#         print(json.dumps(out, separators=(",", ":"), ensure_ascii=True))
 from src.scoring.net_score import bundle_from_report
 from src.scoring.weights import get_weights
 
@@ -209,3 +171,17 @@ def run_eval(url_file: str) -> None:
     reports = asyncio.run(run_metrics_on_contexts(urls, ctx_map, limit=4))
     print_ndjson(urls, ctx_map, reports)
     sys.exit(0)
+
+
+def run_eval_silent(url_file: str):
+    """
+    Same as run_eval but suppresses NDJSON printing.
+    Useful for test harnesses that only care about coverage.
+    """
+
+    # load URLs
+    urls = parse_urls_from_file(url_file)
+    ctx_map = asyncio.run(prep_contexts(urls))
+    rep_map = asyncio.run(run_metrics_on_contexts(urls, ctx_map))
+
+    return ctx_map, rep_map

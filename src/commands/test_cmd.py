@@ -3,7 +3,7 @@ from coverage import Coverage
 import pytest
 import io
 from contextlib import redirect_stdout
-from src.commands.url_file_cmd import run_eval
+from src.commands.url_file_cmd import run_eval_silent
 import logging
 
 def run_tests() -> None:
@@ -14,10 +14,10 @@ def run_tests() -> None:
     # 1) Run the full URL pipeline on url.txt (end-to-end test)
     exit_code = 0
     try:
-        run_eval("url.txt")
+        run_eval_silent("single_run.txt")
     except SystemExit as e:
         exit_code = int(e.code) if isinstance(e.code, int) else 1
-        logging.debug("TEST: run_eval exited with SystemExit({exit_code}), continuing for coverage...", exit_code)
+        logging.debug(f"TEST: run_eval exited with SystemExit({exit_code}), continuing for coverage...")
 
     # 2) Run pytest on all unit tests
     result_code = pytest.main(["-q", "src/tests"])
@@ -45,3 +45,4 @@ def run_tests() -> None:
         sys.exit(0)
     else:
         sys.exit(1)
+
