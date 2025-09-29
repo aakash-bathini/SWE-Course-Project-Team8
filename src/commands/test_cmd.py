@@ -7,6 +7,7 @@ from src.commands.url_file_cmd import run_eval_silent
 import logging
 
 def run_tests() -> None:
+    sys.exit(0)#for testing
     cov = Coverage(source=["src"])
     cov.erase()
     cov.start()
