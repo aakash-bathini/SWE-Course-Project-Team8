@@ -408,8 +408,8 @@ def _apply_report(out: Dict, rep: OrchestrationReport) -> None:
         # general case
         out[label] = _clamp01(val) if isinstance(val, (int, float)) else (val if val is not None else 0.0)
         out[f"{label}_latency"] = lat
-        if getattr(r, "error", None):
-            out[f"{label}_error"] = r.error
+        #if getattr(r, "error", None):
+            #out[f"{label}_error"] = r.error
 
 
 def print_ndjson(
@@ -429,7 +429,7 @@ def print_ndjson(
             _apply_report(out, rep)
 
         # strictly one JSON object per line; no prints/logs on stdout
-        sys.stdout.write(json.dumps(out, separators=(",", ":"), ensure_ascii=False) + "\n")
+        sys.stdout.write(json.dumps(out, separators=(",", ":"), ensure_ascii=True) + "\n")
     sys.stdout.flush()
 
 
