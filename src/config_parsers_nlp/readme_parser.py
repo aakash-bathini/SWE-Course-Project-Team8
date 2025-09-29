@@ -1,6 +1,3 @@
-'''
-This file contains the parser for README files to extract all relecant information.
-'''
 # src/acme_trust_cli/parsers/readme_parser.py
 from __future__ import annotations
 import re
@@ -121,24 +118,24 @@ SPDX_EXPR = re.compile(
     re.IGNORECASE,
 )
 
-def find_spdx_expressions(text: str) -> List[str]:
-    """
-    Return raw potential SPDX expressions to feed into your expression parser.
-    """
-    if not text:
-        return []
-    hits = []
-    for m in SPDX_EXPR.finditer(text):
-        expr = m.group("expr").strip(" ()\n\t")
-        hits.append(expr)
-    # Dedup while preserving order
-    seen = set()
-    out = []
-    for e in hits:
-        if e not in seen:
-            seen.add(e)
-            out.append(e)
-    return out
+# def find_spdx_expressions(text: str) -> List[str]:
+#     """
+#     Return raw potential SPDX expressions to feed into your expression parser.
+#     """
+#     if not text:
+#         return []
+#     hits = []
+#     for m in SPDX_EXPR.finditer(text):
+#         expr = m.group("expr").strip(" ()\n\t")
+#         hits.append(expr)
+#     # Dedup while preserving order
+#     seen = set()
+#     out = []
+#     for e in hits:
+#         if e not in seen:
+#             seen.add(e)
+#             out.append(e)
+#     return out
 # example usage:
 # readme_md = "... contents of README.md ..."
 # license_section = extract_license_block(readme_md)
@@ -222,7 +219,8 @@ def extract_license_evidence(readme_md: Optional[str], license_file_text: Option
         return source, [], [], []
 
     ids = find_spdx_ids(chosen)
-    exprs = find_spdx_expressions(chosen)
+    # exprs = find_spdx_expressions(chosen)
+    exprs = []
     hints = find_license_hints(chosen)
     return source, ids, exprs, hints
 # Example usage:
