@@ -162,8 +162,8 @@ def print_ndjson(
 
         # add net_score bundle
         bundle = bundle_from_report(rep, get_weights(), clamp=True)
-        out["NET_SCORE"] = round(bundle.net_score, 2)
-        out["LATENCY"] = int(bundle.net_score_latency_ms)
+        out["net_score"] = round(bundle.net_score, 2)
+        out["net_score_latency"] = int(bundle.net_score_latency_ms)
         #out["net_score_latency"] = int(rep.net_score_latency_ms)
 
         # add each metric result
