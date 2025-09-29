@@ -17,7 +17,7 @@ def run_tests() -> None:
         run_eval("url.txt")
     except SystemExit as e:
         exit_code = int(e.code) if isinstance(e.code, int) else 1
-        logging.debug(f"TEST: run_eval exited with SystemExit({exit_code}), continuing for coverage...", flush=True)
+        logging.debug("TEST: run_eval exited with SystemExit({exit_code}), continuing for coverage...", exit_code)
 
     # 2) Run pytest on all unit tests
     result_code = pytest.main(["-q", "src/tests"])
