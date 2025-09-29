@@ -160,6 +160,12 @@ def print_ndjson(
         if category is not None:
             out["category"] = category  # "MODEL" | "DATASET" | "CODE"
 
+        # add net_score bundle
+        bundle = bundle_from_report(rep, get_weights(), clamp=True)
+        out["net_score"] = round(bundle.net_score, 2)
+        out["net_score_latency"] = int(bundle.net_score_latency_ms)
+        #out["net_score_latency"] = int(rep.net_score_latency_ms)
+
         # add each metric result
         for label, r in rep.results.items():
             val = r.value
@@ -185,11 +191,6 @@ def print_ndjson(
             out[f"{label}_latency"] = int(r.latency_ms)
             if getattr(r, "error", None):
                 out[f"{label}_error"] = r.error
-
-        # add net_score bundle
-        bundle = bundle_from_report(rep, get_weights(), clamp=True)
-        out["net_score"] = round(bundle.net_score, 2)
-        out["net_score_latency"] = int(bundle.net_score_latency_ms)
 
         print(json.dumps(out, separators=(",", ":"), ensure_ascii=True))
 

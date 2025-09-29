@@ -22,7 +22,7 @@ def net_score(
     subscores: Dict[str, float],
     weights: Dict[str, float],
     clamp: bool = False,
-) -> Tuple[float, int]:
+) -> float:
     """
     Weighted average over present metrics only:
         score = sum(v_i * w_i) / sum(w_i for present i)
@@ -30,7 +30,6 @@ def net_score(
     - If total weight is 0 -> score = 0.0
     Returns (score, latency_ms).
     """
-    t0 = perf_counter()
     total = 0.0
     total_w = 0.0
 
@@ -44,7 +43,7 @@ def net_score(
     if clamp:
         score = 0.0 if score < 0.0 else (1.0 if score > 1.0 else score)
 
-    return score, int((perf_counter() - t0) * 1000)
+    return score
 
 def bundle_from_report(
     report: OrchestrationReport,
@@ -53,5 +52,6 @@ def bundle_from_report(
 ) -> ScoreBundle:
     """Convenience wrapper to build ScoreBundle from an OrchestrationReport."""
     subs = subscores_from_results(report.results)
-    score, latency_ms = net_score(subs, weights, clamp=clamp)
+    score = net_score(subs, weights, clamp=clamp)
+    latency_ms = report.total_latency_ms
     return ScoreBundle(subscores=subs, net_score=score, net_score_latency_ms=latency_ms)
