@@ -731,3 +731,139 @@ async def test_orchestrate_with_dummy_metrics(monkeypatch):
 
     assert "dummy" in rep.results
     assert rep.results["dummy"].value == 0.7
+
+# -------------------------------------------------------------------
+# MODEL_SIZE.PY
+# -------------------------------------------------------------------
+import pytest, types
+import src.metrics.size as ms
+
+def test_to_bytes_and_bytes_to_human_all_units():
+    assert ms._to_bytes(1, "K") == 1024
+    assert ms._to_bytes(1, "KB") == 1024
+    assert ms._to_bytes(1, "KiB") == 1024
+    assert ms._to_bytes(1, "MB") == 1024**2
+    assert ms._to_bytes(1, "MiB") == 1024**2
+    assert ms._to_bytes(1, "GB") == 1024**3
+    assert ms._to_bytes(1, "gigabytes") == 1024**3
+    assert ms._to_bytes(1, "TB") == 1024**4
+    assert ms._to_bytes(5, "foo") == 5
+
+    # human-readable
+    assert ms._bytes_to_human(512) == "512.0B"
+    assert ms._bytes_to_human(2048).endswith("KB")
+    assert ms._bytes_to_human(5 * 1024**2).endswith("MB")
+    assert ms._bytes_to_human(7 * 1024**3).endswith("GB")
+    assert ms._bytes_to_human(5 * 1024**4).endswith("TB")
+
+def test_sum_repo_size_and_hf_total_size():
+    files = [{"type":"blob","size":100}, {"type":"tree"}, {"type":"blob","size":50}]
+    assert ms._sum_repo_size_from_index(files) == 150
+
+    hf = {"size":123}
+    assert ms._hf_total_size_bytes(hf) == 123
+    hf2 = {"files":[{"size":10},{"size":20}]}
+    assert ms._hf_total_size_bytes(hf2) == 30
+    hf3 = {}
+    assert ms._hf_total_size_bytes(hf3) == 0
+
+def test_flatten_card_yaml_nested():
+    card = {"a":{"b":[1,{"c":2}]}, "d":"val"}
+    flat = ms._flatten_card_yaml(card)
+    assert "a" in flat and "1" in flat and "2" in flat and "val" in flat
+
+# def test_scan_values_single_range_multi():
+#     text1 = "requires 16 GB ram"
+#     text2 = "needs 8-16GB memory"
+#     text3 = "2x 8GB vram"
+#     single = ms._scan_values(ms.MEM_REQ_REGEXES, text1)
+#     rng = ms._scan_values(ms.MEM_REQ_REGEXES, text2)
+#     multi = ms._scan_values(ms.MEM_REQ_REGEXES, text3)
+#     assert single >= 16*1024**3
+#     assert rng >= 16*1024**3
+#     assert multi >= 16*1024**3  # 2x8GB
+
+# def test_extract_mem_and_disk_reqs():
+#     text = "recommended: 32 GB ram"
+#     assert ms._extract_mem_requirements(text) >= 32*1024**3
+#     text2 = "dataset size: 10 GB disk"
+#     assert ms._extract_disk_requirements(text2) >= 10*1024**3
+
+def test_score_required_vs_budget_and_best_device():
+    budgets = {"raspberry_pi": 100}
+    scores0 = ms._score_required_vs_budget(0, budgets, 0.5)
+    scores1 = ms._score_required_vs_budget(40, budgets, 0.5)  # <=cap
+    scores2 = ms._score_required_vs_budget(90, budgets, 0.5)  # >cap
+    assert scores0["raspberry_pi"] == 1.0
+    assert scores1["raspberry_pi"] == 1.0
+    assert 0.0 <= scores2["raspberry_pi"] <= 1.0
+
+    # tie preference
+    s = {"raspberry_pi":1.0, "desktop_pc":1.0}
+    assert ms._best_device(s) == "raspberry_pi"
+
+# ------------------ metric tests ------------------
+
+@pytest.mark.asyncio
+async def test_metric_model_empty_and_hf_size():
+    ctx = types.SimpleNamespace(category="MODEL", hf_data=[])
+    scores = await ms.metric(ctx)
+    assert all(v==1.0 for v in scores.values())
+
+    # fallback to hf.size
+    ctx2 = types.SimpleNamespace(category="MODEL", hf_data=[{"size":1234,"card_yaml":{},"readme_text":""}])
+    scores2 = await ms.metric(ctx2)
+    assert isinstance(scores2, dict)
+
+@pytest.mark.asyncio
+async def test_metric_model_explicit_mem():
+    ctx = types.SimpleNamespace(category="MODEL", hf_data=[{"readme_text":"Requires 24GB VRAM","card_yaml":{},"files":[]}])
+    scores = await ms.metric(ctx)
+    assert isinstance(scores, dict)
+    assert "raspberry_pi" in scores
+
+@pytest.mark.asyncio
+async def test_metric_dataset_disk_and_fallback():
+    ctx = types.SimpleNamespace(category="DATASET", hf_data=[{"readme_text":"Dataset size 50GB disk","card_yaml":{},"files":[]}])
+    scores = await ms.metric(ctx)
+    assert isinstance(scores, dict)
+
+    ctx2 = types.SimpleNamespace(category="DATASET", hf_data=[{"size":999,"card_yaml":{},"files":[]}])
+    scores2 = await ms.metric(ctx2)
+    assert isinstance(scores2, dict)
+
+@pytest.mark.asyncio
+async def test_metric_code_empty_and_paths():
+    ctx = types.SimpleNamespace(category="CODE", gh_data=[])
+    scores = await ms.metric(ctx)
+    assert all(v==1.0 for v in scores.values())
+
+    # explicit mem in readme
+    gh = {"readme_text":"Needs 8GB RAM","doc_texts":{"f":"hi"},"files_index":[]}
+    ctx2 = types.SimpleNamespace(category="CODE", gh_data=[gh])
+    scores2 = await ms.metric(ctx2)
+    assert isinstance(scores2, dict)
+
+    # explicit disk in readme
+    gh2 = {"readme_text":"Dataset size: 20 GB disk","doc_texts":{},"files_index":[]}
+    ctx3 = types.SimpleNamespace(category="CODE", gh_data=[gh2])
+    scores3 = await ms.metric(ctx3)
+    assert isinstance(scores3, dict)
+
+    # fallback repo size
+    gh3 = {"readme_text":"","doc_texts":{},"files_index":[{"type":"blob","size":500}]}
+    ctx4 = types.SimpleNamespace(category="CODE", gh_data=[gh3])
+    scores4 = await ms.metric(ctx4)
+    assert isinstance(scores4, dict)
+
+@pytest.mark.asyncio
+async def test_metric_other_and_exception(monkeypatch):
+    # unknown category fallback
+    ctx = types.SimpleNamespace(category="OTHER", hf_data=[], gh_data=[])
+    scores = await ms.metric(ctx)
+    assert all(isinstance(v,float) for v in scores.values())
+
+    # exception path: break _flatten_card_yaml
+    bad_ctx = types.SimpleNamespace(category="MODEL", hf_data=[{"card_yaml":object()}])
+    scores2 = await ms.metric(bad_ctx)
+    assert isinstance(scores2, dict)
