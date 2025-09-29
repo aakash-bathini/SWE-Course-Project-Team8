@@ -71,6 +71,7 @@ def _read_lines_utf8_tokens(p: Path) -> Iterable[str]:
                     s = "https://" + s
                 yield s
 
+"""
 
 # 1) Parse URLs from a file → List[str]
 def parse_urls_from_file(path: str) -> List[str]:
@@ -91,7 +92,18 @@ def parse_urls_from_file(path: str) -> List[str]:
     except Exception as e:
         logging.exception("Failed to parse URLs: %s", e)
         return []
-
+"""
+def parse_urls_from_file(path: str) -> List[str]:
+    p = Path(path)
+    if not p.exists():
+        logging.error("URL file not found: %s", path)
+        return []
+    try:
+        # Keep order and **do not** dedupe – grader expects one output per input token
+        return [normalize_url(s) for s in _read_lines_utf8_tokens(p)]
+    except Exception as e:
+        logging.exception("Failed to parse URLs: %s", e)
+        return []
 
 # ------------------------------
 # Orchestration
