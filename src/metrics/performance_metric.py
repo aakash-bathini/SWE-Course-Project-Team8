@@ -147,19 +147,6 @@ async def metric(ctx: EvalContext) -> float:
         table_bonus = 0.1 if table_hits >= 5 else (0.05 if table_hits >= 2 else 0.0)
 
         score = 0.4 * has_numbers + 0.3 * bench_norm + 0.3 * metric_norm + table_bonus
-        
-        # Well-known models typically have excellent performance documentation
-        if downloads > 1000000 or likes > 1000:  # Very popular models
-            logging.info(f"High-engagement model detected (downloads: {downloads}, likes: {likes}), boosting performance score")
-            score = min(1.0, score + 0.25)  # Add substantial boost
-        
-        # Check for specific models
-        model_name = ctx.url.lower() if hasattr(ctx, 'url') else ""
-        if "whisper" in model_name:
-            # whisper-tiny should have higher performance claims per expected output
-            score = min(1.0, score + 0.15)  # Add boost for whisper
-            logging.info(f"Whisper model detected, boosting performance score")
-        
         score = max(0.0, min(1.0, score))
         return float(round(score, 2))
 

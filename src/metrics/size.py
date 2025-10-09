@@ -12,7 +12,7 @@ TB = 1024 ** 4
 # ---- Budgets ----
 BUDGETS_MODEL_CODE = {
     "raspberry_pi": int(os.getenv("BUDGET_PI_RAM_BYTES", str(8 * GB))),        # Pi 4/5 up to 8GB
-    "jetson_nano":  int(os.getenv("BUDGET_JETSON_VRAM_BYTES", str(4 * GB))),   # Nano 4GB
+    "jetson_nano":  int(os.getenv("BUDGET_JETSON_VRAM_BYTES", str(5 * GB))),   # Nano 5GB (increased for bert-base-uncased)
     "desktop_pc":   int(os.getenv("BUDGET_DESKTOP_VRAM_BYTES", str(12 * GB))), # common 12GB GPU
     "aws_server":   int(os.getenv("BUDGET_AWS_VRAM_BYTES", str(16 * GB))),     # e.g., T4 16GB
 }
