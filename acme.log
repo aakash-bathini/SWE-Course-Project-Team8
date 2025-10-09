@@ -1,0 +1,477 @@
+12:51:22 [INFO] root: Logging initialized at DEBUG level
+12:51:22 [DEBUG] root: Debug logging enabled
+12:51:22 [DEBUG] asyncio: Using selector: KqueueSelector
+12:51:22 [DEBUG] asyncio: Using selector: KqueueSelector
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 8 metrics (limit=4, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 8 tasks (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for ramp_up_time (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric ramp_up_time for url=https://huggingface.co/google-bert/bert-base-uncased
+12:51:22 [INFO] root: Repo README subscore: install=0.0, usage=1.0, desc=1.0, io=1.0, links=1.0 => 0.750
+12:51:22 [DEBUG] root: TOTAL PATHS: 35
+12:51:22 [DEBUG] root: PATH: 'tf_model.h5'
+12:51:22 [DEBUG] root: PATH: 'LICENSE'
+12:51:22 [DEBUG] root: PATH: 'run_squad.py'
+12:51:22 [DEBUG] root: PATH: 'predicting_movie_reviews_with_bert_on_tf_hub.ipynb'
+12:51:22 [DEBUG] root: PATH: 'create_pretraining_data.py'
+12:51:22 [DEBUG] root: PATH: 'README.md'
+12:51:22 [DEBUG] root: PATH: 'requirements.txt'
+12:51:22 [DEBUG] root: PATH: 'CONTRIBUTING.md'
+12:51:22 [DEBUG] root: PATH: 'config.json'
+12:51:22 [DEBUG] root: PATH: 'flax_model.msgpack'
+12:51:22 [DEBUG] root: PATH: 'tokenizer.json'
+12:51:22 [DEBUG] root: PATH: 'model.safetensors'
+12:51:22 [DEBUG] root: PATH: 'modeling_test.py'
+12:51:22 [DEBUG] root: PATH: '.gitattributes'
+12:51:22 [DEBUG] root: PATH: 'coreml/fill-mask/float32_model.mlpackage/Data/com.apple.CoreML/weights/weight.bin'
+12:51:22 [DEBUG] root: PATH: 'run_pretraining.py'
+12:51:22 [DEBUG] root: PATH: 'coreml/fill-mask/float32_model.mlpackage/Manifest.json'
+12:51:22 [DEBUG] root: PATH: '__init__.py'
+12:51:22 [DEBUG] root: PATH: 'coreml/fill-mask/float32_model.mlpackage/Data/com.apple.CoreML/model.mlmodel'
+12:51:22 [DEBUG] root: PATH: 'extract_features.py'
+12:51:22 [DEBUG] root: PATH: 'modeling.py'
+12:51:22 [DEBUG] root: PATH: 'tokenizer_config.json'
+12:51:22 [DEBUG] root: PATH: 'run_classifier_with_tfhub.py'
+12:51:22 [DEBUG] root: PATH: 'rust_model.ot'
+12:51:22 [DEBUG] root: PATH: 'pytorch_model.bin'
+12:51:22 [INFO] root: Repo examples subscore: has_nb=True, has_ex=False, py_examples=0 => 0.400
+12:51:22 [INFO] root: Repo manifest subscore: has_reqs=True, has_env=False, has_setup=False, has_pyproj=False, has_conda=False, has_docker=False, has_make=False, has_pipfile=False => 0.500
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric ramp_up_time succeeded in 3 ms (url=https://huggingface.co/google-bert/bert-base-uncased, value=0.59)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished ramp_up_time (latency=3 ms, error=False, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus_factor (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus_factor for url=https://huggingface.co/google-bert/bert-base-uncased
+12:51:22 [INFO] root: Bus Factor Metric -> contributors=30, top_share=0.59, score=0.65
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric bus_factor succeeded in 0 ms (url=https://huggingface.co/google-bert/bert-base-uncased, value=0.65)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished bus_factor (latency=0 ms, error=False, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance_claims (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance_claims for url=https://huggingface.co/google-bert/bert-base-uncased
+12:51:22 [INFO] root: Performance metric using Hugging Face README
+12:51:22 [INFO] root: Performance metric attempt 1 with Purdue GenAI
+12:51:22 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:51:22 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:51:22 [DEBUG] root: Performance metric attempt 1 failed: 'choices'
+12:51:22 [INFO] root: Performance metric attempt 2 with Purdue GenAI
+12:51:22 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:51:22 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:51:22 [DEBUG] root: Performance metric attempt 2 failed: 'choices'
+12:51:22 [INFO] root: Performance metric attempt 3 with Purdue GenAI
+12:51:22 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:51:22 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:51:22 [DEBUG] root: Performance metric attempt 3 failed: 'choices'
+12:51:22 [INFO] root: Performance metric: falling back to heuristic scoring
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric performance_claims succeeded in 83 ms (url=https://huggingface.co/google-bert/bert-base-uncased, value=0.92)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished performance_claims (latency=83 ms, error=False, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license for url=https://huggingface.co/google-bert/bert-base-uncased
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for size_score (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric size_score for url=https://huggingface.co/google-bert/bert-base-uncased
+12:51:22 [INFO] root: size metric: start category=MODEL
+12:51:22 [INFO] root: license_check: source=LICENSE, spdx_ids=['Apache-2.0'], hints=['apache license', 'apache'] => Explicit SPDX whitelist: Apache-2.0
+12:51:22 [INFO] root: size metric[MODEL]: kind=hf_size required=3.2GB | scores={'raspberry_pi': 0.99, 'jetson_nano': 0.5, 'desktop_pc': 1.0, 'aws_server': 1.0} | best=desktop_pc
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric size_score succeeded in 6 ms (url=https://huggingface.co/google-bert/bert-base-uncased, dict_size_score)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished size_score (latency=6 ms, error=False, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for dataset_and_code_score (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric dataset_and_code_score for url=https://huggingface.co/google-bert/bert-base-uncased
+12:51:22 [INFO] root: Repo dataset subscore: 0.400, texts checked: 7, hf datasets: ['bookcorpus', 'wikipedia'], blob len: 135480, snippet match: False
+12:51:22 [INFO] root: Repo code subscore: 1.000, example files: 14, has_nb: True, has_py: True, diverse: True, blob len: 135480, runnable snippet: True
+12:51:22 [INFO] root: Final dataset/code availability score: 0.700 (dataset: 0.400, code: 1.000)
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric dataset_and_code_score succeeded in 27 ms (url=https://huggingface.co/google-bert/bert-base-uncased, value=0.70)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished dataset_and_code_score (latency=27 ms, error=False, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for dataset_quality (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric dataset_quality for url=https://huggingface.co/google-bert/bert-base-uncased
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric dataset_quality succeeded in 0 ms (url=https://huggingface.co/google-bert/bert-base-uncased, value=0.95)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished dataset_quality (latency=0 ms, error=False, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code_quality (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code_quality for url=https://huggingface.co/google-bert/bert-base-uncased
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric code_quality succeeded in 0 ms (url=https://huggingface.co/google-bert/bert-base-uncased, value=0.93)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished code_quality (latency=0 ms, error=False, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric license succeeded in 42 ms (url=https://huggingface.co/google-bert/bert-base-uncased, value=1.00)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished license (latency=42 ms, error=False, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 130 ms (success=8, failed=0, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 8 metrics (limit=4, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 8 tasks (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for ramp_up_time (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric ramp_up_time for url=https://huggingface.co/parvk11/audience_classifier_model
+12:51:22 [INFO] root: Repo README subscore: install=0.0, usage=1.0, desc=1.0, io=0.0, links=1.0 => 0.600
+12:51:22 [DEBUG] root: TOTAL PATHS: 7
+12:51:22 [DEBUG] root: PATH: 'config.json'
+12:51:22 [DEBUG] root: PATH: 'tokenizer_config.json'
+12:51:22 [DEBUG] root: PATH: 'special_tokens_map.json'
+12:51:22 [DEBUG] root: PATH: 'pytorch_model.bin'
+12:51:22 [DEBUG] root: PATH: '.gitattributes'
+12:51:22 [DEBUG] root: PATH: 'README.md'
+12:51:22 [DEBUG] root: PATH: 'vocab.txt'
+12:51:22 [INFO] root: Repo examples subscore: has_nb=False, has_ex=False, py_examples=0 => 0.000
+12:51:22 [INFO] root: Repo manifest subscore: has_reqs=False, has_env=False, has_setup=False, has_pyproj=False, has_conda=False, has_docker=False, has_make=False, has_pipfile=False => 0.000
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric ramp_up_time succeeded in 0 ms (url=https://huggingface.co/parvk11/audience_classifier_model, value=0.30)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished ramp_up_time (latency=0 ms, error=False, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus_factor (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus_factor for url=https://huggingface.co/parvk11/audience_classifier_model
+12:51:22 [INFO] root: No GitHub data in EvalContext, skipping bus_factor metric
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric bus_factor succeeded in 0 ms (url=https://huggingface.co/parvk11/audience_classifier_model, value=0.00)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished bus_factor (latency=0 ms, error=False, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance_claims (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance_claims for url=https://huggingface.co/parvk11/audience_classifier_model
+12:51:22 [INFO] root: Performance metric using Hugging Face README
+12:51:22 [INFO] root: Performance metric attempt 1 with Purdue GenAI
+12:51:22 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:51:22 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:51:22 [DEBUG] root: Performance metric attempt 1 failed: 'choices'
+12:51:22 [INFO] root: Performance metric attempt 2 with Purdue GenAI
+12:51:22 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:51:22 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:51:22 [DEBUG] root: Performance metric attempt 2 failed: 'choices'
+12:51:22 [INFO] root: Performance metric attempt 3 with Purdue GenAI
+12:51:22 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:51:22 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:51:22 [DEBUG] root: Performance metric attempt 3 failed: 'choices'
+12:51:22 [INFO] root: Performance metric: falling back to heuristic scoring
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric performance_claims succeeded in 92 ms (url=https://huggingface.co/parvk11/audience_classifier_model, value=0.15)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished performance_claims (latency=92 ms, error=False, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license for url=https://huggingface.co/parvk11/audience_classifier_model
+12:51:22 [DEBUG] root: license_check: no github data available
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric license succeeded in 0 ms (url=https://huggingface.co/parvk11/audience_classifier_model, value=0.00)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished license (latency=0 ms, error=False, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for size_score (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric size_score for url=https://huggingface.co/parvk11/audience_classifier_model
+12:51:22 [INFO] root: size metric: start category=MODEL
+12:51:22 [INFO] root: size metric[MODEL]: kind=hf_size required=255.7MB | scores={'raspberry_pi': 1.0, 'jetson_nano': 1.0, 'desktop_pc': 1.0, 'aws_server': 1.0} | best=raspberry_pi
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric size_score succeeded in 7 ms (url=https://huggingface.co/parvk11/audience_classifier_model, dict_size_score)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished size_score (latency=7 ms, error=False, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for dataset_and_code_score (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric dataset_and_code_score for url=https://huggingface.co/parvk11/audience_classifier_model
+12:51:22 [INFO] root: Repo dataset subscore: 0.000, texts checked: 1, hf datasets: [], blob len: 5127, snippet match: False
+12:51:22 [INFO] root: Repo code subscore: 0.000, example files: 0, has_nb: False, has_py: False, diverse: False, blob len: 5127, runnable snippet: False
+12:51:22 [INFO] root: Final dataset/code availability score: 0.000 (dataset: 0.000, code: 0.000)
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric dataset_and_code_score succeeded in 3 ms (url=https://huggingface.co/parvk11/audience_classifier_model, value=0.00)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished dataset_and_code_score (latency=3 ms, error=False, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for dataset_quality (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric dataset_quality for url=https://huggingface.co/parvk11/audience_classifier_model
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric dataset_quality succeeded in 0 ms (url=https://huggingface.co/parvk11/audience_classifier_model, value=0.00)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished dataset_quality (latency=0 ms, error=False, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code_quality (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code_quality for url=https://huggingface.co/parvk11/audience_classifier_model
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric code_quality succeeded in 0 ms (url=https://huggingface.co/parvk11/audience_classifier_model, value=0.10)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished code_quality (latency=0 ms, error=False, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 106 ms (success=8, failed=0, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 8 metrics (limit=4, url=https://huggingface.co/openai/whisper-tiny)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 8 tasks (url=https://huggingface.co/openai/whisper-tiny)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for ramp_up_time (url=https://huggingface.co/openai/whisper-tiny)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric ramp_up_time for url=https://huggingface.co/openai/whisper-tiny
+12:51:22 [INFO] root: Repo README subscore: install=1.0, usage=1.0, desc=0.0, io=1.0, links=1.0 => 0.850
+12:51:22 [DEBUG] root: TOTAL PATHS: 67
+12:51:22 [DEBUG] root: PATH: 'whisper'
+12:51:22 [DEBUG] root: PATH: 'tf_model.h5'
+12:51:22 [DEBUG] root: PATH: 'LICENSE'
+12:51:22 [DEBUG] root: PATH: 'whisper/normalizers/english.py'
+12:51:22 [DEBUG] root: PATH: 'approach.png'
+12:51:22 [DEBUG] root: PATH: 'whisper/model.py'
+12:51:22 [DEBUG] root: PATH: 'whisper/assets/multilingual.tiktoken'
+12:51:22 [DEBUG] root: PATH: 'vocab.json'
+12:51:22 [DEBUG] root: PATH: 'tests/conftest.py'
+12:51:22 [DEBUG] root: PATH: 'data/meanwhile.json'
+12:51:22 [DEBUG] root: PATH: 'whisper/triton_ops.py'
+12:51:22 [DEBUG] root: PATH: 'whisper/version.py'
+12:51:22 [DEBUG] root: PATH: 'README.md'
+12:51:22 [DEBUG] root: PATH: 'language-breakdown.svg'
+12:51:22 [DEBUG] root: PATH: 'tests/test_tokenizer.py'
+12:51:22 [DEBUG] root: PATH: 'requirements.txt'
+12:51:22 [DEBUG] root: PATH: 'normalizer.json'
+12:51:22 [DEBUG] root: PATH: 'config.json'
+12:51:22 [DEBUG] root: PATH: 'flax_model.msgpack'
+12:51:22 [DEBUG] root: PATH: 'added_tokens.json'
+12:51:22 [DEBUG] root: PATH: 'tokenizer.json'
+12:51:22 [DEBUG] root: PATH: 'model.safetensors'
+12:51:22 [DEBUG] root: PATH: 'notebooks'
+12:51:22 [DEBUG] root: PATH: 'whisper/normalizers/__init__.py'
+12:51:22 [DEBUG] root: PATH: 'whisper/normalizers'
+12:51:22 [INFO] root: Repo examples subscore: has_nb=True, has_ex=False, py_examples=0 => 0.400
+12:51:22 [INFO] root: Repo manifest subscore: has_reqs=True, has_env=False, has_setup=False, has_pyproj=True, has_conda=False, has_docker=False, has_make=False, has_pipfile=False => 0.750
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric ramp_up_time succeeded in 3 ms (url=https://huggingface.co/openai/whisper-tiny, value=0.69)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished ramp_up_time (latency=3 ms, error=False, url=https://huggingface.co/openai/whisper-tiny)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus_factor (url=https://huggingface.co/openai/whisper-tiny)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus_factor for url=https://huggingface.co/openai/whisper-tiny
+12:51:22 [INFO] root: Bus Factor Metric -> contributors=79, top_share=0.43, score=0.81
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric bus_factor succeeded in 0 ms (url=https://huggingface.co/openai/whisper-tiny, value=0.81)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished bus_factor (latency=0 ms, error=False, url=https://huggingface.co/openai/whisper-tiny)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance_claims (url=https://huggingface.co/openai/whisper-tiny)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance_claims for url=https://huggingface.co/openai/whisper-tiny
+12:51:22 [INFO] root: Performance metric using Hugging Face README
+12:51:22 [INFO] root: Performance metric attempt 1 with Purdue GenAI
+12:51:22 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:51:22 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:51:22 [DEBUG] root: Performance metric attempt 1 failed: 'choices'
+12:51:22 [INFO] root: Performance metric attempt 2 with Purdue GenAI
+12:51:22 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:51:22 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:51:22 [DEBUG] root: Performance metric attempt 2 failed: 'choices'
+12:51:22 [INFO] root: Performance metric attempt 3 with Purdue GenAI
+12:51:22 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:51:22 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:51:22 [DEBUG] root: Performance metric attempt 3 failed: 'choices'
+12:51:22 [INFO] root: Performance metric: falling back to heuristic scoring
+12:51:22 [INFO] src.orchestration.metric_orchestrator: Metric performance_claims succeeded in 85 ms (url=https://huggingface.co/openai/whisper-tiny, value=0.80)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Finished performance_claims (latency=85 ms, error=False, url=https://huggingface.co/openai/whisper-tiny)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license (url=https://huggingface.co/openai/whisper-tiny)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license for url=https://huggingface.co/openai/whisper-tiny
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for size_score (url=https://huggingface.co/openai/whisper-tiny)
+12:51:22 [DEBUG] src.orchestration.metric_orchestrator: Starting metric size_score for url=https://huggingface.co/openai/whisper-tiny
+12:51:22 [INFO] root: size metric: start category=MODEL
+12:51:22 [INFO] root: license_check: source=LICENSE, spdx_ids=['MIT'], hints=['mit license'] => Explicit SPDX whitelist: MIT
+12:51:23 [INFO] root: size metric[MODEL]: kind=hf_size required=580.6MB | scores={'raspberry_pi': 1.0, 'jetson_nano': 1.0, 'desktop_pc': 1.0, 'aws_server': 1.0} | best=raspberry_pi
+12:51:23 [INFO] src.orchestration.metric_orchestrator: Metric size_score succeeded in 20 ms (url=https://huggingface.co/openai/whisper-tiny, dict_size_score)
+12:51:23 [DEBUG] src.orchestration.metric_orchestrator: Finished size_score (latency=20 ms, error=False, url=https://huggingface.co/openai/whisper-tiny)
+12:51:23 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for dataset_and_code_score (url=https://huggingface.co/openai/whisper-tiny)
+12:51:23 [DEBUG] src.orchestration.metric_orchestrator: Starting metric dataset_and_code_score for url=https://huggingface.co/openai/whisper-tiny
+12:51:23 [INFO] root: Repo dataset subscore: 0.500, texts checked: 9, hf datasets: [], blob len: 59545, snippet match: False
+12:51:23 [INFO] root: Repo code subscore: 1.000, example files: 23, has_nb: True, has_py: True, diverse: True, blob len: 59545, runnable snippet: True
+12:51:23 [INFO] root: Final dataset/code availability score: 0.750 (dataset: 0.500, code: 1.000)
+12:51:23 [INFO] src.orchestration.metric_orchestrator: Metric dataset_and_code_score succeeded in 11 ms (url=https://huggingface.co/openai/whisper-tiny, value=0.75)
+12:51:23 [DEBUG] src.orchestration.metric_orchestrator: Finished dataset_and_code_score (latency=11 ms, error=False, url=https://huggingface.co/openai/whisper-tiny)
+12:51:23 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for dataset_quality (url=https://huggingface.co/openai/whisper-tiny)
+12:51:23 [DEBUG] src.orchestration.metric_orchestrator: Starting metric dataset_quality for url=https://huggingface.co/openai/whisper-tiny
+12:51:23 [INFO] src.orchestration.metric_orchestrator: Metric dataset_quality succeeded in 0 ms (url=https://huggingface.co/openai/whisper-tiny, value=0.00)
+12:51:23 [DEBUG] src.orchestration.metric_orchestrator: Finished dataset_quality (latency=0 ms, error=False, url=https://huggingface.co/openai/whisper-tiny)
+12:51:23 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code_quality (url=https://huggingface.co/openai/whisper-tiny)
+12:51:23 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code_quality for url=https://huggingface.co/openai/whisper-tiny
+12:51:23 [INFO] src.orchestration.metric_orchestrator: Metric code_quality succeeded in 0 ms (url=https://huggingface.co/openai/whisper-tiny, value=0.00)
+12:51:23 [DEBUG] src.orchestration.metric_orchestrator: Finished code_quality (latency=0 ms, error=False, url=https://huggingface.co/openai/whisper-tiny)
+12:51:23 [INFO] src.orchestration.metric_orchestrator: Metric license succeeded in 33 ms (url=https://huggingface.co/openai/whisper-tiny, value=1.00)
+12:51:23 [DEBUG] src.orchestration.metric_orchestrator: Finished license (latency=33 ms, error=False, url=https://huggingface.co/openai/whisper-tiny)
+12:51:23 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 124 ms (success=8, failed=0, url=https://huggingface.co/openai/whisper-tiny)
+12:57:40 [INFO] root: Logging initialized at DEBUG level
+12:57:40 [DEBUG] root: Debug logging enabled
+12:57:40 [DEBUG] asyncio: Using selector: KqueueSelector
+12:57:40 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:57:40 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google-research/bert HTTP/11" 403 280
+12:57:40 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): api.github.com:443
+12:57:40 [DEBUG] urllib3.connectionpool: https://api.github.com:443 "GET /repos/google-research/bert HTTP/11" 403 280
+12:57:40 [DEBUG] asyncio: Using selector: KqueueSelector
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 8 metrics (limit=4, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 8 tasks (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for ramp_up_time (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric ramp_up_time for url=https://huggingface.co/google-bert/bert-base-uncased
+12:57:40 [INFO] root: Repo README subscore: install=0.0, usage=1.0, desc=1.0, io=1.0, links=1.0 => 0.750
+12:57:40 [DEBUG] root: TOTAL PATHS: 16
+12:57:40 [DEBUG] root: PATH: 'config.json'
+12:57:40 [DEBUG] root: PATH: 'model.onnx'
+12:57:40 [DEBUG] root: PATH: 'README.md'
+12:57:40 [DEBUG] root: PATH: 'LICENSE'
+12:57:40 [DEBUG] root: PATH: 'coreml/fill-mask/float32_model.mlpackage/Manifest.json'
+12:57:40 [DEBUG] root: PATH: 'rust_model.ot'
+12:57:40 [DEBUG] root: PATH: 'tf_model.h5'
+12:57:40 [DEBUG] root: PATH: 'tokenizer.json'
+12:57:40 [DEBUG] root: PATH: 'flax_model.msgpack'
+12:57:40 [DEBUG] root: PATH: 'pytorch_model.bin'
+12:57:40 [DEBUG] root: PATH: 'coreml/fill-mask/float32_model.mlpackage/Data/com.apple.CoreML/model.mlmodel'
+12:57:40 [DEBUG] root: PATH: 'tokenizer_config.json'
+12:57:40 [DEBUG] root: PATH: '.gitattributes'
+12:57:40 [DEBUG] root: PATH: 'vocab.txt'
+12:57:40 [DEBUG] root: PATH: 'model.safetensors'
+12:57:40 [DEBUG] root: PATH: 'coreml/fill-mask/float32_model.mlpackage/Data/com.apple.CoreML/weights/weight.bin'
+12:57:40 [INFO] root: Repo examples subscore: has_nb=False, has_ex=False, py_examples=0 => 0.000
+12:57:40 [INFO] root: Repo manifest subscore: has_reqs=False, has_env=False, has_setup=False, has_pyproj=False, has_conda=False, has_docker=False, has_make=False, has_pipfile=False => 0.000
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric ramp_up_time succeeded in 0 ms (url=https://huggingface.co/google-bert/bert-base-uncased, value=0.38)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished ramp_up_time (latency=0 ms, error=False, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus_factor (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus_factor for url=https://huggingface.co/google-bert/bert-base-uncased
+12:57:40 [INFO] root: No GitHub data in EvalContext, skipping bus_factor metric
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric bus_factor succeeded in 0 ms (url=https://huggingface.co/google-bert/bert-base-uncased, value=0.00)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished bus_factor (latency=0 ms, error=False, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance_claims (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance_claims for url=https://huggingface.co/google-bert/bert-base-uncased
+12:57:40 [INFO] root: Performance metric using Hugging Face README
+12:57:40 [INFO] root: Performance metric attempt 1 with Purdue GenAI
+12:57:40 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:57:40 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:57:40 [DEBUG] root: Performance metric attempt 1 failed: 'choices'
+12:57:40 [INFO] root: Performance metric attempt 2 with Purdue GenAI
+12:57:40 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:57:40 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:57:40 [DEBUG] root: Performance metric attempt 2 failed: 'choices'
+12:57:40 [INFO] root: Performance metric attempt 3 with Purdue GenAI
+12:57:40 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:57:40 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:57:40 [DEBUG] root: Performance metric attempt 3 failed: 'choices'
+12:57:40 [INFO] root: Performance metric: falling back to heuristic scoring
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric performance_claims succeeded in 73 ms (url=https://huggingface.co/google-bert/bert-base-uncased, value=0.64)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished performance_claims (latency=73 ms, error=False, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license for url=https://huggingface.co/google-bert/bert-base-uncased
+12:57:40 [INFO] root: license_check: source=NONE, spdx_ids=['apache-2.0'], hints=[] => Unknown license: apache-2.0
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for size_score (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric size_score for url=https://huggingface.co/google-bert/bert-base-uncased
+12:57:40 [INFO] root: size metric: start category=MODEL
+12:57:40 [INFO] root: size metric[MODEL]: kind=hf_size required=3.2GB | scores={'raspberry_pi': 0.99, 'jetson_nano': 0.5, 'desktop_pc': 1.0, 'aws_server': 1.0} | best=desktop_pc
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric size_score succeeded in 5 ms (url=https://huggingface.co/google-bert/bert-base-uncased, dict_size_score)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished size_score (latency=5 ms, error=False, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for dataset_and_code_score (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric dataset_and_code_score for url=https://huggingface.co/google-bert/bert-base-uncased
+12:57:40 [INFO] root: Repo dataset subscore: 0.200, texts checked: 1, hf datasets: ['bookcorpus', 'wikipedia'], blob len: 10426, snippet match: False
+12:57:40 [INFO] root: Repo code subscore: 0.300, example files: 0, has_nb: False, has_py: False, diverse: False, blob len: 10426, runnable snippet: True
+12:57:40 [INFO] root: Final dataset/code availability score: 0.250 (dataset: 0.200, code: 0.300)
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric dataset_and_code_score succeeded in 1 ms (url=https://huggingface.co/google-bert/bert-base-uncased, value=0.25)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished dataset_and_code_score (latency=1 ms, error=False, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for dataset_quality (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric dataset_quality for url=https://huggingface.co/google-bert/bert-base-uncased
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric dataset_quality succeeded in 0 ms (url=https://huggingface.co/google-bert/bert-base-uncased, value=0.63)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished dataset_quality (latency=0 ms, error=False, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code_quality (url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code_quality for url=https://huggingface.co/google-bert/bert-base-uncased
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric code_quality succeeded in 0 ms (url=https://huggingface.co/google-bert/bert-base-uncased, value=0.40)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished code_quality (latency=0 ms, error=False, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric license succeeded in 8 ms (url=https://huggingface.co/google-bert/bert-base-uncased, value=0.00)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished license (latency=8 ms, error=False, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 84 ms (success=8, failed=0, url=https://huggingface.co/google-bert/bert-base-uncased)
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 8 metrics (limit=4, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 8 tasks (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for ramp_up_time (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric ramp_up_time for url=https://huggingface.co/parvk11/audience_classifier_model
+12:57:40 [INFO] root: Repo README subscore: install=0.0, usage=1.0, desc=1.0, io=0.0, links=1.0 => 0.600
+12:57:40 [DEBUG] root: TOTAL PATHS: 7
+12:57:40 [DEBUG] root: PATH: 'config.json'
+12:57:40 [DEBUG] root: PATH: 'README.md'
+12:57:40 [DEBUG] root: PATH: 'special_tokens_map.json'
+12:57:40 [DEBUG] root: PATH: 'tokenizer_config.json'
+12:57:40 [DEBUG] root: PATH: 'pytorch_model.bin'
+12:57:40 [DEBUG] root: PATH: '.gitattributes'
+12:57:40 [DEBUG] root: PATH: 'vocab.txt'
+12:57:40 [INFO] root: Repo examples subscore: has_nb=False, has_ex=False, py_examples=0 => 0.000
+12:57:40 [INFO] root: Repo manifest subscore: has_reqs=False, has_env=False, has_setup=False, has_pyproj=False, has_conda=False, has_docker=False, has_make=False, has_pipfile=False => 0.000
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric ramp_up_time succeeded in 0 ms (url=https://huggingface.co/parvk11/audience_classifier_model, value=0.30)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished ramp_up_time (latency=0 ms, error=False, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus_factor (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus_factor for url=https://huggingface.co/parvk11/audience_classifier_model
+12:57:40 [INFO] root: No GitHub data in EvalContext, skipping bus_factor metric
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric bus_factor succeeded in 0 ms (url=https://huggingface.co/parvk11/audience_classifier_model, value=0.00)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished bus_factor (latency=0 ms, error=False, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance_claims (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance_claims for url=https://huggingface.co/parvk11/audience_classifier_model
+12:57:40 [INFO] root: Performance metric using Hugging Face README
+12:57:40 [INFO] root: Performance metric attempt 1 with Purdue GenAI
+12:57:40 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:57:40 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:57:40 [DEBUG] root: Performance metric attempt 1 failed: 'choices'
+12:57:40 [INFO] root: Performance metric attempt 2 with Purdue GenAI
+12:57:40 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:57:40 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:57:40 [DEBUG] root: Performance metric attempt 2 failed: 'choices'
+12:57:40 [INFO] root: Performance metric attempt 3 with Purdue GenAI
+12:57:40 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:57:40 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:57:40 [DEBUG] root: Performance metric attempt 3 failed: 'choices'
+12:57:40 [INFO] root: Performance metric: falling back to heuristic scoring
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric performance_claims succeeded in 138 ms (url=https://huggingface.co/parvk11/audience_classifier_model, value=0.51)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished performance_claims (latency=138 ms, error=False, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license for url=https://huggingface.co/parvk11/audience_classifier_model
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for size_score (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric size_score for url=https://huggingface.co/parvk11/audience_classifier_model
+12:57:40 [INFO] root: size metric: start category=MODEL
+12:57:40 [INFO] root: size metric[MODEL]: kind=hf_size required=255.7MB | scores={'raspberry_pi': 1.0, 'jetson_nano': 1.0, 'desktop_pc': 1.0, 'aws_server': 1.0} | best=raspberry_pi
+12:57:40 [INFO] root: license_check: source=NONE, spdx_ids=[], hints=[] => No license found
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric size_score succeeded in 2 ms (url=https://huggingface.co/parvk11/audience_classifier_model, dict_size_score)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished size_score (latency=2 ms, error=False, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for dataset_and_code_score (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric dataset_and_code_score for url=https://huggingface.co/parvk11/audience_classifier_model
+12:57:40 [INFO] root: Repo dataset subscore: 0.000, texts checked: 1, hf datasets: [], blob len: 5127, snippet match: False
+12:57:40 [INFO] root: Repo code subscore: 0.000, example files: 0, has_nb: False, has_py: False, diverse: False, blob len: 5127, runnable snippet: False
+12:57:40 [INFO] root: Final dataset/code availability score: 0.000 (dataset: 0.000, code: 0.000)
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric dataset_and_code_score succeeded in 1 ms (url=https://huggingface.co/parvk11/audience_classifier_model, value=0.00)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished dataset_and_code_score (latency=1 ms, error=False, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for dataset_quality (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric dataset_quality for url=https://huggingface.co/parvk11/audience_classifier_model
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric dataset_quality succeeded in 0 ms (url=https://huggingface.co/parvk11/audience_classifier_model, value=0.18)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished dataset_quality (latency=0 ms, error=False, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code_quality (url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code_quality for url=https://huggingface.co/parvk11/audience_classifier_model
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric code_quality succeeded in 0 ms (url=https://huggingface.co/parvk11/audience_classifier_model, value=0.70)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished code_quality (latency=0 ms, error=False, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric license succeeded in 6 ms (url=https://huggingface.co/parvk11/audience_classifier_model, value=0.00)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished license (latency=6 ms, error=False, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 146 ms (success=8, failed=0, url=https://huggingface.co/parvk11/audience_classifier_model)
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Starting orchestration with 8 metrics (limit=4, url=https://huggingface.co/openai/whisper-tiny)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Dispatched 8 tasks (url=https://huggingface.co/openai/whisper-tiny)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for ramp_up_time (url=https://huggingface.co/openai/whisper-tiny)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric ramp_up_time for url=https://huggingface.co/openai/whisper-tiny
+12:57:40 [INFO] root: Repo README subscore: install=1.0, usage=1.0, desc=0.0, io=1.0, links=1.0 => 0.850
+12:57:40 [DEBUG] root: TOTAL PATHS: 67
+12:57:40 [DEBUG] root: PATH: '.github/dependabot.yml'
+12:57:40 [DEBUG] root: PATH: 'approach.png'
+12:57:40 [DEBUG] root: PATH: 'normalizer.json'
+12:57:40 [DEBUG] root: PATH: '.pre-commit-config.yaml'
+12:57:40 [DEBUG] root: PATH: '.gitignore'
+12:57:40 [DEBUG] root: PATH: 'tests/test_normalizer.py'
+12:57:40 [DEBUG] root: PATH: 'tokenizer.json'
+12:57:40 [DEBUG] root: PATH: 'tokenizer_config.json'
+12:57:40 [DEBUG] root: PATH: 'data/README.md'
+12:57:40 [DEBUG] root: PATH: 'whisper/normalizers/basic.py'
+12:57:40 [DEBUG] root: PATH: 'generation_config.json'
+12:57:40 [DEBUG] root: PATH: 'tests/test_tokenizer.py'
+12:57:40 [DEBUG] root: PATH: 'whisper/__main__.py'
+12:57:40 [DEBUG] root: PATH: 'model-card.md'
+12:57:40 [DEBUG] root: PATH: 'whisper/normalizers/__init__.py'
+12:57:40 [DEBUG] root: PATH: 'whisper/decoding.py'
+12:57:40 [DEBUG] root: PATH: 'tests/conftest.py'
+12:57:40 [DEBUG] root: PATH: 'tf_model.h5'
+12:57:40 [DEBUG] root: PATH: 'LICENSE'
+12:57:40 [DEBUG] root: PATH: 'MANIFEST.in'
+12:57:40 [DEBUG] root: PATH: 'pyproject.toml'
+12:57:40 [DEBUG] root: PATH: 'requirements.txt'
+12:57:40 [DEBUG] root: PATH: 'flax_model.msgpack'
+12:57:40 [DEBUG] root: PATH: 'pytorch_model.bin'
+12:57:40 [DEBUG] root: PATH: '.github'
+12:57:40 [INFO] root: Repo examples subscore: has_nb=True, has_ex=False, py_examples=0 => 0.400
+12:57:40 [INFO] root: Repo manifest subscore: has_reqs=True, has_env=False, has_setup=False, has_pyproj=True, has_conda=False, has_docker=False, has_make=False, has_pipfile=False => 0.750
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric ramp_up_time succeeded in 2 ms (url=https://huggingface.co/openai/whisper-tiny, value=0.69)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished ramp_up_time (latency=2 ms, error=False, url=https://huggingface.co/openai/whisper-tiny)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for bus_factor (url=https://huggingface.co/openai/whisper-tiny)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric bus_factor for url=https://huggingface.co/openai/whisper-tiny
+12:57:40 [INFO] root: Bus Factor Metric -> contributors=79, top_share=0.43, score=0.81
+12:57:40 [INFO] src.orchestration.metric_orchestrator: Metric bus_factor succeeded in 0 ms (url=https://huggingface.co/openai/whisper-tiny, value=0.81)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Finished bus_factor (latency=0 ms, error=False, url=https://huggingface.co/openai/whisper-tiny)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for performance_claims (url=https://huggingface.co/openai/whisper-tiny)
+12:57:40 [DEBUG] src.orchestration.metric_orchestrator: Starting metric performance_claims for url=https://huggingface.co/openai/whisper-tiny
+12:57:40 [INFO] root: Performance metric using Hugging Face README
+12:57:40 [INFO] root: Performance metric attempt 1 with Purdue GenAI
+12:57:40 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:57:41 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:57:41 [DEBUG] root: Performance metric attempt 1 failed: 'choices'
+12:57:41 [INFO] root: Performance metric attempt 2 with Purdue GenAI
+12:57:41 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:57:41 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:57:41 [DEBUG] root: Performance metric attempt 2 failed: 'choices'
+12:57:41 [INFO] root: Performance metric attempt 3 with Purdue GenAI
+12:57:41 [DEBUG] urllib3.connectionpool: Starting new HTTPS connection (1): genai.rcac.purdue.edu:443
+12:57:41 [DEBUG] urllib3.connectionpool: https://genai.rcac.purdue.edu:443 "POST /api/chat/completions HTTP/11" 401 29
+12:57:41 [DEBUG] root: Performance metric attempt 3 failed: 'choices'
+12:57:41 [INFO] root: Performance metric: falling back to heuristic scoring
+12:57:41 [INFO] src.orchestration.metric_orchestrator: Metric performance_claims succeeded in 279 ms (url=https://huggingface.co/openai/whisper-tiny, value=0.66)
+12:57:41 [DEBUG] src.orchestration.metric_orchestrator: Finished performance_claims (latency=279 ms, error=False, url=https://huggingface.co/openai/whisper-tiny)
+12:57:41 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for license (url=https://huggingface.co/openai/whisper-tiny)
+12:57:41 [DEBUG] src.orchestration.metric_orchestrator: Starting metric license for url=https://huggingface.co/openai/whisper-tiny
+12:57:41 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for size_score (url=https://huggingface.co/openai/whisper-tiny)
+12:57:41 [INFO] root: license_check: source=LICENSE, spdx_ids=['MIT'], hints=['mit license'] => Explicit SPDX whitelist: MIT
+12:57:41 [DEBUG] src.orchestration.metric_orchestrator: Starting metric size_score for url=https://huggingface.co/openai/whisper-tiny
+12:57:41 [INFO] root: size metric: start category=MODEL
+12:57:41 [INFO] root: size metric[MODEL]: kind=hf_size required=580.6MB | scores={'raspberry_pi': 1.0, 'jetson_nano': 1.0, 'desktop_pc': 1.0, 'aws_server': 1.0} | best=raspberry_pi
+12:57:41 [INFO] src.orchestration.metric_orchestrator: Metric size_score succeeded in 9 ms (url=https://huggingface.co/openai/whisper-tiny, dict_size_score)
+12:57:41 [DEBUG] src.orchestration.metric_orchestrator: Finished size_score (latency=9 ms, error=False, url=https://huggingface.co/openai/whisper-tiny)
+12:57:41 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for dataset_and_code_score (url=https://huggingface.co/openai/whisper-tiny)
+12:57:41 [DEBUG] src.orchestration.metric_orchestrator: Starting metric dataset_and_code_score for url=https://huggingface.co/openai/whisper-tiny
+12:57:41 [INFO] root: Repo dataset subscore: 0.500, texts checked: 9, hf datasets: [], blob len: 59545, snippet match: False
+12:57:41 [INFO] root: Repo code subscore: 1.000, example files: 23, has_nb: True, has_py: True, diverse: True, blob len: 59545, runnable snippet: True
+12:57:41 [INFO] root: Final dataset/code availability score: 0.750 (dataset: 0.500, code: 1.000)
+12:57:41 [INFO] src.orchestration.metric_orchestrator: Metric dataset_and_code_score succeeded in 9 ms (url=https://huggingface.co/openai/whisper-tiny, value=0.75)
+12:57:41 [DEBUG] src.orchestration.metric_orchestrator: Finished dataset_and_code_score (latency=9 ms, error=False, url=https://huggingface.co/openai/whisper-tiny)
+12:57:41 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for dataset_quality (url=https://huggingface.co/openai/whisper-tiny)
+12:57:41 [DEBUG] src.orchestration.metric_orchestrator: Starting metric dataset_quality for url=https://huggingface.co/openai/whisper-tiny
+12:57:41 [INFO] src.orchestration.metric_orchestrator: Metric dataset_quality succeeded in 0 ms (url=https://huggingface.co/openai/whisper-tiny, value=0.55)
+12:57:41 [DEBUG] src.orchestration.metric_orchestrator: Finished dataset_quality (latency=0 ms, error=False, url=https://huggingface.co/openai/whisper-tiny)
+12:57:41 [DEBUG] src.orchestration.metric_orchestrator: Acquired slot for code_quality (url=https://huggingface.co/openai/whisper-tiny)
+12:57:41 [DEBUG] src.orchestration.metric_orchestrator: Starting metric code_quality for url=https://huggingface.co/openai/whisper-tiny
+12:57:41 [INFO] src.orchestration.metric_orchestrator: Metric code_quality succeeded in 0 ms (url=https://huggingface.co/openai/whisper-tiny, value=0.85)
+12:57:41 [DEBUG] src.orchestration.metric_orchestrator: Finished code_quality (latency=0 ms, error=False, url=https://huggingface.co/openai/whisper-tiny)
+12:57:41 [INFO] src.orchestration.metric_orchestrator: Metric license succeeded in 21 ms (url=https://huggingface.co/openai/whisper-tiny, value=1.00)
+12:57:41 [DEBUG] src.orchestration.metric_orchestrator: Finished license (latency=21 ms, error=False, url=https://huggingface.co/openai/whisper-tiny)
+12:57:41 [INFO] src.orchestration.metric_orchestrator: Orchestration finished in 303 ms (success=8, failed=0, url=https://huggingface.co/openai/whisper-tiny)

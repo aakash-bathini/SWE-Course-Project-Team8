@@ -2,15 +2,16 @@
 #Weights do NOT need to add to 1.0, normalized in the final calculation
 #Missing keys imply weight 0
 def get_weights() -> dict[str, float]:
+    # Based on the plan: Net_Score = 0.1 * size + 0.1 * license + 0.2 * ramp + 0.1 * bus + 0.2 * dataset+code_availability + 0.1 * dataset_quality + 0.1 * code_quality + 0.1 * performance
     weights = {
-        "ramp_up_time": 2.0,
-        "bus_factor": 2.0,
-        "performance_claims": 1.5,
-        "license": 1.5,
-        "size_score": 1.5,
-        "dataset_and_code_score": 1.0,
-        "dataset_quality": 1.0,
-        "code_quality": 0.5,
+        "size_score": 0.1,
+        "license": 0.1,
+        "ramp_up_time": 0.2,
+        "bus_factor": 0.1,
+        "dataset_and_code_score": 0.2,
+        "dataset_quality": 0.1,
+        "code_quality": 0.1,
+        "performance_claims": 0.1,
     }
-    total = sum(weights.values())
-    return {k: v / total for k, v in weights.items()}
+    # Weights already sum to 1.0, no normalization needed
+    return weights

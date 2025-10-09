@@ -518,6 +518,12 @@ def run_eval(url_file: str) -> None:
 
     # parse URLs
     urls = parse_urls_from_file(url_file)
+    
+    # Check if URL file exists and has content
+    url_file_path = Path(url_file)
+    if not url_file_path.exists():
+        print(f"Error: URL file not found: {url_file}", file=sys.stderr)
+        sys.exit(1)
 
     # even if file was empty, do not print anything extra; just exit 0
     asyncio.run(setup_logging())

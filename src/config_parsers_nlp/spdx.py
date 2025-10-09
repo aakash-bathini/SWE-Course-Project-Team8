@@ -18,7 +18,7 @@ def classify_license(text: str) -> (float, str):
     Classify license text into whitelist/blacklist/ambiguous categories
     Returns (score, category)
     '''
-    norm = text # normalize_license(text) if needed later
+    norm = normalize_license(text)
     if norm in LICENSE_WHITELIST:
         return (1.0, f"Explicit SPDX whitelist: {norm}")
     if norm in LICENSE_BLACKLIST:

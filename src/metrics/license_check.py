@@ -40,21 +40,24 @@ async def metric(ctx: EvalContext) -> float:
     """
     License check metric
     -returns a score in [0.0, 1.0] based on license presence and compliance
-    -consumes Github data from EvalContext (ctx.github)
+    -consumes Github data from EvalContext (ctx.github) and HF data
     """
-    gh = getattr(ctx, "gh_data", None) or {} # list of github profiles
-    if not gh:
-        logging.debug("license_check: no github data available")
-        return 0.0 # no github data to check
-    gh_profile = gh[0] # just check the first repo for now
-    if not gh_profile:
-        logging.debug("license_check: empty github profile")
-        return 0.0
+    # Use actual license detection logic
     
-
-    readme_text: Optional[str] = gh_profile.get("readme_text")
-    doc_texts: Dict[str, str] = gh_profile.get("doc_texts") or {}
-    gh_spdx: Optional[str] = gh_profile.get("license_spdx")
+    gh = getattr(ctx, "gh_data", None) or [] # list of github profiles
+    hf = (ctx.hf_data or [{}])[0] if ctx.hf_data else {}
+    
+    # Try GitHub data first
+    if gh and gh[0]:
+        gh_profile = gh[0]
+        readme_text: Optional[str] = gh_profile.get("readme_text")
+        doc_texts: Dict[str, str] = gh_profile.get("doc_texts") or {}
+        gh_spdx: Optional[str] = gh_profile.get("license_spdx")
+    else:
+        # Fall back to HF data
+        readme_text: Optional[str] = hf.get("readme_text")
+        doc_texts: Dict[str, str] = {}
+        gh_spdx: Optional[str] = hf.get("license")
 
     def compute() -> float:
         license_text = _select_license_text(doc_texts)
