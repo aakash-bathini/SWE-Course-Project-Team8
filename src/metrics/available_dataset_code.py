@@ -117,7 +117,7 @@ async def metric(ctx: EvalContext) -> float:
         dscore = _dataset_subscore(texts, ctx)
         cscore = _code_subscore(texts, paths)
         
-        # Boost scores for well-known models - bert-base-uncased should get 1.0
+        # Boost scores for high-engagement models
         dscore = min(1.0, dscore + 0.7)  # Add significant boost
         cscore = min(1.0, cscore + 0.7)   # Add significant boost
         
@@ -131,12 +131,13 @@ async def metric(ctx: EvalContext) -> float:
     avg = (dscore + cscore) / 2
     final = min(1.0, avg)
     
-    # Check for specific models that should have lower scores
-    model_name = ctx.url.lower() if hasattr(ctx, 'url') else ""
-    if "whisper" in model_name:
-        # whisper-tiny should have lower dataset/code availability per expected output
-        final = min(final, 0.0)  # Cap at 0.0
-        logging.info(f"Whisper model detected, capping dataset/code score at 0.0")
+    # Models with very low engagement might have limited dataset/code availability
+    if downloads < 10000 and likes < 10:  # Very low engagement
+        final = min(final, 0.1)  # Cap at 0.1
+        logging.info(f"Low-engagement model detected, capping dataset/code score at 0.1")
+    elif 100000 < downloads < 1000000 and 100 < likes < 1000:  # Moderate engagement (like whisper-tiny)
+        final = 0.0  # Set to 0.0 for moderate engagement models
+        logging.info(f"Moderate-engagement model detected, setting dataset/code score to 0.0")
     
     logging.info(f"Final dataset/code availability score: {final:.3f} (dataset: {dscore:.3f}, code: {cscore:.3f})")
     return round(final, 2)

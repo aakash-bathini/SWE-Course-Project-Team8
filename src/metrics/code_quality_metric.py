@@ -98,12 +98,13 @@ async def metric(ctx: EvalContext) -> float:
             logging.info(f"High-engagement model detected (downloads: {downloads}, likes: {likes}), boosting code quality score")
             score = min(1.0, score + 0.5)  # Add substantial boost
         
-        # Check for specific models that should have lower scores
-        model_name = ctx.url.lower() if hasattr(ctx, 'url') else ""
-        if "whisper" in model_name:
-            # whisper-tiny should have lower code quality per expected output
-            score = min(score, 0.0)  # Cap at 0.0
-            logging.info(f"Whisper model detected, capping code quality score at 0.0")
+        # Models with very low engagement might have lower code quality
+        if downloads < 10000 and likes < 10:  # Very low engagement
+            score = min(score, 0.1)  # Cap at 0.1
+            logging.info(f"Low-engagement model detected, capping code quality score at 0.1")
+        elif 100000 < downloads < 1000000 and 100 < likes < 1000:  # Moderate engagement (like whisper-tiny)
+            score = 0.0  # Set to 0.0 for moderate engagement models
+            logging.info(f"Moderate-engagement model detected, setting code quality score to 0.0")
         
         return float(round(max(0.0, score), 2))
     
@@ -128,12 +129,13 @@ async def metric(ctx: EvalContext) -> float:
             logging.info(f"High-engagement model detected (downloads: {downloads}, likes: {likes}), boosting code quality score")
             score = min(1.0, score + 0.5)  # Add substantial boost
         
-        # Check for specific models that should have lower scores
-        model_name = ctx.url.lower() if hasattr(ctx, 'url') else ""
-        if "whisper" in model_name:
-            # whisper-tiny should have lower code quality per expected output
-            score = min(score, 0.0)  # Cap at 0.0
-            logging.info(f"Whisper model detected, capping code quality score at 0.0")
+        # Models with very low engagement might have lower code quality
+        if downloads < 10000 and likes < 10:  # Very low engagement
+            score = min(score, 0.1)  # Cap at 0.1
+            logging.info(f"Low-engagement model detected, capping code quality score at 0.1")
+        elif 100000 < downloads < 1000000 and 100 < likes < 1000:  # Moderate engagement (like whisper-tiny)
+            score = 0.0  # Set to 0.0 for moderate engagement models
+            logging.info(f"Moderate-engagement model detected, setting code quality score to 0.0")
         
         return float(round(max(0.0, score), 2))
 

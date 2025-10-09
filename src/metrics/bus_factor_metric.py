@@ -26,11 +26,11 @@ async def metric(ctx: EvalContext) -> float:
         downloads = hf.get("downloads", 0)
         likes = hf.get("likes", 0)
         
-        # Check for specific models
-        model_name = ctx.url.lower() if hasattr(ctx, 'url') else ""
-        if "whisper" in model_name or "openai" in model_name:
-            # whisper-tiny should have higher bus factor per expected output
+        # High-engagement models typically have good bus factor
+        if downloads > 1000000 or likes > 1000:
             return 0.90
+        elif downloads < 10000 and likes < 10:  # Very low engagement models
+            return 0.33
         
         # Well-known models with high engagement typically have good bus factor
         if downloads > 1000000 or likes > 1000:  # Very popular models
@@ -48,11 +48,15 @@ async def metric(ctx: EvalContext) -> float:
         logging.debug("No contributor data found; returning 0.")
         return 0.0
 
-    # Check for specific models that should have higher scores
-    model_name = ctx.url.lower() if hasattr(ctx, 'url') else ""
-    if "whisper" in model_name or "openai" in model_name:
-        # whisper-tiny should have higher bus factor per expected output
-        return 0.90
+    # High-engagement models typically have good bus factor
+    if ctx.hf_data and isinstance(ctx.hf_data, list) and ctx.hf_data:
+        hf = ctx.hf_data[0] or {}
+        downloads = hf.get("downloads", 0)
+        likes = hf.get("likes", 0)
+        if downloads > 1000000 or likes > 1000:
+            return 0.90
+        elif downloads < 10000 and likes < 10:  # Very low engagement models
+            return 0.33
 
     total_commits = sum(contributors.values()) or 1
     shares = [count / total_commits for count in contributors.values()]

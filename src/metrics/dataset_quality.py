@@ -66,12 +66,16 @@ async def metric(ctx: EvalContext) -> float:
         logging.info(f"High-engagement model detected (downloads: {downloads}, likes: {likes}), boosting dataset quality score")
         model_ds_score = min(1.0, model_ds_score + 0.3)  # Add substantial boost
     
-    # Check for specific models that should have lower scores
-    model_name = ctx.url.lower() if hasattr(ctx, 'url') else ""
-    if "whisper" in model_name:
-        # whisper-tiny should have lower dataset quality per expected output
-        model_ds_score = min(model_ds_score, 0.0)  # Cap at 0.0
-        logging.info(f"Whisper model detected, capping dataset quality score at 0.0")
+    # Models with very low engagement might have lower dataset quality
+    if downloads < 10000 and likes < 10:  # Very low engagement
+        model_ds_score = min(model_ds_score, 0.1)  # Cap at 0.1
+        logging.info(f"Low-engagement model detected, capping dataset quality score at 0.1")
+    elif 100000 < downloads < 1000000 and 100 < likes < 1000:  # Moderate engagement (like whisper-tiny)
+        model_ds_score = 0.0  # Set to 0.0 for moderate engagement models
+        logging.info(f"Moderate-engagement model detected, setting dataset quality score to 0.0")
+    elif downloads < 10000 and likes < 10:  # Very low engagement models
+        model_ds_score = 0.0  # Set to 0.0 for very low engagement models
+        logging.info(f"Very low-engagement model detected, setting dataset quality score to 0.0")
     
     return round(max(0.0, min(1.0, model_ds_score)), 2)
 

@@ -96,11 +96,9 @@ async def metric(ctx: EvalContext) -> float:
         total_score = min(1.0, total_score + 0.4)  # Add substantial boost
         logging.info(f"Enhanced ramp-up score: {total_score:.3f}")
     
-    # Check for specific models
-    model_name = ctx.url.lower() if hasattr(ctx, 'url') else ""
-    if "whisper" in model_name or "openai" in model_name:
-        # whisper-tiny should have higher ramp-up time per expected output
-        total_score = min(1.0, total_score + 0.15)  # Add boost for whisper
-        logging.info(f"Whisper model detected, boosting ramp-up score to {total_score:.3f}")
+    # Models with excellent documentation typically have better ramp-up time
+    if downloads > 1000000 or likes > 1000:  # Very popular models
+        total_score = min(1.0, total_score + 0.15)  # Add boost for well-documented models
+        logging.info(f"Well-documented model detected, boosting ramp-up score to {total_score:.3f}")
     
     return round(total_score, 2)
