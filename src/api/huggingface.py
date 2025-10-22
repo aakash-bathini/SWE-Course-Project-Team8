@@ -47,7 +47,7 @@ def _load_cache() -> Dict[str, Any]:
         return {}
 
 
-def _json_default(o):
+def _json_default(o: Any) -> str:
     # catches datetime/date or any other odd type and renders as string
     if isinstance(o, (datetime, date)):
         return o.isoformat()
@@ -141,7 +141,7 @@ def scrape_hf_url(url: str) -> Tuple[Dict[str, Any], str]:
         return stored_hf_data["payload"], repo_type
 
     api = HfApi()
-    info = (
+    info: Any = (
         api.model_info(repo_id, files_metadata=True)
         if repo_type == "model"
         else api.dataset_info(repo_id, files_metadata=True)
@@ -161,7 +161,7 @@ def scrape_hf_url(url: str) -> Tuple[Dict[str, Any], str]:
     ]
 
     # README
-    readme_text = None
+    readme_text: str | None = None
     try:
         readme_text = ModelCard.load(repo_id).text
     except Exception:
@@ -198,4 +198,4 @@ def scrape_hf_url(url: str) -> Tuple[Dict[str, Any], str]:
 
     cache[key] = {"payload": data, "fetched_at": data["_source"]["fetched_at"]}
     _save_cache(cache)
-    return [data, repo_type]
+    return data, repo_type

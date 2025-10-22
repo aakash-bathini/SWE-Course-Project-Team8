@@ -10,14 +10,14 @@ from typing import Any
 from _pytest.monkeypatch import MonkeyPatch
 from _pytest.tmpdir import TempPathFactory
 
-import src.metrics.size as model_size
+import src.metrics.size as model_size  # type: ignore[import-untyped]
 from src.api.prep_eval_context import prepare_eval_context
-from src.commands import url_file_cmd
+from src.commands import url_file_cmd  # type: ignore[import-untyped]
 from src.models.model_types import OrchestrationReport, MetricRun, EvalContext
 from src.scoring.net_score import bundle_from_report, subscores_from_results
-from src.orchestration import logging_util
-import src.api.huggingface as hf
-import src.api.github as gh
+from src.orchestration import logging_util  # type: ignore[import-untyped]
+import src.api.huggingface as hf  # type: ignore[import-untyped]
+import src.api.github as gh  # type: ignore[import-untyped]
 
 # -------------------------------------------------------------------
 # LOGGING_UTIL.PY
@@ -142,7 +142,7 @@ def test_prepare_eval_context_github(monkeypatch: MonkeyPatch) -> None:
     assert ctx.category == "CODE"
 
 
-def test_prepare_eval_context_bad(caplog) -> None:
+def test_prepare_eval_context_bad(caplog: Any) -> None:
     caplog.set_level("DEBUG")
     ctx = prepare_eval_context("https://google.com")
     assert ctx.category is None

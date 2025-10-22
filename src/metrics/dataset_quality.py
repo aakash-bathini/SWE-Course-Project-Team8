@@ -1,5 +1,6 @@
 import logging
 import math
+from typing import List, Any
 from src.models.model_types import EvalContext
 
 
@@ -9,7 +10,7 @@ async def metric(ctx: EvalContext) -> float:
     - returns a score in [0.0, 1.0] based on dataset quality indicators
     - consumes dataset metadata from EvalContext (ctx.dataset)
     """
-    hf_list = ctx.hf_data or []  # list of huggingface profiles
+    hf_list: List[Any] = ctx.hf_data or []  # list of huggingface profiles
     if not hf_list:
         logging.debug("dataset_quality: no huggingface data available")
         return 0.0  # no huggingface data to check

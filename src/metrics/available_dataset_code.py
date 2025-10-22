@@ -1,5 +1,6 @@
 import logging
 import re
+from typing import List, Dict, Any
 from src.models.model_types import EvalContext
 from src.config_parsers_nlp.metric_helpers import _norm_parts, collect_paths
 
@@ -62,10 +63,10 @@ def has_runnable_snippet(text: str) -> bool:
     return False
 
 
-def _dataset_subscore(texts: list[str], ctx: EvalContext) -> float:
+def _dataset_subscore(texts: List[str], ctx: EvalContext) -> float:
     blob = "\n\n".join(t for t in texts if isinstance(t, str)).lower()
     score = 0.0
-    hf = (ctx.hf_data or [{}])[0] if ctx.hf_data else {}
+    hf: Dict[str, Any] = (ctx.hf_data or [{}])[0] if ctx.hf_data else {}  # type: ignore[assignment]
     # Strong dataset host link
     if DATASET_HOST_RE.search(blob):
         score += 0.5

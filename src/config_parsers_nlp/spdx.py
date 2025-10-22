@@ -2,6 +2,7 @@
 SPDX helper data and functions for license parsing
 """
 
+from typing import Tuple
 from src.config_parsers_nlp.thresholds import (
     LICENSE_WHITELIST,
     LICENSE_BLACKLIST,
@@ -22,7 +23,7 @@ def normalize_license(text: str) -> str:
     return norm
 
 
-def classify_license(text: str) -> (float, str):
+def classify_license(text: str) -> Tuple[float, str]:
     """
     Classify license text into whitelist/blacklist/ambiguous categories
     Returns (score, category)

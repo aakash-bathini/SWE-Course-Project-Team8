@@ -11,8 +11,8 @@ from src.models.model_types import EvalContext
 async def _call_prep(url: str) -> EvalContext:
     # Support either async or sync prep functions
     if inspect.iscoroutinefunction(prepare_eval_context):
-        return await prepare_eval_context(url)  # type: ignore[misc]
-    return await asyncio.to_thread(prepare_eval_context, url)  # type: ignore[misc]
+        return await prepare_eval_context(url)  # type: ignore[misc, no-any-return]
+    return await asyncio.to_thread(prepare_eval_context, url)  # type: ignore[misc, no-any-return]
 
 
 async def prep_eval_many(urls: List[str], limit: int = 4) -> Dict[str, EvalContext]:

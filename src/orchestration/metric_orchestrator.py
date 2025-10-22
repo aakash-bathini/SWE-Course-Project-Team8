@@ -48,7 +48,7 @@ async def _run_one(item: MetricItem, ctx: EvalContext) -> MetricRun:
 
 
 async def orchestrate(ctx: EvalContext, limit: int = 4) -> OrchestrationReport:
-    items: List[MetricItem] = get_all_metrics()
+    items: List[MetricItem] = get_all_metrics()  # type: ignore[no-any-return]
     logger.info(
         "Starting orchestration with %d metrics (limit=%d, url=%s)", len(items), limit, ctx.url
     )

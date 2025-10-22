@@ -514,7 +514,7 @@ def print_ndjson(
         name = _display_name_from_url(u)
         # prefer ctx category if present
         ctx = ctx_map.get(u)
-        category = getattr(ctx, "category", None)
+        category: str | None = getattr(ctx, "category", None)
 
         out = _default_record(name, category)
         rep = reports.get(u)

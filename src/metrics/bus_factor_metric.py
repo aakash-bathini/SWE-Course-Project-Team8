@@ -1,4 +1,5 @@
 import logging
+from typing import Dict, Any
 from src.models.model_types import EvalContext
 
 
@@ -16,11 +17,11 @@ async def metric(ctx: EvalContext) -> float:
     # Use actual bus factor calculation logic
 
     try:
-        gh = ctx.gh_data[0]
+        gh: Dict[str, Any] = ctx.gh_data[0]  # type: ignore[assignment]
     except (IndexError, KeyError):
         # Fall back to HF-based heuristic when GitHub data is missing
         logging.info("No GitHub data in EvalContext, using HF-based bus factor heuristic")
-        hf = (ctx.hf_data or [{}])[0]
+        hf: Dict[str, Any] = (ctx.hf_data or [{}])[0]  # type: ignore[assignment]
 
         # Use HF metrics as proxy for bus factor
         downloads = hf.get("downloads", 0)

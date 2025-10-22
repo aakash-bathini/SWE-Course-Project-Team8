@@ -2,7 +2,7 @@
 import os
 import re
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Pattern
 
 from src.models.model_types import EvalContext
 
@@ -66,8 +66,8 @@ DISK_REQ_PATTERNS = [
     rf"(?:download|dataset|model|checkpoints?)\s*(?:size|footprint)\s*[:=-]\s*(?:{RANGE}|{NUM})\s*{UNIT}\b",
 ]
 
-MEM_REQ_REGEXES = [re.compile(p, re.IGNORECASE) for p in MEM_REQ_PATTERNS]
-DISK_REQ_REGEXES = [re.compile(p, re.IGNORECASE) for p in DISK_REQ_PATTERNS]
+MEM_REQ_REGEXES: List[Pattern[str]] = [re.compile(p, re.IGNORECASE) for p in MEM_REQ_PATTERNS]
+DISK_REQ_REGEXES: List[Pattern[str]] = [re.compile(p, re.IGNORECASE) for p in DISK_REQ_PATTERNS]
 
 
 # ===================== Helpers =====================
@@ -95,11 +95,12 @@ def _to_bytes(val: float, unit: str) -> int:
 
 
 def _bytes_to_human(n: int) -> str:
+    fval: float = float(n)
     for unit in ("B", "KB", "MB", "GB", "TB"):
-        if n < 1024 or unit == "TB":
-            return f"{n:.1f}{unit}"
-        n /= 1024
-    return f"{n:.1f}TB"
+        if fval < 1024 or unit == "TB":
+            return f"{fval:.1f}{unit}"
+        fval /= 1024
+    return f"{fval:.1f}TB"
 
 
 def _sum_repo_size_from_index(files_index: List[Dict[str, Any]]) -> int:
@@ -126,9 +127,9 @@ def _hf_total_size_bytes(hf: Dict[str, Any]) -> int:
 
 def _flatten_card_yaml(card_yaml: Dict[str, Any]) -> str:
     """Flatten HF card_yaml dict to text for regex scan."""
-    out = []
+    out: List[str] = []
 
-    def walk(x):
+    def walk(x: Any) -> None:
         if isinstance(x, dict):
             for k, v in x.items():
                 out.append(str(k))
@@ -143,7 +144,7 @@ def _flatten_card_yaml(card_yaml: Dict[str, Any]) -> str:
     return "\n".join(out)
 
 
-def _scan_values(regexes: List[re.Pattern], text: str) -> int:
+def _scan_values(regexes: List[Pattern[str]], text: str) -> int:
     """
     Returns maximum bytes found considering:
       - single value: (val, unit)

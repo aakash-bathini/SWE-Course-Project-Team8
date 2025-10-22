@@ -1,8 +1,13 @@
 import logging
 import sys
 import os
+from typing import Optional
 
-_LEVELS = {0: None, 1: logging.INFO, 2: logging.DEBUG}  # Silent  # Info  # Debug
+_LEVELS: dict[int, Optional[int]] = {
+    0: None,
+    1: logging.INFO,
+    2: logging.DEBUG,
+}  # Silent  # Info  # Debug
 
 
 def setup_logging_util(also_stderr: bool = False) -> int:
@@ -43,14 +48,18 @@ def setup_logging_util(also_stderr: bool = False) -> int:
     if lvl > 0:
         fh = logging.FileHandler(log_file, encoding="utf-8")
         fh.setFormatter(fmt)
-        fh.setLevel(_LEVELS[lvl])
+        level_to_set = _LEVELS[lvl]
+        if level_to_set is not None:
+            fh.setLevel(level_to_set)
         root.addHandler(fh)
 
     # Optional STDERR logging
     if also_stderr and lvl > 0:
         sh = logging.StreamHandler(sys.stderr)
         sh.setFormatter(fmt)
-        sh.setLevel(_LEVELS[lvl])
+        level_to_set = _LEVELS[lvl]
+        if level_to_set is not None:
+            sh.setLevel(level_to_set)
         root.addHandler(sh)
 
     # Guarantee at least one log entry at startup for grader

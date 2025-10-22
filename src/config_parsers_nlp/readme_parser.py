@@ -33,7 +33,7 @@ def _strip_markdown_noise(md: str) -> str:
 LICENSE_HX = re.compile(r"^(#{1,6})\s*license\b.*$", re.IGNORECASE | re.MULTILINE)
 
 
-def extract_section(md: str, title_regex: re.Pattern) -> Optional[str]:
+def extract_section(md: str, title_regex: re.Pattern[str]) -> Optional[str]:
     """
     Generic section extractor: find a heading match and return text until the next
     heading of the same or higher level.
@@ -232,6 +232,8 @@ def extract_license_evidence(
     source = "NONE"
     chosen = None
 
+    source: str = ""
+    chosen: str = ""
     if license_file_text and license_file_text.strip():
         source = "LICENSE"
         chosen = license_file_text
