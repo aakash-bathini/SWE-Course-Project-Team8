@@ -39,8 +39,8 @@ async def metric(ctx: EvalContext) -> float:
             "ethics": ["ethical", "bias", "limitation", "fairness", "privacy"],
             "citation": ["citation", "doi", "bibtex"],
         }
-        doc_score = sum(1 for terms in checks.values() if any(term in doc for term in terms))
-        doc_score = min(doc_score / len(checks), 1.0)
+        doc_score_int = sum(1 for terms in checks.values() if any(term in doc for term in terms))
+        doc_score = min(doc_score_int / len(checks), 1.0)
         dataset_score = 0.3 * community_score + 0.7 * doc_score
         return round(max(0.0, min(1.0, dataset_score)), 2)
 

@@ -431,7 +431,7 @@ def _clamp01(x: Any) -> float:
         return 0.0
     if x > 1.0:
         return 1.0
-    return x
+    return float(x)
 
 
 def _lat(ms: Any) -> int:

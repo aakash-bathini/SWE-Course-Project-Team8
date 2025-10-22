@@ -10,14 +10,14 @@ from typing import Any
 from _pytest.monkeypatch import MonkeyPatch
 from _pytest.tmpdir import TempPathFactory
 
-import src.metrics.size as model_size  # type: ignore[import-untyped]
+import src.metrics.size as model_size
 from src.api.prep_eval_context import prepare_eval_context
-from src.commands import url_file_cmd  # type: ignore[import-untyped]
+from src.commands import url_file_cmd
 from src.models.model_types import OrchestrationReport, MetricRun, EvalContext
 from src.scoring.net_score import bundle_from_report, subscores_from_results
-from src.orchestration import logging_util  # type: ignore[import-untyped]
-import src.api.huggingface as hf  # type: ignore[import-untyped]
-import src.api.github as gh  # type: ignore[import-untyped]
+from src.orchestration import logging_util
+import src.api.huggingface as hf
+import src.api.github as gh
 
 # -------------------------------------------------------------------
 # LOGGING_UTIL.PY
@@ -209,9 +209,10 @@ async def test_size_metric_with_readme_regex() -> None:
 
 
 def test_sum_repo_size_from_index() -> None:
+    from typing import Dict, Any
     from src.metrics.size import _sum_repo_size_from_index
 
-    files = [{"type": "blob", "size": 123}, {"type": "tree"}]
+    files: list[Dict[str, Any]] = [{"type": "blob", "size": 123}, {"type": "tree"}]
     assert _sum_repo_size_from_index(files) == 123
 
 
@@ -286,9 +287,10 @@ async def test_code_quality_metric_empty() -> None:
 @pytest.mark.asyncio
 async def test_license_check_metric(monkeypatch: MonkeyPatch) -> None:
     import src.metrics.license_check as lc
+    from src.config_parsers_nlp import spdx
 
     monkeypatch.setattr(lc, "extract_license_evidence", lambda *a, **k: ("src", ["MIT"], [], []))
-    monkeypatch.setattr(lc.spdx, "classify_license", lambda l: (1.0, "ok"))
+    monkeypatch.setattr(spdx, "classify_license", lambda l: (1.0, "ok"))
     ctx = EvalContext(url="test://url", gh_data=[{"doc_texts": {"LICENSE": "MIT"}}], hf_data=[])
     score = await lc.metric(ctx)
     assert 0.0 <= score <= 1.0
@@ -326,7 +328,7 @@ def test_should_fetch_patterns() -> None:
     assert not gh._should_fetch("binary.bin")
 
 
-def test_is_fresh_and_cache(tmp_path, monkeypatch) -> None:
+def test_is_fresh_and_cache(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     import src.api.github as gh
 
     monkeypatch.setenv("GH_META_CACHE_TTL_S", "3600")  # ensure positive TTL
@@ -373,7 +375,8 @@ def test_strip_markdown_noise_removes_code_and_comments() -> None:
 
 def test_extract_section_found_and_not_found() -> None:
     md = "# License\nMIT\n# Other\n"
-    assert "MIT" in rp.extract_section(md, rp.LICENSE_HX)
+    section = rp.extract_section(md, rp.LICENSE_HX)
+    assert section is not None and "MIT" in section
     assert rp.extract_section("no headings", rp.LICENSE_HX) is None
 
 
@@ -408,7 +411,7 @@ def test_normalize_and_classify_license() -> None:
 import src.orchestration.logging_util as logutil
 
 
-def test_setup_logging_util_with_env(tmp_path, monkeypatch) -> None:
+def test_setup_logging_util_with_env(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     log_file = tmp_path / "log.txt"
     monkeypatch.setenv("LOG_FILE", str(log_file))
     monkeypatch.setenv("LOG_LEVEL", "2")
@@ -426,10 +429,10 @@ from src.models.model_types import EvalContext
 
 @pytest.mark.asyncio
 async def test_run_one_success_and_failure() -> None:
-    async def good(ctx):
+    async def good(ctx: EvalContext) -> float:
         return 0.5
 
-    async def bad(ctx):
+    async def bad(ctx: EvalContext) -> float:
         raise RuntimeError("fail")
 
     ctx = EvalContext(url="u")
@@ -446,30 +449,35 @@ async def test_run_one_success_and_failure() -> None:
 
 def test_github_rate_limit(monkeypatch: MonkeyPatch) -> None:
     import src.api.github as gh
+    import requests as requests_lib
 
     class FakeResp:
         status_code = 403
         text = "rate limit"
 
-        def raise_for_status(self):
+        def raise_for_status(self) -> None:
             raise requests.exceptions.HTTPError("403")
 
-    monkeypatch.setattr(gh.requests, "get", lambda *a, **k: FakeResp())
+    monkeypatch.setattr(requests_lib, "get", lambda *a, **k: FakeResp())
+    monkeypatch.setattr(gh, "requests", requests_lib)
     with pytest.raises(requests.exceptions.HTTPError):
         gh._get_json("https://api.github.com/repos/foo/bar")
 
 
 def test_github_get_json_success(monkeypatch: MonkeyPatch) -> None:
     import src.api.github as gh
+    import requests as requests_lib
+    from typing import Dict, Any
 
     class FakeResp:
-        def json(self):
+        def json(self) -> Dict[str, Any]:
             return {"ok": True}
 
-        def raise_for_status(self):
+        def raise_for_status(self) -> None:
             return None
 
-    monkeypatch.setattr(gh.requests, "get", lambda *a, **k: FakeResp())
+    monkeypatch.setattr(requests_lib, "get", lambda *a, **k: FakeResp())
+    monkeypatch.setattr(gh, "requests", requests_lib)
     out = gh._get_json("https://api.github.com/repos/foo/bar")
     assert out == {"ok": True}
 
@@ -509,7 +517,7 @@ def test_extract_github_links() -> None:
     assert any("github.com" in l for l in links)
 
 
-def test_is_fresh_and_cache_helpers(tmp_path, monkeypatch) -> None:
+def test_is_fresh_and_cache_helpers(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     import src.api.huggingface as hf
 
     monkeypatch.setenv("HF_META_CACHE_TTL_S", "3600")  # ensure positive TTL
@@ -574,11 +582,12 @@ def test_to_bytes_and_human() -> None:
 
 
 def test_flatten_card_yaml_and_sum_size() -> None:
+    from typing import Dict, Any
     data = {"a": {"b": [1, 2, {"c": 3}]}}
     flat = size._flatten_card_yaml(data)
     assert "a" in flat and "b" in flat and "3" in flat
 
-    files = [{"type": "blob", "size": 100}, {"type": "tree"}, {"type": "blob", "size": 50}]
+    files: list[Dict[str, Any]] = [{"type": "blob", "size": 100}, {"type": "tree"}, {"type": "blob", "size": 50}]
     assert size._sum_repo_size_from_index(files) == 150
 
 
@@ -613,9 +622,11 @@ async def test_metric_dataset_disk_and_model_fallback() -> None:
 
 @pytest.mark.asyncio
 async def test_metric_code_paths_and_unknown() -> None:
+    from src.models.model_types import Category
+    cat: Category = "CODE"
     ctx = EvalContext(
         url="test://url",
-        category="CODE",
+        category=cat,
         hf_data=[],
         gh_data=[
             {
@@ -725,7 +736,8 @@ def test_cli_main_usage(capsys: Any) -> None:
 
 
 def test_cli_eval_and_test(monkeypatch: MonkeyPatch) -> None:
-    called = {}
+    from typing import Dict, Any
+    called: Dict[str, Any] = {}
     monkeypatch.setattr(cli, "run_tests", lambda: called.setdefault("test", True))
     monkeypatch.setattr(cli, "run_eval", lambda f: called.setdefault("eval", f))
     cli.main(["test"])
@@ -841,6 +853,7 @@ async def test_license_check_metric_fallback(monkeypatch: MonkeyPatch) -> None:
 
 @pytest.mark.asyncio
 async def test_performance_metric_handles_missing_readme(monkeypatch: MonkeyPatch) -> None:
+    from typing import Any
     monkeypatch.setenv("GEMINI_API_KEY", "dummy")  # force Gemini branch
     monkeypatch.setattr(perf, "api_key", "dummy")
 
@@ -848,7 +861,7 @@ async def test_performance_metric_handles_missing_readme(monkeypatch: MonkeyPatc
     class DummyClient:
         class models:
             @staticmethod
-            def generate_content(*a, **k):
+            def generate_content(*a: Any, **k: Any) -> Any:
                 raise RuntimeError("fail")
 
     monkeypatch.setitem(sys.modules, "google", types.SimpleNamespace(genai=DummyClient))
@@ -859,12 +872,14 @@ async def test_performance_metric_handles_missing_readme(monkeypatch: MonkeyPatc
 
 @pytest.mark.asyncio
 async def test_performance_metric_json_parse(monkeypatch: MonkeyPatch) -> None:
+    from typing import Dict, Any
+    import requests as requests_lib
     monkeypatch.setattr(perf, "api_key", None)
     monkeypatch.setenv("GEN_AI_STUDIO_API_KEY", "dummy")
 
     # Fake requests.post returning JSON
     class DummyResp:
-        def json(self):
+        def json(self) -> Dict[str, Any]:
             return {
                 "choices": [
                     {
@@ -875,7 +890,8 @@ async def test_performance_metric_json_parse(monkeypatch: MonkeyPatch) -> None:
                 ]
             }
 
-    monkeypatch.setattr(perf.requests, "post", lambda *a, **k: DummyResp())
+    monkeypatch.setattr(requests_lib, "post", lambda *a, **k: DummyResp())
+    monkeypatch.setattr(perf, "requests", requests_lib)
     ctx = EvalContext(
         url="test://url", hf_data=[{"readme_text": "achieves 90% accuracy"}], gh_data=[]
     )
@@ -1073,7 +1089,7 @@ async def test_metric_code_empty_and_paths() -> None:
 @pytest.mark.asyncio
 async def test_metric_other_and_exception(monkeypatch: MonkeyPatch) -> None:
     # unknown category fallback
-    ctx = EvalContext(url="test://url", category=None, hf_data=[], gh_data=[])  # type: ignore
+    ctx = EvalContext(url="test://url", category=None, hf_data=[], gh_data=[])
     scores = await ms.metric(ctx)
     assert all(isinstance(v, float) for v in scores.values())
 

@@ -42,7 +42,8 @@ def _load_cache() -> Dict[str, Any]:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     try:
         with open(path, "r") as f:
-            return json.load(f)
+            data: Dict[str, Any] = json.load(f)
+            return data
     except Exception:
         return {}
 
@@ -63,7 +64,10 @@ def _save_cache(cache: Dict[str, Any]) -> None:
 
 # within TTL range?
 def _is_fresh(entry: Dict[str, Any]) -> bool:
-    return (_now() - entry.get("fetched_at", 0)) <= _CACHE_TTL_S
+    fetched_at = entry.get("fetched_at", 0)
+    if not isinstance(fetched_at, (int, float)):
+        return False
+    return (_now() - fetched_at) <= _CACHE_TTL_S
 
 
 # url parsing
@@ -196,6 +200,7 @@ def scrape_hf_url(url: str) -> Tuple[Dict[str, Any], str]:
         },
     }
 
-    cache[key] = {"payload": data, "fetched_at": data["_source"]["fetched_at"]}
+    fetched_time = data["_source"]["fetched_at"]
+    cache[key] = {"payload": data, "fetched_at": fetched_time}
     _save_cache(cache)
     return data, repo_type

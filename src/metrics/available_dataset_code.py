@@ -66,7 +66,10 @@ def has_runnable_snippet(text: str) -> bool:
 def _dataset_subscore(texts: List[str], ctx: EvalContext) -> float:
     blob = "\n\n".join(t for t in texts if isinstance(t, str)).lower()
     score = 0.0
-    hf: Dict[str, Any] = (ctx.hf_data or [{}])[0] if ctx.hf_data else {}  # type: ignore[assignment]
+    if ctx.hf_data is None or len(ctx.hf_data) == 0:
+        hf: Dict[str, Any] = {}
+    else:
+        hf = ctx.hf_data[0]
     # Strong dataset host link
     if DATASET_HOST_RE.search(blob):
         score += 0.5
@@ -75,7 +78,8 @@ def _dataset_subscore(texts: List[str], ctx: EvalContext) -> float:
     # Named dataset mention (only adds if no strong link already found)
     if any((" " + name + " ") in (" " + blob + " ") for name in NAMED_DATASETS):
         score += 0.2
-    if isinstance(hf.get("datasets"), list) and len(hf.get("datasets")) > 0:
+    datasets = hf.get("datasets")
+    if isinstance(datasets, list) and len(datasets) > 0:
         score += 0.2
     if LOAD_SNIPPET_RE.search(blob):
         score += 0.1

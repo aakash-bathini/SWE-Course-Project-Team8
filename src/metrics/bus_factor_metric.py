@@ -17,11 +17,16 @@ async def metric(ctx: EvalContext) -> float:
     # Use actual bus factor calculation logic
 
     try:
-        gh: Dict[str, Any] = ctx.gh_data[0]  # type: ignore[assignment]
+        if ctx.gh_data is None or len(ctx.gh_data) == 0:
+            raise IndexError("No GitHub data available")
+        gh: Dict[str, Any] = ctx.gh_data[0]
     except (IndexError, KeyError):
         # Fall back to HF-based heuristic when GitHub data is missing
         logging.info("No GitHub data in EvalContext, using HF-based bus factor heuristic")
-        hf: Dict[str, Any] = (ctx.hf_data or [{}])[0]  # type: ignore[assignment]
+        if ctx.hf_data is None or len(ctx.hf_data) == 0:
+            hf: Dict[str, Any] = {}
+        else:
+            hf = ctx.hf_data[0]
 
         # Use HF metrics as proxy for bus factor
         downloads = hf.get("downloads", 0)

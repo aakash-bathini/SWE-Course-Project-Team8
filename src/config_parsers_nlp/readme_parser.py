@@ -229,9 +229,6 @@ def extract_license_evidence(
          - spdx_exprs: expressions to feed to parser (e.g., 'MIT OR GPL-3.0-only')
          - hints: fuzzy keywords to resolve via aliases / ambiguous rules
     """
-    source = "NONE"
-    chosen = None
-
     source: str = ""
     chosen: str = ""
     if license_file_text and license_file_text.strip():
@@ -248,7 +245,7 @@ def extract_license_evidence(
 
     ids = find_spdx_ids(chosen)
     # exprs = find_spdx_expressions(chosen)
-    exprs = []
+    exprs: list[str] = []
     hints = find_license_hints(chosen)
     return source, ids, exprs, hints
 

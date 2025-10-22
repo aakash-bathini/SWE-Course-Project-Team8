@@ -33,7 +33,11 @@ async def _run_one(item: MetricItem, ctx: EvalContext) -> MetricRun:
             return MetricRun(name=name, value=val, latency_ms=latency)
 
         # All other metrics must be floats
-        fval = float(val)
+        if isinstance(val, dict):
+            # This shouldn't happen if size_score was handled above
+            fval = 0.0
+        else:
+            fval = float(val)
         logger.info(
             "Metric %s succeeded in %d ms (url=%s, value=%.2f)", name, latency, ctx.url, fval
         )
@@ -48,7 +52,7 @@ async def _run_one(item: MetricItem, ctx: EvalContext) -> MetricRun:
 
 
 async def orchestrate(ctx: EvalContext, limit: int = 4) -> OrchestrationReport:
-    items: List[MetricItem] = get_all_metrics()  # type: ignore[no-any-return]
+    items: List[MetricItem] = get_all_metrics()
     logger.info(
         "Starting orchestration with %d metrics (limit=%d, url=%s)", len(items), limit, ctx.url
     )
