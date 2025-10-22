@@ -6,6 +6,7 @@ from contextlib import redirect_stdout, redirect_stderr
 from src.commands.url_file_cmd import run_eval_silent
 import logging
 
+
 def run_tests() -> None:
     cov = Coverage(source=["src"])
     cov.erase()
@@ -17,10 +18,17 @@ def run_tests() -> None:
         run_eval_silent("single_run.txt")
     except SystemExit as e:
         exit_code = int(e.code) if isinstance(e.code, int) else 1
-        logging.debug(f"TEST: run_eval exited with SystemExit({exit_code}), continuing for coverage...")
+        logging.debug(
+            f"TEST: run_eval exited with SystemExit({exit_code}), continuing for coverage..."
+        )
 
     # 2) Run pytest quietly
-    with io.StringIO() as buf_out, io.StringIO() as buf_err, redirect_stdout(buf_out), redirect_stderr(buf_err):
+    with (
+        io.StringIO() as buf_out,
+        io.StringIO() as buf_err,
+        redirect_stdout(buf_out),
+        redirect_stderr(buf_err),
+    ):
         result_code = pytest.main(["-q", "--disable-warnings", "--tb=no", "src/tests"])
 
     cov.stop()

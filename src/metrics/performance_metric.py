@@ -9,8 +9,9 @@ MAX_INPUT_CHARS = 7000
 api_key = os.getenv("GEMINI_API_KEY")
 purdue_api_key = os.getenv("GEN_AI_STUDIO_API_KEY")
 
+
 async def metric(ctx: EvalContext) -> float:
-    
+
     # If keys are absent we will later fall back to a heuristic parser rather than returning 0.0
 
     readme_content = ""
@@ -54,7 +55,7 @@ async def metric(ctx: EvalContext) -> float:
     - overall_evidence_quality: average of evidence_quality values
     - overall_specificity: average of specificity values
 
-    Return ONLY valid JSON (no extra commentary, no markdown). 
+    Return ONLY valid JSON (no extra commentary, no markdown).
     Use this schema:
 
     {{
@@ -86,31 +87,32 @@ async def metric(ctx: EvalContext) -> float:
         try:
             if api_key:
                 from google import genai
+
                 client = genai.Client()
                 logging.info("Performance metric attempt %d with Gemini", attempt)
-                response = client.models.generate_content(
-                    model="gemini-2.0-flash", 
-                    contents=prompt
-                )
+                response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
                 raw = response.text
             else:
                 url = "https://genai.rcac.purdue.edu/api/chat/completions"
                 headers = {
                     "Authorization": f"Bearer {purdue_api_key}",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
                 }
                 body = {
                     "model": "llama4:latest",
                     "messages": [
-                        {"role": "system", "content": "You are a very needed engineer analyzing README files for performance claims."},
-                        {"role": "user", "content": prompt}
+                        {
+                            "role": "system",
+                            "content": "You are a very needed engineer analyzing README files for performance claims.",
+                        },
+                        {"role": "user", "content": prompt},
                     ],
                     "stream": False,
-                    "max_tokens": 1024
+                    "max_tokens": 1024,
                 }
                 logging.info("Performance metric attempt %d with Purdue GenAI", attempt)
                 response = requests.post(url, headers=headers, json=body)
-                raw = response.json()['choices'][0]['message']['content']
+                raw = response.json()["choices"][0]["message"]["content"]
 
             # clean + parse
             cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.DOTALL)
@@ -131,14 +133,38 @@ async def metric(ctx: EvalContext) -> float:
         hf = (ctx.hf_data or [{}])[0] if ctx.hf_data else {}
         downloads = hf.get("downloads", 0)
         likes = hf.get("likes", 0)
-        
+
         # Generic heuristic for all models
         has_numbers = 1.0 if re.search(r"\b\d+(?:\.\d+)?\s*%?", text) else 0.0
         bench_terms = [
-            "glue", "squad", "mnli", "qqp", "stsb", "cola", "imagenet", "librispeech",
-            "wmt", "superglue", "mmlu", "xsum", "rouge", "bleu", "wer"
+            "glue",
+            "squad",
+            "mnli",
+            "qqp",
+            "stsb",
+            "cola",
+            "imagenet",
+            "librispeech",
+            "wmt",
+            "superglue",
+            "mmlu",
+            "xsum",
+            "rouge",
+            "bleu",
+            "wer",
         ]
-        metric_terms = ["accuracy", "f1", "precision", "recall", "bleu", "rouge", "wer", "latency", "throughput", "score"]
+        metric_terms = [
+            "accuracy",
+            "f1",
+            "precision",
+            "recall",
+            "bleu",
+            "rouge",
+            "wer",
+            "latency",
+            "throughput",
+            "score",
+        ]
         bench_hits = sum(1 for bt in bench_terms if bt in text)
         metric_hits = sum(1 for mt in metric_terms if mt in text)
         table_hits = len([ln for ln in text.splitlines() if "|" in ln and "-" in ln])
@@ -148,24 +174,29 @@ async def metric(ctx: EvalContext) -> float:
         table_bonus = 0.1 if table_hits >= 5 else (0.05 if table_hits >= 2 else 0.0)
 
         score = 0.4 * has_numbers + 0.3 * bench_norm + 0.3 * metric_norm + table_bonus
-        
+
         # Check for high-engagement models that typically have good performance claims
-        model_name = ctx.url.lower() if hasattr(ctx, 'url') else ""
         hf = (ctx.hf_data or [{}])[0] if ctx.hf_data else {}
         downloads = hf.get("downloads", 0)
         likes = hf.get("likes", 0)
-        
+
         # Boost score for very popular models with high engagement
         if downloads > 1000000 or likes > 1000:
             score = min(1.0, score + 0.28)  # Fine-tuned boost to get closer to 0.92
-            logging.info(f"High-engagement model detected (downloads: {downloads}, likes: {likes}), boosting performance score")
+            logging.info(
+                f"High-engagement model detected (downloads: {downloads}, likes: {likes}), boosting performance score"
+            )
         elif downloads > 100000 or likes > 100:  # Moderate engagement models
             score = min(1.0, score + 0.15)  # Moderate boost for models like whisper-tiny
-            logging.info(f"Moderate-engagement model detected (downloads: {downloads}, likes: {likes}), boosting performance score")
+            logging.info(
+                f"Moderate-engagement model detected (downloads: {downloads}, likes: {likes}), boosting performance score"
+            )
         elif downloads < 10000 and likes < 10:  # Very low engagement models
             score = min(score, 0.15)  # Cap at 0.15 for very low engagement models
-            logging.info(f"Very low-engagement model detected (downloads: {downloads}, likes: {likes}), capping performance score at 0.15")
-        
+            logging.info(
+                f"Very low-engagement model detected (downloads: {downloads}, likes: {likes}), capping performance score at 0.15"
+            )
+
         score = max(0.0, min(1.0, score))
         return float(round(score, 2))
 
@@ -173,30 +204,36 @@ async def metric(ctx: EvalContext) -> float:
     summary = analysis_json.get("summary", {})
     quality = summary.get("overall_evidence_quality", 0.0)
     specificity = summary.get("overall_specificity", 0.0)
-    
+
     # Check for high-engagement models in LLM path
     hf = (ctx.hf_data or [{}])[0] if ctx.hf_data else {}
     downloads = hf.get("downloads", 0)
     likes = hf.get("likes", 0)
-    
+
     # Boost score for very popular models with high engagement
     if downloads > 1000000 or likes > 1000:
         quality = summary.get("overall_evidence_quality", 0.0)
         specificity = summary.get("overall_specificity", 0.0)
         base_score = (quality + specificity) / 2.0
         boosted_score = min(1.0, base_score + 0.28)  # Fine-tuned boost to get closer to 0.92
-        logging.info(f"High-engagement model detected in LLM path (downloads: {downloads}, likes: {likes}), boosting performance score")
+        logging.info(
+            f"High-engagement model detected in LLM path (downloads: {downloads}, likes: {likes}), boosting performance score"
+        )
         return float(round(boosted_score, 2))
     elif downloads > 100000 or likes > 100:  # Moderate engagement models
         quality = summary.get("overall_evidence_quality", 0.0)
         specificity = summary.get("overall_specificity", 0.0)
         base_score = (quality + specificity) / 2.0
         boosted_score = min(1.0, base_score + 0.15)  # Moderate boost for models like whisper-tiny
-        logging.info(f"Moderate-engagement model detected in LLM path (downloads: {downloads}, likes: {likes}), boosting performance score")
+        logging.info(
+            f"Moderate-engagement model detected in LLM path (downloads: {downloads}, likes: {likes}), boosting performance score"
+        )
         return float(round(boosted_score, 2))
-    
+
     logging.info(
         "Performance Metric -> Quality: %s, Specificity: %s, Total Claims: %s",
-        quality, specificity, summary.get("total_claims", 0)
+        quality,
+        specificity,
+        summary.get("total_claims", 0),
     )
     return float(round(((quality + specificity) / 2.0), 2))

@@ -6,29 +6,29 @@ from typing import Dict, Any, List, Optional
 
 from src.models.types import EvalContext
 
-GB = 1024 ** 3
-TB = 1024 ** 4
+GB = 1024**3
+TB = 1024**4
 
 # ---- Budgets ----
 BUDGETS_MODEL_CODE = {
-    "raspberry_pi": int(os.getenv("BUDGET_PI_RAM_BYTES", str(8 * GB))),        # Pi 4/5 up to 8GB
-    "jetson_nano":  int(os.getenv("BUDGET_JETSON_VRAM_BYTES", str(5 * GB))),   # Nano 5GB
-    "desktop_pc":   int(os.getenv("BUDGET_DESKTOP_VRAM_BYTES", str(12 * GB))), # common 12GB GPU
-    "aws_server":   int(os.getenv("BUDGET_AWS_VRAM_BYTES", str(16 * GB))),     # e.g., T4 16GB
+    "raspberry_pi": int(os.getenv("BUDGET_PI_RAM_BYTES", str(8 * GB))),  # Pi 4/5 up to 8GB
+    "jetson_nano": int(os.getenv("BUDGET_JETSON_VRAM_BYTES", str(5 * GB))),  # Nano 5GB
+    "desktop_pc": int(os.getenv("BUDGET_DESKTOP_VRAM_BYTES", str(12 * GB))),  # common 12GB GPU
+    "aws_server": int(os.getenv("BUDGET_AWS_VRAM_BYTES", str(16 * GB))),  # e.g., T4 16GB
 }
 
 BUDGETS_DATASET = {
     "raspberry_pi": int(os.getenv("BUDGET_PI_STORAGE_BYTES", str(32 * GB))),
-    "jetson_nano":  int(os.getenv("BUDGET_JETSON_STORAGE_BYTES", str(512 * GB))),
-    "desktop_pc":   int(os.getenv("BUDGET_DESKTOP_STORAGE_BYTES", str(2 * TB))),
-    "aws_server":   int(os.getenv("BUDGET_AWS_STORAGE_BYTES", str(20 * TB))),
+    "jetson_nano": int(os.getenv("BUDGET_JETSON_STORAGE_BYTES", str(512 * GB))),
+    "desktop_pc": int(os.getenv("BUDGET_DESKTOP_STORAGE_BYTES", str(2 * TB))),
+    "aws_server": int(os.getenv("BUDGET_AWS_STORAGE_BYTES", str(20 * TB))),
 }
 
 DEVICE_WEIGHTS = {
     "raspberry_pi": 0.40,
-    "jetson_nano":  0.30,
-    "desktop_pc":   0.20,
-    "aws_server":   0.10,
+    "jetson_nano": 0.30,
+    "desktop_pc": 0.20,
+    "aws_server": 0.10,
 }
 
 UTIL_THRESH = float(os.getenv("MEM_USAGE_THRESHOLD", "0.4"))  # keep usage under 50%
@@ -50,9 +50,9 @@ MEM_REQ_PATTERNS = [
     # label forms: "VRAM: 12GB", "RAM - 16 GB"
     rf"{MEM_WORD}\s*[:=-]\s*(?:~\s*)?(?:{RANGE}|{NUM})\s*{UNIT}\b",
     # bare numeric + unit + (optional 'of') + mem word
-    rf"(?:{RANGE}|{NUM})\s*{UNIT}\s*(?:\+?\s*)?(?:of\s*)?{MEM_WORD}\b",
+    rf"(?:{RANGE}|{NUM})\s*{UNIT}\s*(?:\+?\s+)?(?:of\s*)?{MEM_WORD}\b",
     # GPU line with memory: "RTX 4090 24GB", "V100 16 GB"
-    rf"(?:nvidia|rtx|gtx|tesla|quadro|titan|a\d{2,4}|t4|p100|v100)[^,\n;()]*?(?:{RANGE}|{NUM})\s*{UNIT}\s*(?:{MEM_WORD})?\b",
+    rf"(?:nvidia|rtx|gtx|tesla|quadro|titan|a\d{{2,4}}|t4|p100|v100)[^,\n;()]*?(?:{RANGE}|{NUM})\s*{UNIT}\s*(?:{MEM_WORD})?\b",
     # multi-GPU notation: "2x 8GB VRAM"
     rf"(\d+)\s*[xX×]\s*(?:{NUM})\s*{UNIT}\s*(?:{MEM_WORD})\b",
 ]
@@ -66,23 +66,33 @@ DISK_REQ_PATTERNS = [
     rf"(?:download|dataset|model|checkpoints?)\s*(?:size|footprint)\s*[:=-]\s*(?:{RANGE}|{NUM})\s*{UNIT}\b",
 ]
 
-MEM_REQ_REGEXES  = [re.compile(p, re.IGNORECASE) for p in MEM_REQ_PATTERNS]
+MEM_REQ_REGEXES = [re.compile(p, re.IGNORECASE) for p in MEM_REQ_PATTERNS]
 DISK_REQ_REGEXES = [re.compile(p, re.IGNORECASE) for p in DISK_REQ_PATTERNS]
+
 
 # ===================== Helpers =====================
 def _to_bytes(val: float, unit: str) -> int:
     u = unit.strip().lower()
     # words to symbols
-    if u.startswith("gig"): u = "gb"
-    if u.startswith("meg"): u = "mb"
-    if u.startswith("ter"): u = "tb"
-    if u.endswith("s"):     u = u[:-1]
+    if u.startswith("gig"):
+        u = "gb"
+    if u.startswith("meg"):
+        u = "mb"
+    if u.startswith("ter"):
+        u = "tb"
+    if u.endswith("s"):
+        u = u[:-1]
     # kib/ mib / gib / tib treated as powers of 1024
-    if u in ("k","kb","kib"): return int(val * (1024 ** 1))
-    if u in ("m","mb","mib"): return int(val * (1024 ** 2))
-    if u in ("g","gb","gib"): return int(val * (1024 ** 3))
-    if u in ("t","tb","tib"): return int(val * (1024 ** 4))
+    if u in ("k", "kb", "kib"):
+        return int(val * (1024**1))
+    if u in ("m", "mb", "mib"):
+        return int(val * (1024**2))
+    if u in ("g", "gb", "gib"):
+        return int(val * (1024**3))
+    if u in ("t", "tb", "tib"):
+        return int(val * (1024**4))
     return int(val)
+
 
 def _bytes_to_human(n: int) -> str:
     for unit in ("B", "KB", "MB", "GB", "TB"):
@@ -90,6 +100,7 @@ def _bytes_to_human(n: int) -> str:
             return f"{n:.1f}{unit}"
         n /= 1024
     return f"{n:.1f}TB"
+
 
 def _sum_repo_size_from_index(files_index: List[Dict[str, Any]]) -> int:
     total = 0
@@ -99,6 +110,7 @@ def _sum_repo_size_from_index(files_index: List[Dict[str, Any]]) -> int:
             if isinstance(sz, int):
                 total += sz
     return total
+
 
 def _hf_total_size_bytes(hf: Dict[str, Any]) -> int:
     size = hf.get("size")
@@ -111,9 +123,11 @@ def _hf_total_size_bytes(hf: Dict[str, Any]) -> int:
             total += sz
     return total
 
+
 def _flatten_card_yaml(card_yaml: Dict[str, Any]) -> str:
     """Flatten HF card_yaml dict to text for regex scan."""
     out = []
+
     def walk(x):
         if isinstance(x, dict):
             for k, v in x.items():
@@ -124,8 +138,10 @@ def _flatten_card_yaml(card_yaml: Dict[str, Any]) -> str:
                 walk(v)
         else:
             out.append(str(x))
+
     walk(card_yaml or {})
     return "\n".join(out)
+
 
 def _scan_values(regexes: List[re.Pattern], text: str) -> int:
     """
@@ -166,6 +182,7 @@ def _scan_values(regexes: List[re.Pattern], text: str) -> int:
                     pass
     return max_b
 
+
 def _extract_mem_requirements(*texts: Optional[str]) -> int:
     max_req = 0
     for t in texts:
@@ -174,6 +191,7 @@ def _extract_mem_requirements(*texts: Optional[str]) -> int:
         t = t[:600_000]
         max_req = max(max_req, _scan_values(MEM_REQ_REGEXES, t))
     return max_req
+
 
 def _extract_disk_requirements(*texts: Optional[str]) -> int:
     max_req = 0
@@ -184,7 +202,10 @@ def _extract_disk_requirements(*texts: Optional[str]) -> int:
         max_req = max(max_req, _scan_values(DISK_REQ_REGEXES, t))
     return max_req
 
-def _score_required_vs_budget(required_bytes: int, budgets: Dict[str, int], util_thresh: float) -> Dict[str, float]:
+
+def _score_required_vs_budget(
+    required_bytes: int, budgets: Dict[str, int], util_thresh: float
+) -> Dict[str, float]:
     scores = {}
     for device, budget in budgets.items():
         cap = util_thresh * budget
@@ -194,10 +215,9 @@ def _score_required_vs_budget(required_bytes: int, budgets: Dict[str, int], util
             scores[device] = 1.0
         else:
             scores[device] = max(0.0, min(1.0, cap / max(required_bytes, 1)))
-    
+
     # Adjust scores for very large models to match expected ranges
     if required_bytes > 3000000000:  # > 3GB (like bert-base-uncased)
-        required_gb = required_bytes / (1024**3)
         # Scale down scores for large models to match expected ranges
         for device in scores:
             if device == "raspberry_pi":
@@ -215,8 +235,9 @@ def _score_required_vs_budget(required_bytes: int, budgets: Dict[str, int], util
             elif device == "jetson_nano":
                 scores[device] = max(0.90, min(1.0, scores[device] * 0.95))
             # desktop_pc and aws_server stay at 1.0
-    
+
     return scores
+
 
 def _best_device(scores: Dict[str, float]) -> str:
     # Prefer Pi on tie (as requested)
@@ -273,8 +294,14 @@ async def metric(ctx: EvalContext) -> Dict[str, float]:
             ctx.__dict__["size_best_device"] = best
             ctx.__dict__["size_required_bytes"] = required
 
-            logging.info("size metric[%s]: kind=%s required=%s | scores=%s | best=%s",
-                         cat, kind, _bytes_to_human(required), size_scores, best)
+            logging.info(
+                "size metric[%s]: kind=%s required=%s | scores=%s | best=%s",
+                cat,
+                kind,
+                _bytes_to_human(required),
+                size_scores,
+                best,
+            )
             return size_scores
 
         if cat == "CODE":
@@ -291,7 +318,7 @@ async def metric(ctx: EvalContext) -> Dict[str, float]:
             docs_blob = "\n".join((gh.get("doc_texts") or {}).values())[:600_000]
             repo_size = _sum_repo_size_from_index(gh.get("files_index") or [])
 
-            explicit_mem  = _extract_mem_requirements(readme, docs_blob)
+            explicit_mem = _extract_mem_requirements(readme, docs_blob)
             explicit_disk = _extract_disk_requirements(readme, docs_blob)
 
             if explicit_mem > 0:
@@ -311,8 +338,12 @@ async def metric(ctx: EvalContext) -> Dict[str, float]:
             ctx.__dict__["size_best_device"] = best
             ctx.__dict__["size_required_bytes"] = required
 
-            logging.info("size metric[CODE]: required=%s | scores=%s | best=%s",
-                         _bytes_to_human(required), size_scores, best)
+            logging.info(
+                "size metric[CODE]: required=%s | scores=%s | best=%s",
+                _bytes_to_human(required),
+                size_scores,
+                best,
+            )
             return size_scores
 
         # Unknown category fallback
@@ -332,6 +363,7 @@ async def metric(ctx: EvalContext) -> Dict[str, float]:
         ctx.__dict__["size_best_device"] = "raspberry_pi"
         ctx.__dict__["size_required_bytes"] = 0
         return size_scores
+
 
 def _round_scores(scores: Dict[str, float]) -> Dict[str, float]:
     return {d: round(float(s), 2) for d, s in scores.items()}

@@ -6,6 +6,7 @@ from typing import Awaitable, Callable, Dict, Optional, Tuple, Literal, List, Un
 MetricId = str
 Category = Literal["MODEL", "DATASET", "CODE"]
 
+
 @dataclass
 class EvalContext:
     url: str
@@ -13,9 +14,11 @@ class EvalContext:
     hf_data: Optional[List[dict]] = None
     gh_data: Optional[List[dict]] = None
 
+
 # Metrics are ASYNC and receive an EvalContext
 MetricFn = Callable[[EvalContext], Awaitable[float]]
 MetricItem = Tuple[MetricId, MetricFn]
+
 
 @dataclass
 class MetricRun:
@@ -28,10 +31,12 @@ class MetricRun:
     latency_ms: int
     error: Optional[str] = None
 
+
 @dataclass
 class OrchestrationReport:
     results: Dict[MetricId, MetricRun]
     total_latency_ms: int
+
 
 @dataclass
 class ScoreBundle:

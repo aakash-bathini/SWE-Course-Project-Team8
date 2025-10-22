@@ -1,7 +1,7 @@
-#src/scoring/net_score.py
-from time import perf_counter
-from typing import Dict, Tuple
+# src/scoring/net_score.py
+from typing import Dict
 from src.models.types import MetricRun, OrchestrationReport, ScoreBundle
+
 
 def subscores_from_results(results: Dict[str, MetricRun]) -> Dict[str, float]:
     subs: Dict[str, float] = {}
@@ -17,6 +17,7 @@ def subscores_from_results(results: Dict[str, MetricRun]) -> Dict[str, float]:
                 subs[k] = 0.0
         # ignore strings and other types
     return subs
+
 
 def net_score(
     subscores: Dict[str, float],
@@ -44,6 +45,7 @@ def net_score(
         score = 0.0 if score < 0.0 else (1.0 if score > 1.0 else score)
 
     return score
+
 
 def bundle_from_report(
     report: OrchestrationReport,

@@ -9,8 +9,7 @@ async def run_cmd(cmd: str, cwd: str = ".") -> tuple[str, str, int]:
     """Run a shell command and capture output safely."""
     try:
         result = subprocess.run(
-            cmd, cwd=cwd, shell=True,
-            capture_output=True, text=True, check=False
+            cmd, cwd=cwd, shell=True, capture_output=True, text=True, check=False
         )
         return result.stdout, result.stderr, result.returncode
     except Exception as e:
@@ -21,7 +20,9 @@ async def run_cmd(cmd: str, cwd: str = ".") -> tuple[str, str, int]:
 async def compute_linting_score(repo_path: str) -> float:
     """Run flake8 and isort, compute normalized linting score [0,1]."""
     py_files = list(Path(repo_path).rglob("*.py"))
-    loc = sum(sum(1 for _ in open(f, "r", encoding="utf-8", errors="ignore")) for f in py_files) or 1
+    loc = (
+        sum(sum(1 for _ in open(f, "r", encoding="utf-8", errors="ignore")) for f in py_files) or 1
+    )
 
     # Run flake8
     flake_out, flake_err, _ = await run_cmd("flake8 .", cwd=repo_path)
@@ -42,7 +43,9 @@ async def compute_typing_score(repo_path: str) -> float:
     errors = mypy_out.count(": error:") + mypy_err.count(": error:")
 
     py_files = list(Path(repo_path).rglob("*.py"))
-    loc = sum(sum(1 for _ in open(f, "r", encoding="utf-8", errors="ignore")) for f in py_files) or 1
+    loc = (
+        sum(sum(1 for _ in open(f, "r", encoding="utf-8", errors="ignore")) for f in py_files) or 1
+    )
 
     score = max(0.0, 1.0 - (errors / loc))
     return round(score, 3)
@@ -79,64 +82,72 @@ async def metric(ctx: EvalContext) -> float:
     # Check if we have GitHub data and a local repo path
     gh_data = ctx.gh_data or []
     hf = (ctx.hf_data or [{}])[0]
-    
+
     if not gh_data:
         # No GitHub data - use HF heuristic
         readme = (hf.get("readme_text") or "").lower()
-        
+
         # Generic heuristic based on documentation quality
         hints = ["install", "usage", "example", "script", "test", "contribut", "license"]
         hits = sum(1 for h in hints if h in readme)
         score = min(1.0, 0.1 + 0.15 * hits)  # 0.1 base + up to ~1.0
-        
+
         # Check if this is a well-known model with high HF engagement
         downloads = hf.get("downloads", 0)
         likes = hf.get("likes", 0)
-        
+
         # Well-known models typically have excellent code quality
         if downloads > 1000000 or likes > 1000:  # Very popular models
-            logging.info(f"High-engagement model detected (downloads: {downloads}, likes: {likes}), boosting code quality score")
+            logging.info(
+                f"High-engagement model detected (downloads: {downloads}, likes: {likes}), boosting code quality score"
+            )
             score = min(1.0, score + 0.5)  # Add substantial boost
-        
+
         # Models with very low engagement might have lower code quality
         if downloads < 10000 and likes < 10:  # Very low engagement
             score = min(score, 0.1)  # Cap at 0.1
-            logging.info(f"Low-engagement model detected, capping code quality score at 0.1")
-        elif 100000 < downloads < 1000000 and 100 < likes < 1000:  # Moderate engagement (like whisper-tiny)
+            logging.info("Low-engagement model detected, capping code quality score at 0.1")
+        elif (
+            100000 < downloads < 1000000 and 100 < likes < 1000
+        ):  # Moderate engagement (like whisper-tiny)
             score = 0.0  # Set to 0.0 for moderate engagement models
-            logging.info(f"Moderate-engagement model detected, setting code quality score to 0.0")
-        
+            logging.info("Moderate-engagement model detected, setting code quality score to 0.0")
+
         return float(round(max(0.0, score), 2))
-    
+
     gh = gh_data[0]
     repo_path = gh.get("local_repo_path", ".")  # assume repo is cloned locally
-    
+
     # If no local repo path, fall back to heuristic
     if not repo_path or repo_path == ".":
         readme = (hf.get("readme_text") or "").lower()
-        
+
         # Generic heuristic based on documentation quality
         hints = ["install", "usage", "example", "script", "test", "contribut", "license"]
         hits = sum(1 for h in hints if h in readme)
         score = min(1.0, 0.1 + 0.15 * hits)  # 0.1 base + up to ~1.0
-        
+
         # Check if this is a well-known model with high HF engagement
         downloads = hf.get("downloads", 0)
         likes = hf.get("likes", 0)
-        
+
         # Well-known models typically have excellent code quality
         if downloads > 1000000 or likes > 1000:  # Very popular models
-            logging.info(f"High-engagement model detected (downloads: {downloads}, likes: {likes}), boosting code quality score")
+            logging.info(
+                f"High-engagement model detected (downloads: {downloads}, likes: {likes}), boosting code quality score"
+            )
             score = min(1.0, score + 0.5)  # Add substantial boost
-        
+
         # Models with very low engagement might have lower code quality
         if downloads < 10000 and likes < 10:  # Very low engagement
             score = min(score, 0.1)  # Cap at 0.1
-            logging.info(f"Low-engagement model detected, capping code quality score at 0.1")
-        elif 100000 < downloads < 1000000 and 100 < likes < 1000:  # Moderate engagement (like whisper-tiny)
+            logging.info("Low-engagement model detected, capping code quality score at 0.1")
+        elif (
+            100000 < downloads < 1000000 and 100 < likes < 1000
+        ):  # Moderate engagement (like whisper-tiny)
             score = 0.0  # Set to 0.0 for moderate engagement models
-            logging.info(f"Moderate-engagement model detected, setting code quality score to 0.0")
-        
+            logging.info("Moderate-engagement model detected, setting code quality score to 0.0")
+
         return float(round(max(0.0, score), 2))
 
     # Run each analysis
@@ -152,10 +163,7 @@ async def metric(ctx: EvalContext) -> float:
 
     # Weighted combination
     code_score = (
-        0.3 * linting_score +
-        0.25 * typing_score +
-        0.25 * tests_score +
-        0.2 * maintainability_score
+        0.3 * linting_score + 0.25 * typing_score + 0.25 * tests_score + 0.2 * maintainability_score
     )
 
     code_score = max(0.0, min(1.0, code_score))

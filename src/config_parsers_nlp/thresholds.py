@@ -1,6 +1,6 @@
-'''
+"""
 This file sets the whitelist, blacklist, and any ambiguities for the license metric.
-'''
+"""
 
 LICENSE_WHITELIST = {
     # Permissive
@@ -14,12 +14,10 @@ LICENSE_WHITELIST = {
     "Artistic-2.0",
     "CC0-1.0",
     "WTFPL",
-
     # Weak copyleft (generally LGPL-compatible)
     "MPL-2.0",
     "CDDL-1.0",
     "EPL-2.0",
-
     # LGPL family (explicitly required by ACME)
     "LGPL-2.1-only",
     "LGPL-2.1-or-later",
@@ -34,21 +32,20 @@ LICENSE_BLACKLIST = {
     "GPL-2.0-or-later",
     "GPL-3.0-only",
     "GPL-3.0-or-later",
-
     # AGPL family (network copyleft)
     "AGPL-3.0-only",
     "AGPL-3.0-or-later",
-
     # Restrictive / non-free
     "Proprietary",
     "Commercial",
-    "Non-Commercial",   # heuristic (see aliases)
+    "Non-Commercial",  # heuristic (see aliases)
     "Shareware",
     "Freeware",
 }
 
 LICENSE_AMBIGUOUS_03 = {
-    "gpl", "gnu general public license",   # too broad: could be GPLv3
+    "gpl",
+    "gnu general public license",  # too broad: could be GPLv3
     "open source",
     "free software license",
     "public license",
@@ -59,13 +56,17 @@ LICENSE_AMBIGUOUS_03 = {
 }
 
 LICENSE_AMBIGUOUS_07 = {
-    "lgpl", "gnu lesser general public license",
-    "apache", "apache license",
-    "bsd", "bsd license",
-    "mpl", "mozilla public license",
-    "epl", "eclipse public license",
+    "lgpl",
+    "gnu lesser general public license",
+    "apache",
+    "apache license",
+    "bsd",
+    "bsd license",
+    "mpl",
+    "mozilla public license",
+    "epl",
+    "eclipse public license",
 }
-
 
 
 # Aliases to map non-standard license mentions to SPDX identifiers or custom tokens
@@ -106,7 +107,6 @@ LICENSE_ALIASES = {
     "cc0-1.0": "CC0-1.0",
     "wtfpl license": "WTFPL",
     "wtfpl": "WTFPL",
-
     # Restrictive phrases → custom blacklist tokens
     "noncommercial": "Non-Commercial",
     "non-commercial": "Non-Commercial",
@@ -114,4 +114,3 @@ LICENSE_ALIASES = {
     "proprietary license": "Proprietary",
     "commercial use only": "Commercial",
 }
-

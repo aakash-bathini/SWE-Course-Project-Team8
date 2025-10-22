@@ -1,6 +1,16 @@
 from typing import List
 from src.models.types import MetricItem
-from . import size, license_check, performance_metric, code_quality_metric, bus_factor_metric, dataset_quality, ramp_up_time, available_dataset_code
+from . import (
+    size,
+    license_check,
+    performance_metric,
+    code_quality_metric,
+    bus_factor_metric,
+    dataset_quality,
+    ramp_up_time,
+    available_dataset_code,
+)
+
 
 def get_all_metrics() -> List[MetricItem]:
     return [

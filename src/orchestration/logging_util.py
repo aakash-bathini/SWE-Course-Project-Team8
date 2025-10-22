@@ -2,11 +2,8 @@ import logging
 import sys
 import os
 
-_LEVELS = {
-    0: None,            # Silent
-    1: logging.INFO,    # Info
-    2: logging.DEBUG    # Debug
-}
+_LEVELS = {0: None, 1: logging.INFO, 2: logging.DEBUG}  # Silent  # Info  # Debug
+
 
 def setup_logging_util(also_stderr: bool = False) -> int:
     """
@@ -31,7 +28,6 @@ def setup_logging_util(also_stderr: bool = False) -> int:
     # reset any previous handlers
     for h in list(root.handlers):
         root.removeHandler(h)
-
 
     if lvl == 0:
         root.setLevel(logging.CRITICAL + 1)  # effectively disables all logs

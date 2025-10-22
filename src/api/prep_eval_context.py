@@ -7,16 +7,17 @@ from src.api.huggingface import scrape_hf_url
 from src.api.github import scrape_github_url
 import logging
 
+
 def prepare_eval_context(url: str | None = None) -> EvalContext:
     """
     Builds EvalContext for HuggingFace and GitHub URLs.
-        HuggingFace: returns (profile, type), category = MODEL or DATASET 
+        HuggingFace: returns (profile, type), category = MODEL or DATASET
         and scrapes associated GitHub repos if present.
-        
+
         GitHub: returns just the GitHub profile, category = CODE.
-        
+
         Both hf_data and gh_data are always lists of dictionaries for consistency
-        Potentially add github -> parse for hf link functionality 
+        Potentially add github -> parse for hf link functionality
     """
     if not url:
         raise ValueError("URL is required")

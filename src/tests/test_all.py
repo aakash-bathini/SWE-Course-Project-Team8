@@ -20,12 +20,14 @@ import src.api.github as gh
 # LOGGING_UTIL.PY
 # -------------------------------------------------------------------
 
+
 def test_logfile_missing_env(monkeypatch, tmp_path):
     log_file = tmp_path / "doesnotexist.log"
     monkeypatch.setenv("LOG_FILE", str(log_file))
     with pytest.raises(SystemExit) as e:
         url_file_cmd.run_eval("nonexistent.txt")
     assert e.value.code == 1
+
 
 def test_logging_levels(monkeypatch, tmp_path):
     log_file = tmp_path / "log.txt"
@@ -34,6 +36,7 @@ def test_logging_levels(monkeypatch, tmp_path):
     lvl = logging_util.setup_logging_util(False)
     assert lvl == 1
     assert log_file.exists()
+
 
 def test_logging_level0(monkeypatch, tmp_path):
     log_file = tmp_path / "log0.txt"
@@ -44,9 +47,11 @@ def test_logging_level0(monkeypatch, tmp_path):
     assert log_file.exists()
     assert log_file.read_text() == ""
 
+
 # -------------------------------------------------------------------
 # URL_FILE_CMD.PY
 # -------------------------------------------------------------------
+
 
 def test_parse_urls_utf8_tokens(tmp_path):
     url_file = tmp_path / "urls.txt"
@@ -54,9 +59,11 @@ def test_parse_urls_utf8_tokens(tmp_path):
     urls = url_file_cmd.parse_urls_from_file(str(url_file))
     assert urls[0].startswith("https://")
 
+
 def test_parse_urls_missing_file_returns_empty():
     urls = url_file_cmd.parse_urls_from_file("nope.txt")
     assert urls == []
+
 
 def test_parse_urls_non_utf8_file(tmp_path):
     url_file = tmp_path / "urls.txt"
@@ -67,15 +74,18 @@ def test_parse_urls_non_utf8_file(tmp_path):
     assert isinstance(urls, list)
     assert all(isinstance(u, str) for u in urls)
 
+
 def test_normalize_url_variants():
     u1 = "https://huggingface.co/org/model/tree/main"
     u2 = "https://github.com/org/repo/blob/main/file.py"
     assert url_file_cmd.normalize_url(u1) == "https://huggingface.co/org/model"
     assert url_file_cmd.normalize_url(u2) == "https://github.com/org/repo"
 
+
 def test_normalize_url_passthrough():
     url = "https://example.com/foo"
     assert url_file_cmd.normalize_url(url) == url
+
 
 # def test_read_lines_ascii_multiple(tmp_path):
 #     f = tmp_path / "urls.txt"
@@ -88,6 +98,7 @@ def test_normalize_url_passthrough():
 #     f.write_text("\n\n", encoding="ascii")
 #     urls = list(url_file_cmd._read_lines_ascii(f))
 #     assert urls == []
+
 
 def test_print_ndjson(capsys):
     rep = OrchestrationReport(
@@ -102,23 +113,31 @@ def test_print_ndjson(capsys):
     assert out_json["name"] == "bar"
     assert "net_score" in out_json
 
+
 # -------------------------------------------------------------------
 # PREP_EVAL_CONTEXT.PY
 # -------------------------------------------------------------------
 
+
 def test_prepare_eval_context_hf(monkeypatch):
     from src.api import prep_eval_context
-    monkeypatch.setattr(prep_eval_context, "scrape_hf_url",
-                        lambda u: ({"readme_text": "hello", "github_links": []}, "model"))
+
+    monkeypatch.setattr(
+        prep_eval_context,
+        "scrape_hf_url",
+        lambda u: ({"readme_text": "hello", "github_links": []}, "model"),
+    )
     ctx = prepare_eval_context("https://huggingface.co/foo/bar")
     assert ctx.category == "MODEL"
 
+
 def test_prepare_eval_context_github(monkeypatch):
     from src.api import prep_eval_context
-    monkeypatch.setattr(prep_eval_context, "scrape_github_url",
-                        lambda u: {"repo_id": "org/repo"})
+
+    monkeypatch.setattr(prep_eval_context, "scrape_github_url", lambda u: {"repo_id": "org/repo"})
     ctx = prepare_eval_context("https://github.com/org/repo")
     assert ctx.category == "CODE"
+
 
 def test_prepare_eval_context_bad(caplog):
     caplog.set_level("DEBUG")
@@ -126,24 +145,30 @@ def test_prepare_eval_context_bad(caplog):
     assert ctx.category is None
     assert "unsupported URL host" in caplog.text
 
+
 def test_prepare_eval_context_none():
     with pytest.raises(ValueError):
         prepare_eval_context(None)
 
+
 # -------------------------------------------------------------------
 # NET_SCORE.PY
 # -------------------------------------------------------------------
+
 
 def test_net_score_empty_report():
     rep = OrchestrationReport(results={}, total_latency_ms=0)
     bundle = bundle_from_report(rep, {}, clamp=True)
     assert 0.0 <= bundle.net_score <= 1.0
 
+
 def test_net_score_with_size_dict():
     rep = OrchestrationReport(
-        results={"size_score": MetricRun("size_score",
-                                         value={"raspberry_pi": 0.5, "jetson_nano": 0.7},
-                                         latency_ms=10)},
+        results={
+            "size_score": MetricRun(
+                "size_score", value={"raspberry_pi": 0.5, "jetson_nano": 0.7}, latency_ms=10
+            )
+        },
         total_latency_ms=10,
     )
     subs = subscores_from_results(rep.results)
@@ -151,147 +176,187 @@ def test_net_score_with_size_dict():
     bundle = bundle_from_report(rep, {"size_score": 1.0}, clamp=True)
     assert 0.0 <= bundle.net_score <= 1.0
 
+
 # -------------------------------------------------------------------
 # METRICS: SIZE
 # -------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_size_metric_empty_ctx():
     from src.metrics import size
+
     ctx = types.SimpleNamespace(category="MODEL", hf_data=[])
     scores = await size.metric(ctx)
     assert isinstance(scores, dict)
 
+
 @pytest.mark.asyncio
 async def test_size_metric_with_readme_regex():
     from src.metrics import size
+
     ctx = types.SimpleNamespace(
         category="MODEL",
         hf_data=[{"readme_text": "Requires 16GB VRAM", "card_yaml": {}, "files": []}],
-        gh_data=[]
+        gh_data=[],
     )
     scores = await size.metric(ctx)
     assert any(v <= 1.0 for v in scores.values())
 
+
 def test_sum_repo_size_from_index():
     from src.metrics.size import _sum_repo_size_from_index
+
     files = [{"type": "blob", "size": 123}, {"type": "tree"}]
     assert _sum_repo_size_from_index(files) == 123
+
 
 # -------------------------------------------------------------------
 # DATASET_QUALITY.PY
 # -------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_dataset_quality_no_data():
     from src.metrics import dataset_quality
+
     ctx = types.SimpleNamespace(hf_data=[])
     score = await dataset_quality.metric(ctx)
     assert score == 0.0
 
+
 @pytest.mark.asyncio
 async def test_dataset_quality_with_scores():
     from src.metrics import dataset_quality
-    ctx = types.SimpleNamespace(hf_data=[{
-        "downloads": 5000,
-        "likes": 100,
-        "readme_text": "dataset for testing",
-        "repo_type": "dataset"
-    }])
+
+    ctx = types.SimpleNamespace(
+        hf_data=[
+            {
+                "downloads": 5000,
+                "likes": 100,
+                "readme_text": "dataset for testing",
+                "repo_type": "dataset",
+            }
+        ]
+    )
     score = await dataset_quality.metric(ctx)
     assert 0.0 <= score <= 1.0
+
 
 # -------------------------------------------------------------------
 # PERFORMANCE_METRIC.PY
 # -------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_performance_metric_no_keys(monkeypatch):
     from src.metrics import performance_metric
+
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GEN_AI_STUDIO_API_KEY", raising=False)
     ctx = types.SimpleNamespace(gh_data=[{}])
     score = await performance_metric.metric(ctx)
     assert score == 0.0
 
+
 # -------------------------------------------------------------------
 # CODE_QUALITY.PY
 # -------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_code_quality_metric_empty():
     from src.metrics import code_quality_metric
+
     ctx = types.SimpleNamespace(gh_data=[])
     score = await code_quality_metric.metric(ctx)
     assert score == 0.0
+
 
 # -------------------------------------------------------------------
 # LICENSE_CHECK.PY
 # -------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_license_check_metric(monkeypatch):
     import src.metrics.license_check as lc
+
     monkeypatch.setattr(lc, "extract_license_evidence", lambda *a, **k: ("src", ["MIT"], [], []))
     monkeypatch.setattr(lc.spdx, "classify_license", lambda l: (1.0, "ok"))
     ctx = types.SimpleNamespace(gh_data=[{"doc_texts": {"LICENSE": "MIT"}}])
     score = await lc.metric(ctx)
     assert 0.0 <= score <= 1.0
 
+
 # -------------------------------------------------------------------
 # BUS_FACTOR.PY
 # -------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_bus_factor_metric():
     import src.metrics.bus_factor_metric as bf
+
     ctx = types.SimpleNamespace(gh_data=[{"contributors": {"a": 10, "b": 5}}], hf_data=[])
     score = await bf.metric(ctx)
     assert 0.0 <= score <= 1.0
+
 
 # -------------------------------------------------------------------
 # API: GITHUB
 # -------------------------------------------------------------------
 
+
 def test_parse_github_url_valid_and_invalid():
-    assert gh.parse_github_url("https://github.com/user/repo") == ("user","repo")
+    assert gh.parse_github_url("https://github.com/user/repo") == ("user", "repo")
     with pytest.raises(ValueError):
         gh.parse_github_url("https://example.com/notgithub")
     with pytest.raises(ValueError):
         gh.parse_github_url("https://github.com/user")
 
+
 def test_should_fetch_patterns():
     assert gh._should_fetch("README.md")
     assert not gh._should_fetch("binary.bin")
 
+
 def test_is_fresh_and_cache(tmp_path, monkeypatch):
     import src.api.github as gh
-    monkeypatch.setenv("GH_META_CACHE_TTL_S", "3600")   # ensure positive TTL
+
+    monkeypatch.setenv("GH_META_CACHE_TTL_S", "3600")  # ensure positive TTL
     monkeypatch.setattr(gh, "_CACHE_TTL_S", 3600)
     entry = {"fetched_at": gh._now()}
     assert gh._is_fresh(entry)
+
 
 # -------------------------------------------------------------------
 # API: HUGGINGFACE
 # -------------------------------------------------------------------
 
+
 def test_parse_hf_url_valid_and_invalid():
-    assert hf.parse_hf_url("https://huggingface.co/user/model") == ("model","user/model")
-    assert hf.parse_hf_url("https://huggingface.co/datasets/user/data") == ("dataset","user/data")
+    assert hf.parse_hf_url("https://huggingface.co/user/model") == ("model", "user/model")
+    assert hf.parse_hf_url("https://huggingface.co/datasets/user/data") == ("dataset", "user/data")
     with pytest.raises(ValueError):
         hf.parse_hf_url("https://example.com/not-hf")
     with pytest.raises(ValueError):
         hf.parse_hf_url("https://huggingface.co/")
 
+
 def test_extract_github_links_from_card_and_readme():
-    links = hf._extract_github_links("see https://github.com/u/r", {"repository": "https://github.com/u/r2"})
+    links = hf._extract_github_links(
+        "see https://github.com/u/r", {"repository": "https://github.com/u/r2"}
+    )
     assert any("github.com" in l for l in links)
+
 
 # -------------------------------------------------------------------
 # README_PARSER.PY
 # -------------------------------------------------------------------
 
 import src.config_parsers_nlp.readme_parser as rp
+
 
 def test_strip_markdown_noise_removes_code_and_comments():
     md = "```python\nprint(123)\n```\n<!--comment-->\n[id]: http://link\n`inline`"
@@ -300,10 +365,12 @@ def test_strip_markdown_noise_removes_code_and_comments():
     assert "<!--" not in out
     assert "`inline`" not in out
 
+
 def test_extract_section_found_and_not_found():
     md = "# License\nMIT\n# Other\n"
     assert "MIT" in rp.extract_section(md, rp.LICENSE_HX)
     assert rp.extract_section("no headings", rp.LICENSE_HX) is None
+
 
 # def test_find_spdx_ids_exprs_hints():
 #     text = "SPDX-License-Identifier: MIT\nApache-2.0 OR GPL-3.0-only\nThis project uses the MIT license"
@@ -320,6 +387,7 @@ def test_extract_section_found_and_not_found():
 
 import src.config_parsers_nlp.spdx as spdx
 
+
 def test_normalize_and_classify_license():
     assert spdx.normalize_license("MIT License") == "MIT"
     score, msg = spdx.classify_license("MIT")
@@ -327,18 +395,21 @@ def test_normalize_and_classify_license():
     assert spdx.classify_license("GPL-3.0-only")[0] == 0.0
     assert spdx.classify_license("gpl")[0] == 0.3
 
+
 # -------------------------------------------------------------------
 # ORCHESTRATION.LOGGING_UTIL
 # -------------------------------------------------------------------
 
 import src.orchestration.logging_util as logutil
 
+
 def test_setup_logging_util_with_env(tmp_path, monkeypatch):
-    log_file = tmp_path/"log.txt"
+    log_file = tmp_path / "log.txt"
     monkeypatch.setenv("LOG_FILE", str(log_file))
     monkeypatch.setenv("LOG_LEVEL", "2")
     lvl = logutil.setup_logging_util(also_stderr=True)
     assert lvl == 2
+
 
 # -------------------------------------------------------------------
 # METRIC_ORCHESTRATOR.PY
@@ -347,27 +418,37 @@ def test_setup_logging_util_with_env(tmp_path, monkeypatch):
 import src.orchestration.metric_orchestrator as mo
 from src.models.types import EvalContext
 
+
 @pytest.mark.asyncio
 async def test_run_one_success_and_failure():
-    async def good(ctx): return 0.5
-    async def bad(ctx): raise RuntimeError("fail")
+    async def good(ctx):
+        return 0.5
+
+    async def bad(ctx):
+        raise RuntimeError("fail")
+
     ctx = EvalContext(url="u")
     r1 = await mo._run_one(("good", good), ctx)
     assert r1.value == 0.5
     r2 = await mo._run_one(("bad", bad), ctx)
     assert r2.error
 
+
 # -------------------------------------------------------------------
 # API: GITHUB
 # -------------------------------------------------------------------
 
+
 def test_github_rate_limit(monkeypatch):
     import src.api.github as gh
+
     class FakeResp:
         status_code = 403
         text = "rate limit"
-        def raise_for_status(self): 
+
+        def raise_for_status(self):
             raise requests.exceptions.HTTPError("403")
+
     monkeypatch.setattr(gh.requests, "get", lambda *a, **k: FakeResp())
     with pytest.raises(requests.exceptions.HTTPError):
         gh._get_json("https://api.github.com/repos/foo/bar")
@@ -375,11 +456,14 @@ def test_github_rate_limit(monkeypatch):
 
 def test_github_get_json_success(monkeypatch):
     import src.api.github as gh
+
     class FakeResp:
-        def json(self): 
+        def json(self):
             return {"ok": True}
-        def raise_for_status(self): 
+
+        def raise_for_status(self):
             return None
+
     monkeypatch.setattr(gh.requests, "get", lambda *a, **k: FakeResp())
     out = gh._get_json("https://api.github.com/repos/foo/bar")
     assert out == {"ok": True}
@@ -387,6 +471,7 @@ def test_github_get_json_success(monkeypatch):
 
 def test_github_cache_roundtrip(tmp_path, monkeypatch):
     import src.api.github as gh
+
     monkeypatch.setenv("PROJECT_ROOT", str(tmp_path))
     (tmp_path / ".cache").mkdir(parents=True, exist_ok=True)
     data = {"foo": "bar"}
@@ -394,12 +479,15 @@ def test_github_cache_roundtrip(tmp_path, monkeypatch):
     out = gh._load_cache()
     assert isinstance(out, dict)
 
+
 # -------------------------------------------------------------------
 # API: HUGGINGFACE
 # -------------------------------------------------------------------
 
+
 def test_parse_hf_url_variants():
     from src.api.huggingface import parse_hf_url
+
     assert parse_hf_url("https://huggingface.co/models/org/name")[0] == "model"
     assert parse_hf_url("https://huggingface.co/datasets/org/data")[0] == "dataset"
     assert parse_hf_url("https://huggingface.co/org/name")[0] == "model"
@@ -409,6 +497,7 @@ def test_parse_hf_url_variants():
 
 def test_extract_github_links():
     from src.api.huggingface import _extract_github_links
+
     readme = "Check https://github.com/org/repo"
     card_yaml = {"repository": "https://github.com/org/other"}
     links = _extract_github_links(readme, card_yaml)
@@ -417,10 +506,13 @@ def test_extract_github_links():
 
 def test_is_fresh_and_cache_helpers(tmp_path, monkeypatch):
     import src.api.huggingface as hf
-    monkeypatch.setenv("HF_META_CACHE_TTL_S", "3600")   # ensure positive TTL
+
+    monkeypatch.setenv("HF_META_CACHE_TTL_S", "3600")  # ensure positive TTL
     monkeypatch.setattr(hf, "_CACHE_TTL_S", 3600)
     entry = {"fetched_at": hf._now()}
     assert hf._is_fresh(entry)
+
+
 # -------------------------------------------------------------------
 # METRICS: SIZE – deeper coverage
 # -------------------------------------------------------------------
@@ -429,13 +521,14 @@ import types
 import pytest
 import src.metrics.size as size
 
+
 @pytest.mark.asyncio
 async def test_size_metric_mem_requirements(monkeypatch):
     # README mentions GB → should parse memory requirement
     ctx = types.SimpleNamespace(
         category="MODEL",
         hf_data=[{"readme_text": "Needs 24GB GPU", "card_yaml": {}, "files": []}],
-        gh_data=[]
+        gh_data=[],
     )
     scores = await size.metric(ctx)
     assert any(0.0 <= v <= 1.0 for v in scores.values())
@@ -447,7 +540,7 @@ async def test_size_metric_small_large_values(monkeypatch):
     ctx1 = types.SimpleNamespace(
         category="MODEL",
         hf_data=[{"readme_text": "Requires 512MB memory", "card_yaml": {}, "files": []}],
-        gh_data=[]
+        gh_data=[],
     )
     scores1 = await size.metric(ctx1)
     assert all(0.0 <= v <= 1.0 for v in scores1.values())
@@ -455,7 +548,7 @@ async def test_size_metric_small_large_values(monkeypatch):
     ctx2 = types.SimpleNamespace(
         category="MODEL",
         hf_data=[{"readme_text": "Needs 1000TB GPU", "card_yaml": {}, "files": []}],
-        gh_data=[]
+        gh_data=[],
     )
     scores2 = await size.metric(ctx2)
     assert all(0.0 <= v <= 1.0 for v in scores2.values())
@@ -494,7 +587,7 @@ async def test_metric_dataset_disk_and_model_fallback():
     ctx = types.SimpleNamespace(
         category="DATASET",
         hf_data=[{"readme_text": "dataset size 50GB", "card_yaml": {}, "files": []}],
-        gh_data=[]
+        gh_data=[],
     )
     scores = await size.metric(ctx)
     assert isinstance(scores, dict)
@@ -502,7 +595,7 @@ async def test_metric_dataset_disk_and_model_fallback():
     ctx2 = types.SimpleNamespace(
         category="MODEL",
         hf_data=[{"readme_text": "", "card_yaml": {}, "files": [], "size": 1024}],
-        gh_data=[]
+        gh_data=[],
     )
     scores2 = await size.metric(ctx2)
     assert isinstance(scores2, dict)
@@ -513,7 +606,13 @@ async def test_metric_code_paths_and_unknown():
     ctx = types.SimpleNamespace(
         category="CODE",
         hf_data=[],
-        gh_data=[{"readme_text": "Requires 2GB RAM", "doc_texts": {}, "files_index": [{"type": "blob", "size": 100}]}]
+        gh_data=[
+            {
+                "readme_text": "Requires 2GB RAM",
+                "doc_texts": {},
+                "files_index": [{"type": "blob", "size": 100}],
+            }
+        ],
     )
     scores = await size.metric(ctx)
     assert isinstance(scores, dict)
@@ -522,7 +621,9 @@ async def test_metric_code_paths_and_unknown():
     scores2 = await size.metric(ctx2)
     assert isinstance(scores2, dict)
 
+
 import src.metrics.registry as registry
+
 
 def test_get_all_metrics_returns_list():
     metrics = registry.get_all_metrics()
@@ -530,21 +631,27 @@ def test_get_all_metrics_returns_list():
     assert any(name == "size_score" for name, fn in metrics)
     assert all(callable(fn) for _, fn in metrics)
 
+
 # -------------------------------------------------------------------
 # AVAILABLE_DATASET_CODE.PY
 # -------------------------------------------------------------------
 import src.metrics.available_dataset_code as adc
 
+
 @pytest.mark.asyncio
 async def test_dataset_and_code_metric_with_links_and_examples(tmp_path):
     ctx = types.SimpleNamespace(
-        hf_data=[{"readme_text": "Uses SQuAD dataset",
-                  "datasets": ["squad"]}],
-        gh_data=[{"readme_text": "see https://huggingface.co/datasets/foo/bar",
-                  "doc_texts": {"file.py": "import datasets\n"}}]
+        hf_data=[{"readme_text": "Uses SQuAD dataset", "datasets": ["squad"]}],
+        gh_data=[
+            {
+                "readme_text": "see https://huggingface.co/datasets/foo/bar",
+                "doc_texts": {"file.py": "import datasets\n"},
+            }
+        ],
     )
     score = await adc.metric(ctx)
     assert 0.0 <= score <= 1.0
+
 
 def test_has_runnable_snippet_and_is_example_path():
     assert adc.has_runnable_snippet("```python\nprint(1)\n```")
@@ -552,24 +659,37 @@ def test_has_runnable_snippet_and_is_example_path():
     assert adc._is_example_path("notebook/tutorial.ipynb")
     assert not adc._is_example_path("README.md")
 
+
 # -------------------------------------------------------------------
 # RAMP_UP_TIME.PY
 # -------------------------------------------------------------------
 import src.metrics.ramp_up_time as rut
 
+
 @pytest.mark.asyncio
 async def test_ramp_up_time_metric_with_readme_and_examples():
     ctx = types.SimpleNamespace(
-        hf_data=[{"readme_text": "# Overview\nThis is a summary with usage example\n```python\nprint(1)\n```"}],
-        gh_data=[{"readme_text": "inputs outputs", "files_index": [{"path": "examples/demo.py", "type": "blob"}]}],
+        hf_data=[
+            {
+                "readme_text": "# Overview\nThis is a summary with usage example\n```python\nprint(1)\n```"
+            }
+        ],
+        gh_data=[
+            {
+                "readme_text": "inputs outputs",
+                "files_index": [{"path": "examples/demo.py", "type": "blob"}],
+            }
+        ],
     )
     score = await rut.metric(ctx)
     assert 0.0 <= score <= 1.0
+
 
 # -------------------------------------------------------------------
 # WEIGHTS.PY
 # -------------------------------------------------------------------
 import src.scoring.weights as weights
+
 
 def test_get_weights_normalizes_sum_to_one():
     w = weights.get_weights()
@@ -577,16 +697,19 @@ def test_get_weights_normalizes_sum_to_one():
     assert abs(total - 1.0) < 1e-6
     assert all(0.0 < v < 1.0 for v in w.values())
 
+
 # -------------------------------------------------------------------
 # CLI.PY
 # -------------------------------------------------------------------
 import src.commands.cli as cli
+
 
 def test_cli_main_usage(capsys):
     with pytest.raises(SystemExit):
         cli.main([])
     out = capsys.readouterr()
     assert "Usage" in out.err
+
 
 def test_cli_eval_and_test(monkeypatch):
     called = {}
@@ -596,16 +719,22 @@ def test_cli_eval_and_test(monkeypatch):
     cli.main(["eval", "foo.txt"])
     assert "test" in called and "eval" in called
 
+
 # -------------------------------------------------------------------
 # METRIC_HELPERS.PY
 # -------------------------------------------------------------------
 import src.config_parsers_nlp.metric_helpers as mh
 
+
 def test_metric_helpers_norm_and_collect_paths():
     ctx = types.SimpleNamespace(
         hf_data=[{"files": [{"path": "a/b/c.py", "size": 1}]}],
-        gh_data=[{"files_index": [{"path": "x/y/z.py", "type": "blob"}],
-                  "doc_texts": {"README.md": "hi"}}]
+        gh_data=[
+            {
+                "files_index": [{"path": "x/y/z.py", "type": "blob"}],
+                "doc_texts": {"README.md": "hi"},
+            }
+        ],
     )
     paths = mh.collect_paths(ctx)
     assert any("c.py" in p or "z.py" in p for p in paths)
@@ -613,6 +742,8 @@ def test_metric_helpers_norm_and_collect_paths():
     assert "a" in mh._norm_parts("a/b/c.py")
 
     # -------------------------------------------------------------------
+
+
 # MORE COVERAGE: registry, url_file_cmd, license_check, performance_metric
 # -------------------------------------------------------------------
 
@@ -624,6 +755,7 @@ import src.orchestration.metric_orchestrator as metric_orch
 
 # ----------------- registry.py -----------------
 
+
 def test_registry_get_all_metrics_includes_expected():
     metrics = registry.get_all_metrics()
     names = [name for name, _ in metrics]
@@ -631,8 +763,10 @@ def test_registry_get_all_metrics_includes_expected():
     for expected in ["ramp_up_time", "bus_factor", "performance_claims", "license", "size_score"]:
         assert expected in names
 
+
 # ----------------- url_file_cmd.py -----------------
 import src.commands.url_file_cmd as url_file_cmd
+
 
 def test_clamp01_and_lat_helpers():
     assert url_file_cmd._clamp01(1.5) == 1.0
@@ -640,29 +774,40 @@ def test_clamp01_and_lat_helpers():
     assert url_file_cmd._clamp01("bad") == 0.0
     assert url_file_cmd._lat("oops") == 1
 
+
 def test_display_name_and_default_record():
     u = "https://huggingface.co/org/model"
     assert url_file_cmd._display_name_from_url(u) == "model"
     record = url_file_cmd._default_record("foo", None)
     assert "net_score" in record
 
+
 def test_apply_report_with_size_dict_and_string():
     from src.models.types import MetricRun, OrchestrationReport
-    rep = OrchestrationReport(results={
-        "size_score": MetricRun("size_score", {"raspberry_pi": 2.0}, 10),
-    }, total_latency_ms=10)
+
+    rep = OrchestrationReport(
+        results={
+            "size_score": MetricRun("size_score", {"raspberry_pi": 2.0}, 10),
+        },
+        total_latency_ms=10,
+    )
     out = url_file_cmd._default_record("foo", "MODEL")
     url_file_cmd._apply_report(out, rep)
     assert out["size_score"]["raspberry_pi"] == 1.0  # clamped
 
-    rep2 = OrchestrationReport(results={
-        "size_score": MetricRun("size_score", "raspberry_pi", 10),
-    }, total_latency_ms=10)
+    rep2 = OrchestrationReport(
+        results={
+            "size_score": MetricRun("size_score", "raspberry_pi", 10),
+        },
+        total_latency_ms=10,
+    )
     out2 = url_file_cmd._default_record("bar", "MODEL")
     url_file_cmd._apply_report(out2, rep2)
     assert out2["size_score"]["raspberry_pi"] == 1.0
 
+
 # ----------------- license_check.py -----------------
+
 
 @pytest.mark.asyncio
 async def test_license_check_metric_fallback(monkeypatch):
@@ -676,52 +821,74 @@ async def test_license_check_metric_fallback(monkeypatch):
     score2 = await license_check.metric(ctx2)
     assert score2 == 0.0
 
+
 # ----------------- performance_metric.py -----------------
+
 
 @pytest.mark.asyncio
 async def test_performance_metric_handles_missing_readme(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "dummy")  # force Gemini branch
     monkeypatch.setattr(perf, "api_key", "dummy")
+
     # Make client throw exception
     class DummyClient:
         class models:
             @staticmethod
             def generate_content(*a, **k):
                 raise RuntimeError("fail")
+
     monkeypatch.setitem(sys.modules, "google", types.SimpleNamespace(genai=DummyClient))
     ctx = types.SimpleNamespace(hf_data=[], gh_data=[])
     score = await perf.metric(ctx)
     assert 0.0 <= score <= 1.0
 
+
 @pytest.mark.asyncio
 async def test_performance_metric_json_parse(monkeypatch):
     monkeypatch.setattr(perf, "api_key", None)
     monkeypatch.setenv("GEN_AI_STUDIO_API_KEY", "dummy")
+
     # Fake requests.post returning JSON
     class DummyResp:
         def json(self):
-            return {"choices": [{"message": {"content": '{"summary":{"total_claims":1,"overall_evidence_quality":0.5,"overall_specificity":0.5},"claims_found":[]}'}}]}
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"summary":{"total_claims":1,"overall_evidence_quality":0.5,"overall_specificity":0.5},"claims_found":[]}'
+                        }
+                    }
+                ]
+            }
+
     monkeypatch.setattr(perf.requests, "post", lambda *a, **k: DummyResp())
     ctx = types.SimpleNamespace(hf_data=[{"readme_text": "achieves 90% accuracy"}], gh_data=[])
     score = await perf.metric(ctx)
     assert 0.0 <= score <= 1.0
 
+
 # ----------------- prep_eval_orchestrator.py -----------------
+
 
 @pytest.mark.asyncio
 async def test_prep_eval_many_runs(monkeypatch):
-    monkeypatch.setattr(prep_orch, "prepare_eval_context", lambda url: types.SimpleNamespace(url=url))
+    monkeypatch.setattr(
+        prep_orch, "prepare_eval_context", lambda url: types.SimpleNamespace(url=url)
+    )
     urls = ["https://huggingface.co/org/model", "https://github.com/org/repo"]
     result = await prep_orch.prep_eval_many(urls, limit=2)
     assert set(result.keys()) == set(urls)
 
+
 # ----------------- metric_orchestrator.py -----------------
+
 
 @pytest.mark.asyncio
 async def test_orchestrate_with_dummy_metrics(monkeypatch):
     import src.orchestration.metric_orchestrator as mo
 
-    async def fake_metric(ctx): return 0.7
+    async def fake_metric(ctx):
+        return 0.7
 
     # Patch inside metric_orchestrator, not registry
     monkeypatch.setattr(mo, "get_all_metrics", lambda: [("dummy", fake_metric)])
@@ -732,11 +899,14 @@ async def test_orchestrate_with_dummy_metrics(monkeypatch):
     assert "dummy" in rep.results
     assert rep.results["dummy"].value == 0.7
 
+
 # -------------------------------------------------------------------
 # MODEL_SIZE.PY
 # -------------------------------------------------------------------
-import pytest, types
+import pytest
+import types
 import src.metrics.size as ms
+
 
 def test_to_bytes_and_bytes_to_human_all_units():
     assert ms._to_bytes(1, "K") == 1024
@@ -756,21 +926,24 @@ def test_to_bytes_and_bytes_to_human_all_units():
     assert ms._bytes_to_human(7 * 1024**3).endswith("GB")
     assert ms._bytes_to_human(5 * 1024**4).endswith("TB")
 
+
 def test_sum_repo_size_and_hf_total_size():
-    files = [{"type":"blob","size":100}, {"type":"tree"}, {"type":"blob","size":50}]
+    files = [{"type": "blob", "size": 100}, {"type": "tree"}, {"type": "blob", "size": 50}]
     assert ms._sum_repo_size_from_index(files) == 150
 
-    hf = {"size":123}
+    hf = {"size": 123}
     assert ms._hf_total_size_bytes(hf) == 123
-    hf2 = {"files":[{"size":10},{"size":20}]}
+    hf2 = {"files": [{"size": 10}, {"size": 20}]}
     assert ms._hf_total_size_bytes(hf2) == 30
     hf3 = {}
     assert ms._hf_total_size_bytes(hf3) == 0
 
+
 def test_flatten_card_yaml_nested():
-    card = {"a":{"b":[1,{"c":2}]}, "d":"val"}
+    card = {"a": {"b": [1, {"c": 2}]}, "d": "val"}
     flat = ms._flatten_card_yaml(card)
     assert "a" in flat and "1" in flat and "2" in flat and "val" in flat
+
 
 # def test_scan_values_single_range_multi():
 #     text1 = "requires 16 GB ram"
@@ -789,6 +962,7 @@ def test_flatten_card_yaml_nested():
 #     text2 = "dataset size: 10 GB disk"
 #     assert ms._extract_disk_requirements(text2) >= 10*1024**3
 
+
 def test_score_required_vs_budget_and_best_device():
     budgets = {"raspberry_pi": 100}
     scores0 = ms._score_required_vs_budget(0, budgets, 0.5)
@@ -799,71 +973,87 @@ def test_score_required_vs_budget_and_best_device():
     assert 0.0 <= scores2["raspberry_pi"] <= 1.0
 
     # tie preference
-    s = {"raspberry_pi":1.0, "desktop_pc":1.0}
+    s = {"raspberry_pi": 1.0, "desktop_pc": 1.0}
     assert ms._best_device(s) == "raspberry_pi"
 
+
 # ------------------ metric tests ------------------
+
 
 @pytest.mark.asyncio
 async def test_metric_model_empty_and_hf_size():
     ctx = types.SimpleNamespace(category="MODEL", hf_data=[])
     scores = await ms.metric(ctx)
-    assert all(v==1.0 for v in scores.values())
+    assert all(v == 1.0 for v in scores.values())
 
     # fallback to hf.size
-    ctx2 = types.SimpleNamespace(category="MODEL", hf_data=[{"size":1234,"card_yaml":{},"readme_text":""}])
+    ctx2 = types.SimpleNamespace(
+        category="MODEL", hf_data=[{"size": 1234, "card_yaml": {}, "readme_text": ""}]
+    )
     scores2 = await ms.metric(ctx2)
     assert isinstance(scores2, dict)
 
+
 @pytest.mark.asyncio
 async def test_metric_model_explicit_mem():
-    ctx = types.SimpleNamespace(category="MODEL", hf_data=[{"readme_text":"Requires 24GB VRAM","card_yaml":{},"files":[]}])
+    ctx = types.SimpleNamespace(
+        category="MODEL",
+        hf_data=[{"readme_text": "Requires 24GB VRAM", "card_yaml": {}, "files": []}],
+    )
     scores = await ms.metric(ctx)
     assert isinstance(scores, dict)
     assert "raspberry_pi" in scores
 
+
 @pytest.mark.asyncio
 async def test_metric_dataset_disk_and_fallback():
-    ctx = types.SimpleNamespace(category="DATASET", hf_data=[{"readme_text":"Dataset size 50GB disk","card_yaml":{},"files":[]}])
+    ctx = types.SimpleNamespace(
+        category="DATASET",
+        hf_data=[{"readme_text": "Dataset size 50GB disk", "card_yaml": {}, "files": []}],
+    )
     scores = await ms.metric(ctx)
     assert isinstance(scores, dict)
 
-    ctx2 = types.SimpleNamespace(category="DATASET", hf_data=[{"size":999,"card_yaml":{},"files":[]}])
+    ctx2 = types.SimpleNamespace(
+        category="DATASET", hf_data=[{"size": 999, "card_yaml": {}, "files": []}]
+    )
     scores2 = await ms.metric(ctx2)
     assert isinstance(scores2, dict)
+
 
 @pytest.mark.asyncio
 async def test_metric_code_empty_and_paths():
     ctx = types.SimpleNamespace(category="CODE", gh_data=[])
     scores = await ms.metric(ctx)
-    assert all(v==1.0 for v in scores.values())
+    assert all(v == 1.0 for v in scores.values())
 
     # explicit mem in readme
-    gh = {"readme_text":"Needs 8GB RAM","doc_texts":{"f":"hi"},"files_index":[]}
+    gh = {"readme_text": "Needs 8GB RAM", "doc_texts": {"f": "hi"}, "files_index": []}
     ctx2 = types.SimpleNamespace(category="CODE", gh_data=[gh])
     scores2 = await ms.metric(ctx2)
     assert isinstance(scores2, dict)
 
     # explicit disk in readme
-    gh2 = {"readme_text":"Dataset size: 20 GB disk","doc_texts":{},"files_index":[]}
+    gh2 = {"readme_text": "Dataset size: 20 GB disk", "doc_texts": {}, "files_index": []}
     ctx3 = types.SimpleNamespace(category="CODE", gh_data=[gh2])
     scores3 = await ms.metric(ctx3)
     assert isinstance(scores3, dict)
 
     # fallback repo size
-    gh3 = {"readme_text":"","doc_texts":{},"files_index":[{"type":"blob","size":500}]}
+    gh3 = {"readme_text": "", "doc_texts": {}, "files_index": [{"type": "blob", "size": 500}]}
     ctx4 = types.SimpleNamespace(category="CODE", gh_data=[gh3])
     scores4 = await ms.metric(ctx4)
     assert isinstance(scores4, dict)
+
 
 @pytest.mark.asyncio
 async def test_metric_other_and_exception(monkeypatch):
     # unknown category fallback
     ctx = types.SimpleNamespace(category="OTHER", hf_data=[], gh_data=[])
     scores = await ms.metric(ctx)
-    assert all(isinstance(v,float) for v in scores.values())
+    assert all(isinstance(v, float) for v in scores.values())
 
     # exception path: break _flatten_card_yaml
-    bad_ctx = types.SimpleNamespace(category="MODEL", hf_data=[{"card_yaml":object()}])
+    bad_ctx = types.SimpleNamespace(category="MODEL", hf_data=[{"card_yaml": object()}])
     scores2 = await ms.metric(bad_ctx)
     assert isinstance(scores2, dict)
