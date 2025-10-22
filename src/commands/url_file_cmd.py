@@ -275,7 +275,7 @@ import os
 import logging
 import re
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Any
 from urllib.parse import urlparse
 
 from src.orchestration.logging_util import setup_logging_util
@@ -422,7 +422,7 @@ def _display_name_from_url(u: str) -> str:
     return parts[-1] if parts else u
 
 
-def _clamp01(x) -> float:
+def _clamp01(x: Any) -> float:
     try:
         x = float(x)
     except Exception:
@@ -434,14 +434,14 @@ def _clamp01(x) -> float:
     return x
 
 
-def _lat(ms) -> int:
+def _lat(ms: Any) -> int:
     try:
         return max(1, int(ms))
     except Exception:
         return 1
 
 
-def _default_record(name: str, category: str | None) -> Dict:
+def _default_record(name: str, category: str | None) -> Dict[str, Any]:
     return {
         "name": name,
         "category": category or "MODEL",
@@ -466,7 +466,7 @@ def _default_record(name: str, category: str | None) -> Dict:
     }
 
 
-def _apply_report(out: Dict, rep: OrchestrationReport) -> None:
+def _apply_report(out: Dict[str, Any], rep: OrchestrationReport) -> None:
     # net score bundle first
     bundle = bundle_from_report(rep, get_weights(), clamp=True)
 
@@ -554,7 +554,7 @@ def run_eval(url_file: str) -> None:
     sys.exit(0)
 
 
-def run_eval_silent(url_file: str):
+def run_eval_silent(url_file: str) -> tuple[Dict[str, EvalContext], Dict[str, OrchestrationReport]]:
     """
     Same as run_eval but suppresses NDJSON printing.
     Useful for test harnesses that only care about coverage.

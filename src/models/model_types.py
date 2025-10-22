@@ -16,7 +16,8 @@ class EvalContext:
 
 
 # Metrics are ASYNC and receive an EvalContext
-MetricFn = Callable[[EvalContext], Awaitable[float]]
+# Most metrics return float, but size_score returns Dict[str, float]
+MetricFn = Callable[[EvalContext], Awaitable[Union[float, Dict[str, float]]]]
 MetricItem = Tuple[MetricId, MetricFn]
 
 

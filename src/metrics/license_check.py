@@ -49,16 +49,20 @@ async def metric(ctx: EvalContext) -> float:
     hf = (ctx.hf_data or [{}])[0] if ctx.hf_data else {}
 
     # Try GitHub data first
+    readme_text: Optional[str]
+    doc_texts: Dict[str, str]
+    gh_spdx: Optional[str]
+    
     if gh and gh[0]:
         gh_profile = gh[0]
-        readme_text: Optional[str] = gh_profile.get("readme_text")
-        doc_texts: Dict[str, str] = gh_profile.get("doc_texts") or {}
-        gh_spdx: Optional[str] = gh_profile.get("license_spdx")
+        readme_text = gh_profile.get("readme_text")
+        doc_texts = gh_profile.get("doc_texts") or {}
+        gh_spdx = gh_profile.get("license_spdx")
     else:
         # Fall back to HF data
-        readme_text: Optional[str] = hf.get("readme_text")
-        doc_texts: Dict[str, str] = {}
-        gh_spdx: Optional[str] = hf.get("license")
+        readme_text = hf.get("readme_text")
+        doc_texts = {}
+        gh_spdx = hf.get("license")
 
     def compute() -> float:
         license_text = _select_license_text(doc_texts)
