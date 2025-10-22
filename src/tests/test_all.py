@@ -198,7 +198,8 @@ async def test_size_metric_empty_ctx() -> None:
 async def test_size_metric_with_readme_regex() -> None:
     from src.metrics import size
 
-    ctx = EvalContext(url="test://url", 
+    ctx = EvalContext(
+        url="test://url",
         category="MODEL",
         hf_data=[{"readme_text": "Requires 16GB VRAM", "card_yaml": {}, "files": []}],
         gh_data=[],
@@ -232,7 +233,8 @@ async def test_dataset_quality_no_data() -> None:
 async def test_dataset_quality_with_scores() -> None:
     from src.metrics import dataset_quality
 
-    ctx = EvalContext(url="test://url", 
+    ctx = EvalContext(
+        url="test://url",
         hf_data=[
             {
                 "downloads": 5000,
@@ -240,7 +242,7 @@ async def test_dataset_quality_with_scores() -> None:
                 "readme_text": "dataset for testing",
                 "repo_type": "dataset",
             }
-        ]
+        ],
     )
     score = await dataset_quality.metric(ctx)
     assert 0.0 <= score <= 1.0
@@ -528,7 +530,8 @@ import src.metrics.size as size
 @pytest.mark.asyncio
 async def test_size_metric_mem_requirements(monkeypatch: MonkeyPatch) -> None:
     # README mentions GB → should parse memory requirement
-    ctx = EvalContext(url="test://url", 
+    ctx = EvalContext(
+        url="test://url",
         category="MODEL",
         hf_data=[{"readme_text": "Needs 24GB GPU", "card_yaml": {}, "files": []}],
         gh_data=[],
@@ -540,7 +543,8 @@ async def test_size_metric_mem_requirements(monkeypatch: MonkeyPatch) -> None:
 @pytest.mark.asyncio
 async def test_size_metric_small_large_values(monkeypatch: MonkeyPatch) -> None:
     # Small requirement (MB) and huge requirement (TB) to hit edges
-    ctx1 = EvalContext(url="test://url", 
+    ctx1 = EvalContext(
+        url="test://url",
         category="MODEL",
         hf_data=[{"readme_text": "Requires 512MB memory", "card_yaml": {}, "files": []}],
         gh_data=[],
@@ -548,7 +552,8 @@ async def test_size_metric_small_large_values(monkeypatch: MonkeyPatch) -> None:
     scores1 = await size.metric(ctx1)
     assert all(0.0 <= v <= 1.0 for v in scores1.values())
 
-    ctx2 = EvalContext(url="test://url", 
+    ctx2 = EvalContext(
+        url="test://url",
         category="MODEL",
         hf_data=[{"readme_text": "Needs 1000TB GPU", "card_yaml": {}, "files": []}],
         gh_data=[],
@@ -587,7 +592,8 @@ def test_hf_total_size_bytes_prefers_size() -> None:
 
 @pytest.mark.asyncio
 async def test_metric_dataset_disk_and_model_fallback() -> None:
-    ctx = EvalContext(url="test://url", 
+    ctx = EvalContext(
+        url="test://url",
         category="DATASET",
         hf_data=[{"readme_text": "dataset size 50GB", "card_yaml": {}, "files": []}],
         gh_data=[],
@@ -595,7 +601,8 @@ async def test_metric_dataset_disk_and_model_fallback() -> None:
     scores = await size.metric(ctx)
     assert isinstance(scores, dict)
 
-    ctx2 = EvalContext(url="test://url", 
+    ctx2 = EvalContext(
+        url="test://url",
         category="MODEL",
         hf_data=[{"readme_text": "", "card_yaml": {}, "files": [], "size": 1024}],
         gh_data=[],
@@ -606,7 +613,8 @@ async def test_metric_dataset_disk_and_model_fallback() -> None:
 
 @pytest.mark.asyncio
 async def test_metric_code_paths_and_unknown() -> None:
-    ctx = EvalContext(url="test://url", 
+    ctx = EvalContext(
+        url="test://url",
         category="CODE",
         hf_data=[],
         gh_data=[
@@ -643,7 +651,8 @@ import src.metrics.available_dataset_code as adc
 
 @pytest.mark.asyncio
 async def test_dataset_and_code_metric_with_links_and_examples(tmp_path: Path) -> None:
-    ctx = EvalContext(url="test://url", 
+    ctx = EvalContext(
+        url="test://url",
         hf_data=[{"readme_text": "Uses SQuAD dataset", "datasets": ["squad"]}],
         gh_data=[
             {
@@ -671,7 +680,8 @@ import src.metrics.ramp_up_time as rut
 
 @pytest.mark.asyncio
 async def test_ramp_up_time_metric_with_readme_and_examples() -> None:
-    ctx = EvalContext(url="test://url", 
+    ctx = EvalContext(
+        url="test://url",
         hf_data=[
             {
                 "readme_text": "# Overview\nThis is a summary with usage example\n```python\nprint(1)\n```"
@@ -730,7 +740,8 @@ import src.config_parsers_nlp.metric_helpers as mh
 
 
 def test_metric_helpers_norm_and_collect_paths() -> None:
-    ctx = EvalContext(url="test://url", 
+    ctx = EvalContext(
+        url="test://url",
         hf_data=[{"files": [{"path": "a/b/c.py", "size": 1}]}],
         gh_data=[
             {
@@ -865,7 +876,9 @@ async def test_performance_metric_json_parse(monkeypatch: MonkeyPatch) -> None:
             }
 
     monkeypatch.setattr(perf.requests, "post", lambda *a, **k: DummyResp())
-    ctx = EvalContext(url="test://url", hf_data=[{"readme_text": "achieves 90% accuracy"}], gh_data=[])
+    ctx = EvalContext(
+        url="test://url", hf_data=[{"readme_text": "achieves 90% accuracy"}], gh_data=[]
+    )
     score = await perf.metric(ctx)
     assert 0.0 <= score <= 1.0
 
@@ -875,9 +888,7 @@ async def test_performance_metric_json_parse(monkeypatch: MonkeyPatch) -> None:
 
 @pytest.mark.asyncio
 async def test_prep_eval_many_runs(monkeypatch: MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        prep_orch, "prepare_eval_context", lambda url: EvalContext(url=url)
-    )
+    monkeypatch.setattr(prep_orch, "prepare_eval_context", lambda url: EvalContext(url=url))
     urls = ["https://huggingface.co/org/model", "https://github.com/org/repo"]
     result = await prep_orch.prep_eval_many(urls, limit=2)
     assert set(result.keys()) == set(urls)
@@ -932,7 +943,12 @@ def test_to_bytes_and_bytes_to_human_all_units() -> None:
 
 def test_sum_repo_size_and_hf_total_size() -> None:
     from typing import Any, Dict, List
-    files: List[Dict[str, Any]] = [{"type": "blob", "size": 100}, {"type": "tree"}, {"type": "blob", "size": 50}]
+
+    files: List[Dict[str, Any]] = [
+        {"type": "blob", "size": 100},
+        {"type": "tree"},
+        {"type": "blob", "size": 50},
+    ]
     assert ms._sum_repo_size_from_index(files) == 150
 
     hf = {"size": 123}
@@ -991,8 +1007,10 @@ async def test_metric_model_empty_and_hf_size() -> None:
     assert all(v == 1.0 for v in scores.values())
 
     # fallback to hf.size
-    ctx2 = EvalContext(url="test://url", 
-        category="MODEL", hf_data=[{"size": 1234, "card_yaml": {}, "readme_text": ""}]
+    ctx2 = EvalContext(
+        url="test://url",
+        category="MODEL",
+        hf_data=[{"size": 1234, "card_yaml": {}, "readme_text": ""}],
     )
     scores2 = await ms.metric(ctx2)
     assert isinstance(scores2, dict)
@@ -1000,7 +1018,8 @@ async def test_metric_model_empty_and_hf_size() -> None:
 
 @pytest.mark.asyncio
 async def test_metric_model_explicit_mem() -> None:
-    ctx = EvalContext(url="test://url", 
+    ctx = EvalContext(
+        url="test://url",
         category="MODEL",
         hf_data=[{"readme_text": "Requires 24GB VRAM", "card_yaml": {}, "files": []}],
     )
@@ -1011,15 +1030,16 @@ async def test_metric_model_explicit_mem() -> None:
 
 @pytest.mark.asyncio
 async def test_metric_dataset_disk_and_fallback() -> None:
-    ctx = EvalContext(url="test://url", 
+    ctx = EvalContext(
+        url="test://url",
         category="DATASET",
         hf_data=[{"readme_text": "Dataset size 50GB disk", "card_yaml": {}, "files": []}],
     )
     scores = await ms.metric(ctx)
     assert isinstance(scores, dict)
 
-    ctx2 = EvalContext(url="test://url", 
-        category="DATASET", hf_data=[{"size": 999, "card_yaml": {}, "files": []}]
+    ctx2 = EvalContext(
+        url="test://url", category="DATASET", hf_data=[{"size": 999, "card_yaml": {}, "files": []}]
     )
     scores2 = await ms.metric(ctx2)
     assert isinstance(scores2, dict)

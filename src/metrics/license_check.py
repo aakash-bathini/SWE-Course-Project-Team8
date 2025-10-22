@@ -52,7 +52,7 @@ async def metric(ctx: EvalContext) -> float:
     readme_text: Optional[str]
     doc_texts: Dict[str, str]
     gh_spdx: Optional[str]
-    
+
     if gh and gh[0]:
         gh_profile = gh[0]
         readme_text = gh_profile.get("readme_text")
