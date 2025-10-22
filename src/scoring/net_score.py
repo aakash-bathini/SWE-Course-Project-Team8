@@ -1,6 +1,6 @@
 # src/scoring/net_score.py
 from typing import Dict
-from src.models.types import MetricRun, OrchestrationReport, ScoreBundle
+from src.models.model_types import MetricRun, OrchestrationReport, ScoreBundle
 
 
 def subscores_from_results(results: Dict[str, MetricRun]) -> Dict[str, float]:

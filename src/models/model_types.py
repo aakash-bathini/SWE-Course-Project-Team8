@@ -1,6 +1,6 @@
-# src/models/types.py
+# src/models/model_types.py
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Dict, Optional, Tuple, Literal, List, Union
+from typing import Awaitable, Callable, Dict, Optional, Tuple, Literal, List, Union, Any
 
 # shared types
 MetricId = str
@@ -11,8 +11,8 @@ Category = Literal["MODEL", "DATASET", "CODE"]
 class EvalContext:
     url: str
     category: Optional[Category] = None
-    hf_data: Optional[List[dict]] = None
-    gh_data: Optional[List[dict]] = None
+    hf_data: Optional[List[Dict[str, Any]]] = None
+    gh_data: Optional[List[Dict[str, Any]]] = None
 
 
 # Metrics are ASYNC and receive an EvalContext

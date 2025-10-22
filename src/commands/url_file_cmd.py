@@ -13,7 +13,7 @@
 # from src.orchestration.logging_util import setup_logging_util
 # from src.orchestration.prep_eval_orchestrator import prep_eval_many
 # from src.orchestration.metric_orchestrator import orchestrate
-# from src.models.types import EvalContext, OrchestrationReport
+# from src.models.model_types import EvalContext, OrchestrationReport
 # from src.scoring.net_score import bundle_from_report
 # from src.scoring.weights import get_weights
 # import math
@@ -281,7 +281,7 @@ from urllib.parse import urlparse
 from src.orchestration.logging_util import setup_logging_util
 from src.orchestration.prep_eval_orchestrator import prep_eval_many
 from src.orchestration.metric_orchestrator import orchestrate
-from src.models.types import EvalContext, OrchestrationReport
+from src.models.model_types import EvalContext, OrchestrationReport
 from src.scoring.net_score import bundle_from_report
 from src.scoring.weights import get_weights
 import math

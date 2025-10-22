@@ -1,4 +1,4 @@
-from src.models.types import EvalContext
+from src.models.model_types import EvalContext
 
 
 # helpers for README checks

@@ -2,7 +2,7 @@
 import logging
 import subprocess
 from pathlib import Path
-from src.models.types import EvalContext
+from src.models.model_types import EvalContext
 
 
 async def run_cmd(cmd: str, cwd: str = ".") -> tuple[str, str, int]:

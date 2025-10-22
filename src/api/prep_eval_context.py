@@ -2,7 +2,7 @@
 from __future__ import annotations
 from urllib.parse import urlparse
 
-from src.models.types import EvalContext, Category
+from src.models.model_types import EvalContext, Category
 from src.api.huggingface import scrape_hf_url
 from src.api.github import scrape_github_url
 import logging

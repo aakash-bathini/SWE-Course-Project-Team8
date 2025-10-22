@@ -3,7 +3,7 @@ import os
 import json
 import logging
 import requests
-from src.models.types import EvalContext
+from src.models.model_types import EvalContext
 
 MAX_INPUT_CHARS = 7000
 api_key = os.getenv("GEMINI_API_KEY")

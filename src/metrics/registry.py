@@ -1,5 +1,5 @@
 from typing import List
-from src.models.types import MetricItem
+from src.models.model_types import MetricItem
 from . import (
     size,
     license_check,

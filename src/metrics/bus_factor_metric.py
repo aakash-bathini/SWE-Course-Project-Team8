@@ -1,5 +1,5 @@
 import logging
-from src.models.types import EvalContext
+from src.models.model_types import EvalContext
 
 
 async def metric(ctx: EvalContext) -> float:

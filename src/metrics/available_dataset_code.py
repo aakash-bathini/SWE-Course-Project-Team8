@@ -1,6 +1,6 @@
 import logging
 import re
-from src.models.types import EvalContext
+from src.models.model_types import EvalContext
 from src.config_parsers_nlp.metric_helpers import _norm_parts, collect_paths
 
 DATASET_HOST_RE = re.compile(

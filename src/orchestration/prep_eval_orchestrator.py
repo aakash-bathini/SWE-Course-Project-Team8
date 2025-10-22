@@ -5,7 +5,7 @@ import inspect
 from typing import Dict, List
 
 from src.api.prep_eval_context import prepare_eval_context
-from src.models.types import EvalContext
+from src.models.model_types import EvalContext
 
 
 async def _call_prep(url: str) -> EvalContext:

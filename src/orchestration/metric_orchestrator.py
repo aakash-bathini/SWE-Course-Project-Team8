@@ -4,7 +4,7 @@ import logging
 from typing import List
 
 from src.metrics.registry import get_all_metrics
-from src.models.types import MetricItem, MetricRun, OrchestrationReport, EvalContext
+from src.models.model_types import MetricItem, MetricRun, OrchestrationReport, EvalContext
 
 logger = logging.getLogger(__name__)
 

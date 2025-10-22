@@ -10,7 +10,7 @@ from pathlib import Path
 import src.metrics.size as model_size
 from src.api.prep_eval_context import prepare_eval_context
 from src.commands import url_file_cmd
-from src.models.types import OrchestrationReport, MetricRun
+from src.models.model_types import OrchestrationReport, MetricRun
 from src.scoring.net_score import bundle_from_report, subscores_from_results
 from src.orchestration import logging_util
 import src.api.huggingface as hf
@@ -254,7 +254,7 @@ async def test_performance_metric_no_keys(monkeypatch):
 
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GEN_AI_STUDIO_API_KEY", raising=False)
-    ctx = types.SimpleNamespace(gh_data=[{}])
+    ctx = types.SimpleNamespace(gh_data=[{}], hf_data=[])
     score = await performance_metric.metric(ctx)
     assert score == 0.0
 
@@ -268,9 +268,9 @@ async def test_performance_metric_no_keys(monkeypatch):
 async def test_code_quality_metric_empty():
     from src.metrics import code_quality_metric
 
-    ctx = types.SimpleNamespace(gh_data=[])
+    ctx = types.SimpleNamespace(gh_data=[], hf_data=[])
     score = await code_quality_metric.metric(ctx)
-    assert score == 0.0
+    assert score == 0.1  # Low-engagement models are capped at 0.1
 
 
 # -------------------------------------------------------------------
@@ -284,7 +284,7 @@ async def test_license_check_metric(monkeypatch):
 
     monkeypatch.setattr(lc, "extract_license_evidence", lambda *a, **k: ("src", ["MIT"], [], []))
     monkeypatch.setattr(lc.spdx, "classify_license", lambda l: (1.0, "ok"))
-    ctx = types.SimpleNamespace(gh_data=[{"doc_texts": {"LICENSE": "MIT"}}])
+    ctx = types.SimpleNamespace(gh_data=[{"doc_texts": {"LICENSE": "MIT"}}], hf_data=[])
     score = await lc.metric(ctx)
     assert 0.0 <= score <= 1.0
 
@@ -416,7 +416,7 @@ def test_setup_logging_util_with_env(tmp_path, monkeypatch):
 # -------------------------------------------------------------------
 
 import src.orchestration.metric_orchestrator as mo
-from src.models.types import EvalContext
+from src.models.model_types import EvalContext
 
 
 @pytest.mark.asyncio
@@ -783,7 +783,7 @@ def test_display_name_and_default_record():
 
 
 def test_apply_report_with_size_dict_and_string():
-    from src.models.types import MetricRun, OrchestrationReport
+    from src.models.model_types import MetricRun, OrchestrationReport
 
     rep = OrchestrationReport(
         results={
@@ -812,12 +812,12 @@ def test_apply_report_with_size_dict_and_string():
 @pytest.mark.asyncio
 async def test_license_check_metric_fallback(monkeypatch):
     # case: no github data
-    ctx = types.SimpleNamespace(gh_data=[])
+    ctx = types.SimpleNamespace(gh_data=[], hf_data=[])
     score = await license_check.metric(ctx)
     assert score == 0.0
 
     # case: gh profile present but no license
-    ctx2 = types.SimpleNamespace(gh_data=[{}])
+    ctx2 = types.SimpleNamespace(gh_data=[{}], hf_data=[])
     score2 = await license_check.metric(ctx2)
     assert score2 == 0.0
 

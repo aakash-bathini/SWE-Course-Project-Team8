@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from typing import Optional, Dict
-from src.models.types import EvalContext
+from src.models.model_types import EvalContext
 from src.config_parsers_nlp.readme_parser import extract_license_evidence
 import src.config_parsers_nlp.spdx as spdx
 

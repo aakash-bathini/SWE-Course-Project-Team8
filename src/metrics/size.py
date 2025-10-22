@@ -4,7 +4,7 @@ import re
 import logging
 from typing import Dict, Any, List, Optional
 
-from src.models.types import EvalContext
+from src.models.model_types import EvalContext
 
 GB = 1024**3
 TB = 1024**4
