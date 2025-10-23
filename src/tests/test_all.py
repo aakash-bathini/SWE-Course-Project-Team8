@@ -583,11 +583,16 @@ def test_to_bytes_and_human() -> None:
 
 def test_flatten_card_yaml_and_sum_size() -> None:
     from typing import Dict, Any
+
     data = {"a": {"b": [1, 2, {"c": 3}]}}
     flat = size._flatten_card_yaml(data)
     assert "a" in flat and "b" in flat and "3" in flat
 
-    files: list[Dict[str, Any]] = [{"type": "blob", "size": 100}, {"type": "tree"}, {"type": "blob", "size": 50}]
+    files: list[Dict[str, Any]] = [
+        {"type": "blob", "size": 100},
+        {"type": "tree"},
+        {"type": "blob", "size": 50},
+    ]
     assert size._sum_repo_size_from_index(files) == 150
 
 
@@ -623,6 +628,7 @@ async def test_metric_dataset_disk_and_model_fallback() -> None:
 @pytest.mark.asyncio
 async def test_metric_code_paths_and_unknown() -> None:
     from src.models.model_types import Category
+
     cat: Category = "CODE"
     ctx = EvalContext(
         url="test://url",
@@ -737,6 +743,7 @@ def test_cli_main_usage(capsys: Any) -> None:
 
 def test_cli_eval_and_test(monkeypatch: MonkeyPatch) -> None:
     from typing import Dict, Any
+
     called: Dict[str, Any] = {}
     monkeypatch.setattr(cli, "run_tests", lambda: called.setdefault("test", True))
     monkeypatch.setattr(cli, "run_eval", lambda f: called.setdefault("eval", f))
@@ -854,6 +861,7 @@ async def test_license_check_metric_fallback(monkeypatch: MonkeyPatch) -> None:
 @pytest.mark.asyncio
 async def test_performance_metric_handles_missing_readme(monkeypatch: MonkeyPatch) -> None:
     from typing import Any
+
     monkeypatch.setenv("GEMINI_API_KEY", "dummy")  # force Gemini branch
     monkeypatch.setattr(perf, "api_key", "dummy")
 
@@ -874,6 +882,7 @@ async def test_performance_metric_handles_missing_readme(monkeypatch: MonkeyPatc
 async def test_performance_metric_json_parse(monkeypatch: MonkeyPatch) -> None:
     from typing import Dict, Any
     import requests as requests_lib
+
     monkeypatch.setattr(perf, "api_key", None)
     monkeypatch.setenv("GEN_AI_STUDIO_API_KEY", "dummy")
 
