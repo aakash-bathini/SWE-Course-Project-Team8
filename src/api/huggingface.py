@@ -200,7 +200,7 @@ def scrape_hf_url(url: str) -> Tuple[Dict[str, Any], str]:
         },
     }
 
-    fetched_time = data["_source"]["fetched_at"]
+    fetched_time: float = data["_source"]["fetched_at"]  # type: ignore[assignment, index, call-overload]
     cache[key] = {"payload": data, "fetched_at": fetched_time}
     _save_cache(cache)
     return data, repo_type

@@ -639,7 +639,7 @@ async def test_metric_code_paths_and_unknown() -> None:
     scores = await size.metric(ctx)
     assert isinstance(scores, dict)
 
-    ctx2 = EvalContext(url="test://url", category="OTHER", hf_data=[], gh_data=[])
+    ctx2 = EvalContext(url="test://url", category=None, hf_data=[], gh_data=[])
     scores2 = await size.metric(ctx2)
     assert isinstance(scores2, dict)
 
