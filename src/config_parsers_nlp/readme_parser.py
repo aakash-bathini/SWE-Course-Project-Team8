@@ -1,7 +1,7 @@
 # src/acme_trust_cli/parsers/readme_parser.py
 from __future__ import annotations
 import re
-from typing import Iterable, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 # ---------- Markdown cleanup helpers ----------
 
@@ -9,6 +9,7 @@ FENCED_BLOCK = re.compile(r"(^|\n)```.*?\n.*?\n```", re.DOTALL)
 INLINE_CODE = re.compile(r"`[^`]+`")
 HTML_COMMENTS = re.compile(r"<!--.*?-->", re.DOTALL)
 LINK_REF_DEF = re.compile(r"^\s*\[[^\]]+\]:\s+\S+.*$", re.MULTILINE)
+
 
 def _strip_markdown_noise(md: str) -> str:
     """
@@ -23,13 +24,16 @@ def _strip_markdown_noise(md: str) -> str:
     text = HTML_COMMENTS.sub(" ", text)
     text = LINK_REF_DEF.sub("", text)
     return text
+
+
 # example usage:
 # cleaned_md = _strip_markdown_noise(readme_md)
 # ---------- Section extraction ----------
 
 LICENSE_HX = re.compile(r"^(#{1,6})\s*license\b.*$", re.IGNORECASE | re.MULTILINE)
 
-def extract_section(md: str, title_regex: re.Pattern) -> Optional[str]:
+
+def extract_section(md: str, title_regex: re.Pattern[str]) -> Optional[str]:
     """
     Generic section extractor: find a heading match and return text until the next
     heading of the same or higher level.
@@ -50,9 +54,12 @@ def extract_section(md: str, title_regex: re.Pattern) -> Optional[str]:
     section = md2[start:end].strip()
     return section or None
 
+
 def extract_license_block(md: str) -> Optional[str]:
     """Convenience wrapper to slice the README's License section text."""
     return extract_section(md, LICENSE_HX)
+
+
 # example usage:
 # readme_md = "... contents of README.md ..."
 # license_section = extract_license_block(readme_md)
@@ -68,9 +75,8 @@ SPDX_LINE = re.compile(
     re.IGNORECASE,
 )
 # Also detect bare SPDX-like tokens, e.g., MIT, Apache-2.0, GPL-3.0-only
-SPDX_TOKEN = re.compile(
-    r"\b([A-Za-z][A-Za-z0-9\.\-\+]{1,40})\b"
-)
+SPDX_TOKEN = re.compile(r"\b([A-Za-z][A-Za-z0-9\.\-\+]{1,40})\b")
+
 
 def find_spdx_ids(text: str) -> List[str]:
     """
@@ -89,8 +95,20 @@ def find_spdx_ids(text: str) -> List[str]:
     # Bare tokens (filter to things that look like SPDX IDs)
     # We'll keep a small allowlist of common prefixes to reduce false positives.
     ALLOWED_PREFIXES = (
-        "MIT", "Apache-", "BSD-", "GPL-", "LGPL-", "AGPL-",
-        "MPL-", "EPL-", "CDDL-", "CC", "Unlicense", "Zlib", "Artistic-", "WTFPL"
+        "MIT",
+        "Apache-",
+        "BSD-",
+        "GPL-",
+        "LGPL-",
+        "AGPL-",
+        "MPL-",
+        "EPL-",
+        "CDDL-",
+        "CC",
+        "Unlicense",
+        "Zlib",
+        "Artistic-",
+        "WTFPL",
     )
     for m in SPDX_TOKEN.finditer(text):
         token = m.group(1)
@@ -105,6 +123,8 @@ def find_spdx_ids(text: str) -> List[str]:
             seen.add(t)
             out.append(t)
     return out
+
+
 # example usage:
 # readme_md = "... contents of README.md ..."
 # license_section = extract_license_block(readme_md)
@@ -165,6 +185,7 @@ NAMED_LICENSE = re.compile(
     re.IGNORECASE,
 )
 
+
 def find_license_hints(text: str) -> List[str]:
     """
     Return fuzzy license keywords (lowercased) you can pass to your alias map or
@@ -183,6 +204,8 @@ def find_license_hints(text: str) -> List[str]:
             seen.add(t)
             out.append(t)
     return out
+
+
 # Example usage:
 # readme_md = "... contents of README.md ..."
 # license_section = extract_license_block(readme_md)
@@ -193,7 +216,10 @@ def find_license_hints(text: str) -> List[str]:
 
 # ---------- Convenience pipeline ----------
 
-def extract_license_evidence(readme_md: Optional[str], license_file_text: Optional[str]) -> Tuple[str, List[str], List[str], List[str]]:
+
+def extract_license_evidence(
+    readme_md: Optional[str], license_file_text: Optional[str]
+) -> Tuple[str, List[str], List[str], List[str]]:
     """
     High-level helper:
       1) Prefer LICENSE* file text; else use README's License section.
@@ -203,9 +229,8 @@ def extract_license_evidence(readme_md: Optional[str], license_file_text: Option
          - spdx_exprs: expressions to feed to parser (e.g., 'MIT OR GPL-3.0-only')
          - hints: fuzzy keywords to resolve via aliases / ambiguous rules
     """
-    source = "NONE"
-    chosen = None
-
+    source: str = ""
+    chosen: str = ""
     if license_file_text and license_file_text.strip():
         source = "LICENSE"
         chosen = license_file_text
@@ -220,13 +245,12 @@ def extract_license_evidence(readme_md: Optional[str], license_file_text: Option
 
     ids = find_spdx_ids(chosen)
     # exprs = find_spdx_expressions(chosen)
-    exprs = []
+    exprs: list[str] = []
     hints = find_license_hints(chosen)
     return source, ids, exprs, hints
+
+
 # Example usage:
 # readme_md = "... contents of README.md ..."
 # license_file_text = "... contents of LICENSE file ..."
 # source, spdx_ids, spdx_exprs, hints = extract_license_evidence(readme_md, license_file_text)
-
-
-

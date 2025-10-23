@@ -1,21 +1,25 @@
-# src/models/types.py
+# src/models/model_types.py
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Dict, Optional, Tuple, Literal, List, Union
+from typing import Awaitable, Callable, Dict, Optional, Tuple, Literal, List, Union, Any
 
 # shared types
 MetricId = str
 Category = Literal["MODEL", "DATASET", "CODE"]
 
+
 @dataclass
 class EvalContext:
     url: str
     category: Optional[Category] = None
-    hf_data: Optional[List[dict]] = None
-    gh_data: Optional[List[dict]] = None
+    hf_data: Optional[List[Dict[str, Any]]] = None
+    gh_data: Optional[List[Dict[str, Any]]] = None
+
 
 # Metrics are ASYNC and receive an EvalContext
-MetricFn = Callable[[EvalContext], Awaitable[float]]
+# Most metrics return float, but size_score returns Dict[str, float]
+MetricFn = Callable[[EvalContext], Awaitable[Union[float, Dict[str, float]]]]
 MetricItem = Tuple[MetricId, MetricFn]
+
 
 @dataclass
 class MetricRun:
@@ -28,10 +32,12 @@ class MetricRun:
     latency_ms: int
     error: Optional[str] = None
 
+
 @dataclass
 class OrchestrationReport:
     results: Dict[MetricId, MetricRun]
     total_latency_ms: int
+
 
 @dataclass
 class ScoreBundle:

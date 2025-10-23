@@ -1,0 +1,9 @@
+pytest
+pytest-cov
+pytest-asyncio
+pytest-mock
+httpx
+flake8
+black
+mypy
+types-requests

@@ -1,22 +1,24 @@
 # src/api/prep_eval_context.py
 from __future__ import annotations
+from typing import Dict, Any
 from urllib.parse import urlparse
 
-from src.models.types import EvalContext, Category
+from src.models.model_types import EvalContext, Category
 from src.api.huggingface import scrape_hf_url
 from src.api.github import scrape_github_url
 import logging
 
+
 def prepare_eval_context(url: str | None = None) -> EvalContext:
     """
     Builds EvalContext for HuggingFace and GitHub URLs.
-        HuggingFace: returns (profile, type), category = MODEL or DATASET 
+        HuggingFace: returns (profile, type), category = MODEL or DATASET
         and scrapes associated GitHub repos if present.
-        
+
         GitHub: returns just the GitHub profile, category = CODE.
-        
+
         Both hf_data and gh_data are always lists of dictionaries for consistency
-        Potentially add github -> parse for hf link functionality 
+        Potentially add github -> parse for hf link functionality
     """
     if not url:
         raise ValueError("URL is required")
@@ -29,7 +31,7 @@ def prepare_eval_context(url: str | None = None) -> EvalContext:
         cat: Category = "MODEL" if hf_type == "model" else "DATASET"
 
         hf_data = [hf_profile]  # always a list
-        gh_data: list[dict] = []
+        gh_data: list[Dict[str, Any]] = []
         gh_links = hf_profile.get("github_links") or []
         seen = set()  # avoid duplicate repos
         for gh_url in gh_links:

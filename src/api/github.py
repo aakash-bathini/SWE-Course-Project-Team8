@@ -1,8 +1,11 @@
 # src/api/github.py
 from __future__ import annotations
 import base64
-import json, os, time, re
-from typing import Dict, Any, Tuple, List
+import json
+import os
+import re
+import time
+from typing import Any, Dict, List, Tuple
 from urllib.parse import urlparse, quote
 
 import requests
@@ -16,15 +19,20 @@ _CACHE_TTL_S = int(os.environ.get("GH_META_CACHE_TTL_S", "3600"))  # 1h default
 key = "owner/repo"
 cache[key] = {"payload": data, "fetched_at": time}
 """
+
+
 # helper for consistent timestamps
 def _now() -> float:
     return time.time()
 
+
 def _project_root() -> str:
     return os.environ.get("PROJECT_ROOT", os.getcwd())
 
+
 def _cache_path() -> str:
     return os.path.join(_project_root(), ".cache", "gh_meta.json")
+
 
 # load cache, create if nonexistent
 def _load_cache() -> Dict[str, Any]:
@@ -32,9 +40,11 @@ def _load_cache() -> Dict[str, Any]:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     try:
         with open(path, "r") as f:
-            return json.load(f)
+            data: Dict[str, Any] = json.load(f)
+            return data
     except Exception:
         return {}
+
 
 # save updated cache data
 def _save_cache(cache: Dict[str, Any]) -> None:
@@ -43,9 +53,14 @@ def _save_cache(cache: Dict[str, Any]) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(cache, f)
 
+
 # within TTL range?
 def _is_fresh(entry: Dict[str, Any]) -> bool:
-    return (_now() - entry.get("fetched_at", 0)) <= _CACHE_TTL_S
+    fetched_at = entry.get("fetched_at", 0)
+    if not isinstance(fetched_at, (int, float)):
+        return False
+    return (_now() - fetched_at) <= _CACHE_TTL_S
+
 
 # url parsing
 def parse_github_url(url: str) -> Tuple[str, str]:
@@ -60,6 +75,7 @@ def parse_github_url(url: str) -> Tuple[str, str]:
         repo = repo[:-4]
     return owner, repo
 
+
 # http helpers
 def _gh_headers() -> Dict[str, str]:
     # request header
@@ -70,10 +86,12 @@ def _gh_headers() -> Dict[str, str]:
         hdr["Authorization"] = f"Bearer {token}"
     return hdr
 
-def _get_json(url: str, timeout: float = 12.0) -> Any:
+
+def _get_json(url: str, timeout: float = 12.0) -> Dict[str, Any]:
     r = requests.get(url, headers=_gh_headers(), timeout=timeout)
     r.raise_for_status()
-    return r.json()
+    return r.json()  # type: ignore[no-any-return]
+
 
 # selectively harvest content
 # file budget for code-quality signals
@@ -105,9 +123,11 @@ _DOC_PATTERNS = [
 
 _DOC_REGEXES = [re.compile(pat, re.IGNORECASE) for pat in _DOC_PATTERNS]
 
+
 # true if any matching files found
 def _should_fetch(path: str) -> bool:
     return any(rx.match(path) for rx in _DOC_REGEXES)
+
 
 # get reasonable amount of data from file
 def _fetch_bitesized_file(owner: str, repo: str, path: str, ref: str, size: int) -> str | None:
@@ -131,6 +151,7 @@ def _fetch_bitesized_file(owner: str, repo: str, path: str, ref: str, size: int)
             return content
     return None
 
+
 # main function
 def scrape_github_url(url: str) -> Dict[str, Any]:
     """
@@ -144,7 +165,8 @@ def scrape_github_url(url: str) -> Dict[str, Any]:
     key = f"{owner}/{repo}"
     stored = cache.get(key)
     if stored and _is_fresh(stored):
-        return stored["payload"]
+        payload: Dict[str, Any] = stored["payload"]
+        return payload
 
     base = f"https://api.github.com/repos/{owner}/{repo}"
 
@@ -161,10 +183,10 @@ def scrape_github_url(url: str) -> Dict[str, Any]:
             blob = readme_json.get("content") or ""
             if enc == "base64":
                 readme_text = base64.b64decode(blob).decode("utf-8", errors="replace")
-                #print("README: " + readme_text + "\n")
+                # print("README: " + readme_text + "\n")
             else:
                 readme_text = str(blob)
-                #print("README: " + readme_text + "\n")
+                # print("README: " + readme_text + "\n")
     except Exception:
         readme_text = None
 
@@ -174,7 +196,7 @@ def scrape_github_url(url: str) -> Dict[str, Any]:
         contrib_json = _get_json(f"{base}/contributors?per_page=100&anon=1")
         if isinstance(contrib_json, list):
             for it in contrib_json:
-                login = it.get("login") or f"anon:{it.get('name','?')}"
+                login = it.get("login") or f"anon:{it.get('name', '?')}"
                 contributors[login] = int(it.get("contributions", 0))
     except Exception:
         contributors = {}
@@ -221,7 +243,6 @@ def scrape_github_url(url: str) -> Dict[str, Any]:
         "url": repo_json.get("html_url") or url,
         "repo_id": f"{owner}/{repo}",
         "repo_type": "code",
-
         # descriptive
         "name": repo_json.get("name"),
         "full_name": repo_json.get("full_name"),
@@ -230,34 +251,27 @@ def scrape_github_url(url: str) -> Dict[str, Any]:
         "default_branch": default_branch,
         "topics": repo_json.get("topics", []) or [],
         "language": repo_json.get("language"),
-
         # status
         "archived": bool(repo_json.get("archived", False)),
         "disabled": bool(repo_json.get("disabled", False)),
         "fork": bool(repo_json.get("fork", False)),
-
         # timestamp strings from API
         "created_at": repo_json.get("created_at"),
         "updated_at": repo_json.get("updated_at"),
         "pushed_at": repo_json.get("pushed_at"),
-
         # popularity / activity
         "stars": int(repo_json.get("stargazers_count", 0) or 0),
         "forks": int(repo_json.get("forks_count", 0) or 0),
         "open_issues": int(repo_json.get("open_issues_count", 0) or 0),
         "watchers": int(repo_json.get("subscribers_count") or repo_json.get("watchers_count") or 0),
-
         # licensing
         "license_spdx": (repo_json.get("license") or {}).get("spdx_id"),
-
         # content
         "readme_text": readme_text,
-        "doc_texts": doc_texts,          # path -> text
-        "files_index": tree,             # repo-wide listing
-
+        "doc_texts": doc_texts,  # path -> text
+        "files_index": tree,  # repo-wide listing
         # people
-        "contributors": contributors,    # login -> contributions
-
+        "contributors": contributors,  # login -> contributions
         "_source": {
             "fetched_at": _now(),
             "api_base": base,
@@ -268,6 +282,7 @@ def scrape_github_url(url: str) -> Dict[str, Any]:
         },
     }
 
-    cache[key] = {"payload": data, "fetched_at": data["_source"]["fetched_at"]}
+    fetched_time: float = data["_source"]["fetched_at"]  # type: ignore[assignment, index, call-overload]
+    cache[key] = {"payload": data, "fetched_at": fetched_time}
     _save_cache(cache)
     return data

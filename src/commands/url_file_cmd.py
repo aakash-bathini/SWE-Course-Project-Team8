@@ -13,7 +13,7 @@
 # from src.orchestration.logging_util import setup_logging_util
 # from src.orchestration.prep_eval_orchestrator import prep_eval_many
 # from src.orchestration.metric_orchestrator import orchestrate
-# from src.models.types import EvalContext, OrchestrationReport
+# from src.models.model_types import EvalContext, OrchestrationReport
 # from src.scoring.net_score import bundle_from_report
 # from src.scoring.weights import get_weights
 # import math
@@ -177,7 +177,7 @@
 #     # net score bundle first
 #     bundle = bundle_from_report(rep, get_weights(), clamp=True)
 #     #out["net_score"] = _clamp01(bundle.net_score)
-    
+
 #     raw = bundle.net_score
 #     raw = 0.0 if (raw is None or not isinstance(raw, (int, float)) or not math.isfinite(raw)) else float(raw)
 #     out["net_score"] = _clamp01(round(raw, 2))
@@ -275,13 +275,13 @@ import os
 import logging
 import re
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, List, Any
 from urllib.parse import urlparse
 
 from src.orchestration.logging_util import setup_logging_util
 from src.orchestration.prep_eval_orchestrator import prep_eval_many
 from src.orchestration.metric_orchestrator import orchestrate
-from src.models.types import EvalContext, OrchestrationReport
+from src.models.model_types import EvalContext, OrchestrationReport
 from src.scoring.net_score import bundle_from_report
 from src.scoring.weights import get_weights
 import math
@@ -414,49 +414,68 @@ async def run_metrics_on_contexts(
 # ------------------------------
 _DEVICES = ("raspberry_pi", "jetson_nano", "desktop_pc", "aws_server")
 
+
 def _display_name_from_url(u: str) -> str:
     parsed = urlparse(u)
     parts = [p for p in parsed.path.strip("/").split("/") if p]
     # Handle HF "…/tree/main" etc. by relying on normalize_url upstream.
     return parts[-1] if parts else u
 
-def _clamp01(x) -> float:
+
+def _clamp01(x: Any) -> float:
     try:
         x = float(x)
     except Exception:
         return 0.0
-    if x < 0.0: return 0.0
-    if x > 1.0: return 1.0
-    return x
+    if x < 0.0:
+        return 0.0
+    if x > 1.0:
+        return 1.0
+    return float(x)
 
-def _lat(ms) -> int:
+
+def _lat(ms: Any) -> int:
     try:
         return max(1, int(ms))
     except Exception:
         return 1
 
-def _default_record(name: str, category: str | None) -> Dict:
+
+def _default_record(name: str, category: str | None) -> Dict[str, Any]:
     return {
         "name": name,
         "category": category or "MODEL",
-        "net_score": 0.0, "net_score_latency": 1,
-        "ramp_up_time": 0.0, "ramp_up_time_latency": 1,
-        "bus_factor": 0.0, "bus_factor_latency": 1,
-        "performance_claims": 0.0, "performance_claims_latency": 1,
-        "license": 0.0, "license_latency": 1,
+        "net_score": 0.0,
+        "net_score_latency": 1,
+        "ramp_up_time": 0.0,
+        "ramp_up_time_latency": 1,
+        "bus_factor": 0.0,
+        "bus_factor_latency": 1,
+        "performance_claims": 0.0,
+        "performance_claims_latency": 1,
+        "license": 0.0,
+        "license_latency": 1,
         "size_score": {d: 0.0 for d in _DEVICES},
         "size_score_latency": 1,
-        "dataset_and_code_score": 0.0, "dataset_and_code_score_latency": 1,
-        "dataset_quality": 0.0, "dataset_quality_latency": 1,
-        "code_quality": 0.0, "code_quality_latency": 1,
+        "dataset_and_code_score": 0.0,
+        "dataset_and_code_score_latency": 1,
+        "dataset_quality": 0.0,
+        "dataset_quality_latency": 1,
+        "code_quality": 0.0,
+        "code_quality_latency": 1,
     }
 
-def _apply_report(out: Dict, rep: OrchestrationReport) -> None:
+
+def _apply_report(out: Dict[str, Any], rep: OrchestrationReport) -> None:
     # net score bundle first
     bundle = bundle_from_report(rep, get_weights(), clamp=True)
 
     raw = bundle.net_score
-    raw = 0.0 if (raw is None or not isinstance(raw, (int, float)) or not math.isfinite(raw)) else float(raw)
+    raw = (
+        0.0
+        if (raw is None or not isinstance(raw, (int, float)) or not math.isfinite(raw))
+        else float(raw)
+    )
     out["net_score"] = _clamp01(round(raw, 2))
     out["net_score_latency"] = _lat(bundle.net_score_latency_ms)
 
@@ -481,20 +500,21 @@ def _apply_report(out: Dict, rep: OrchestrationReport) -> None:
             continue
 
         # general case
-        out[label] = _clamp01(val) if isinstance(val, (int, float)) else (val if val is not None else 0.0)
+        out[label] = (
+            _clamp01(val) if isinstance(val, (int, float)) else (val if val is not None else 0.0)
+        )
         out[f"{label}_latency"] = lat
         # Intentionally do not include *_error fields – grader expects a fixed schema.
 
+
 def print_ndjson(
-    urls: List[str],
-    ctx_map: Dict[str, EvalContext],
-    reports: Dict[str, OrchestrationReport]
+    urls: List[str], ctx_map: Dict[str, EvalContext], reports: Dict[str, OrchestrationReport]
 ) -> None:
     for u in urls:
         name = _display_name_from_url(u)
         # prefer ctx category if present
         ctx = ctx_map.get(u)
-        category = getattr(ctx, "category", None)
+        category: str | None = getattr(ctx, "category", None)
 
         out = _default_record(name, category)
         rep = reports.get(u)
@@ -518,7 +538,7 @@ def run_eval(url_file: str) -> None:
 
     # parse URLs
     urls = parse_urls_from_file(url_file)
-    
+
     # Check if URL file exists and has content
     url_file_path = Path(url_file)
     if not url_file_path.exists():
@@ -534,7 +554,7 @@ def run_eval(url_file: str) -> None:
     sys.exit(0)
 
 
-def run_eval_silent(url_file: str):
+def run_eval_silent(url_file: str) -> tuple[Dict[str, EvalContext], Dict[str, OrchestrationReport]]:
     """
     Same as run_eval but suppresses NDJSON printing.
     Useful for test harnesses that only care about coverage.

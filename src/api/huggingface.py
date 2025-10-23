@@ -1,8 +1,11 @@
 # src/api/huggingface.py
 
 from __future__ import annotations
-import json, os, re, time
-from typing import Dict, Any, Tuple, List
+import json
+import os
+import re
+import time
+from typing import Any, Dict, List, Tuple
 from urllib.parse import urlparse
 from huggingface_hub import HfApi, ModelCard
 from datetime import datetime, date
@@ -18,15 +21,20 @@ _CACHE_TTL_S = int(os.environ.get("HF_META_CACHE_TTL_S", "3600"))  # default 1 h
 key = "repo_type:repo_id"
 cache[key] = {"payload": data, "fetched_at": time}
 """
+
+
 # helper for consistent timestamps
 def _now() -> float:
     return time.time()
 
+
 def _project_root() -> str:
     return os.environ.get("PROJECT_ROOT", os.getcwd())
 
+
 def _cache_path() -> str:
     return os.path.join(_project_root(), ".cache", "hf_meta.json")
+
 
 # load cache, create if nonexistent
 def _load_cache() -> Dict[str, Any]:
@@ -34,27 +42,33 @@ def _load_cache() -> Dict[str, Any]:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     try:
         with open(path, "r") as f:
-            return json.load(f)
+            data: Dict[str, Any] = json.load(f)
+            return data
     except Exception:
         return {}
 
-def _json_default(o):
+
+def _json_default(o: Any) -> str:
     # catches datetime/date or any other odd type and renders as string
     if isinstance(o, (datetime, date)):
         return o.isoformat()
     return str(o)
 
+
 # save updated cache data
 def _save_cache(cache: Dict[str, Any]) -> None:
     path = _cache_path()
-    tmp = path + ".tmp"
-    with open(path, "w") as f: # "CONFIRM THAT THIS IS THE RIGHT PATH" (changed from tmp to path)
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(cache, f, default=_json_default)
-    # os.replace(tmp, path)
+
 
 # within TTL range?
 def _is_fresh(entry: Dict[str, Any]) -> bool:
-    return (_now() - entry.get("fetched_at", 0)) <= _CACHE_TTL_S
+    fetched_at = entry.get("fetched_at", 0)
+    if not isinstance(fetched_at, (int, float)):
+        return False
+    return (_now() - fetched_at) <= _CACHE_TTL_S
+
 
 # url parsing
 def parse_hf_url(url: str) -> Tuple[str, str]:
@@ -79,8 +93,10 @@ def parse_hf_url(url: str) -> Tuple[str, str]:
     # if just owner/name, assume is model
     return "model", "/".join(parts)
 
+
 # parse for github links
 _GH_RE = re.compile(r"https?://(?:www\.)?github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[^\s)]+)?")
+
 
 def _extract_github_links(readme_text: str | None, card_yaml: Dict[str, Any]) -> List[str]:
     links = set()
@@ -112,6 +128,7 @@ def _extract_github_links(readme_text: str | None, card_yaml: Dict[str, Any]) ->
     cleaned = [u.rstrip(").,]}>") for u in links]
     return sorted(set(cleaned))
 
+
 # main function
 def scrape_hf_url(url: str) -> Tuple[Dict[str, Any], str]:
     """
@@ -128,8 +145,11 @@ def scrape_hf_url(url: str) -> Tuple[Dict[str, Any], str]:
         return stored_hf_data["payload"], repo_type
 
     api = HfApi()
-    info = api.model_info(repo_id, files_metadata=True) if repo_type == "model" \
-           else api.dataset_info(repo_id, files_metadata=True)
+    info: Any = (
+        api.model_info(repo_id, files_metadata=True)
+        if repo_type == "model"
+        else api.dataset_info(repo_id, files_metadata=True)
+    )
 
     # license: prefer cardData.license, fallback to repo license
     card_yaml = getattr(info, "cardData", {}) or {}
@@ -140,10 +160,12 @@ def scrape_hf_url(url: str) -> Tuple[Dict[str, Any], str]:
     size = sum(int(f["size"]) for f in files if f["size"] is not None)
 
     tags = getattr(info, "tags", []) or []
-    datasets = [t.split("dataset:", 1)[-1] for t in tags if isinstance(t, str) and t.startswith("dataset:")]
+    datasets = [
+        t.split("dataset:", 1)[-1] for t in tags if isinstance(t, str) and t.startswith("dataset:")
+    ]
 
     # README
-    readme_text = None
+    readme_text: str | None = None
     try:
         readme_text = ModelCard.load(repo_id).text
     except Exception:
@@ -178,6 +200,7 @@ def scrape_hf_url(url: str) -> Tuple[Dict[str, Any], str]:
         },
     }
 
-    cache[key] = {"payload": data, "fetched_at": data["_source"]["fetched_at"]}
+    fetched_time: float = data["_source"]["fetched_at"]  # type: ignore[assignment, index, call-overload]
+    cache[key] = {"payload": data, "fetched_at": fetched_time}
     _save_cache(cache)
-    return [data, repo_type]
+    return data, repo_type
