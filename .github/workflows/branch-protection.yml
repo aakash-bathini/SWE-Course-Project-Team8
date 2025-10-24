@@ -110,9 +110,10 @@ jobs:
           
           # Check if PR has required title format
           PR_TITLE="${{ github.event.pull_request.title }}"
-          if [[ ! $PR_TITLE =~ ^(feat|fix|docs|style|refactor|test|chore)(\(.+\))?: ]]; then
+          if [[ ! $PR_TITLE =~ ^(feat|fix|docs|style|refactor|test|chore|ci|build|perf|revert|trigger)(\(.+\))?: ]]; then
             echo "❌ PR title must follow format: type(scope): description"
             echo "   Example: feat(auth): add JWT authentication"
+            echo "   Allowed types: feat, fix, docs, style, refactor, test, chore, ci, build, perf, revert, trigger"
             exit 1
           fi
           
