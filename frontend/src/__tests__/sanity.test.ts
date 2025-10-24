@@ -1,4 +1,5 @@
-/* frontend/src/__tests__/sanity.test.ts */
+export {}
+
 test('sanity check', () => {
   expect(true).toBe(true);
 });
