@@ -177,7 +177,7 @@ jobs:
           fi
 
       - name: Auto-approve Dependabot PRs (minor updates)
-        if: github.event.pull_request.title =~ 'Bump .* from .* to .*'
+        if: contains(github.event.pull_request.title, 'Bump') && contains(github.event.pull_request.title, 'from') && contains(github.event.pull_request.title, 'to')
         run: |
           echo "🤖 Auto-approving minor dependency update..."
           # Note: In a real scenario, you would use GitHub API to approve the PR
