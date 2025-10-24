@@ -103,8 +103,15 @@ class AWSDeployment:
     def create_s3_bucket(self, bucket_name: str) -> bool:
         """Create S3 bucket for model storage"""
         try:
-            self.s3_client.create_bucket(Bucket=bucket_name)
-            logger.info(f"S3 bucket created: {bucket_name}")
+            # For regions other than us-east-1, we need to specify LocationConstraint
+            if self.region == "us-east-1":
+                self.s3_client.create_bucket(Bucket=bucket_name)
+            else:
+                self.s3_client.create_bucket(
+                    Bucket=bucket_name,
+                    CreateBucketConfiguration={"LocationConstraint": self.region}
+                )
+            logger.info(f"S3 bucket created: {bucket_name} in region {self.region}")
             return True
 
         except ClientError as e:
