@@ -99,31 +99,36 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate PR requirements
+        shell: bash
         run: |
           echo "🔒 Validating branch protection requirements..."
-          
-          # Check if PR has required labels
+
+          # Debug output
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_BODY="${{ github.event.pull_request.body }}"
+          echo "PR_TITLE='$PR_TITLE'"
+          echo "PR_BODY='${PR_BODY:0:200}'" # print first 200 chars only
+
+          # Reject draft PRs
           if [ "${{ github.event.pull_request.draft }}" = "true" ]; then
             echo "❌ Draft PRs are not allowed"
             exit 1
           fi
-          
-          # Check if PR has required title format
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          if [[ ! $PR_TITLE =~ ^(feat|fix|docs|style|refactor|test|chore|ci|build|perf|revert|trigger)(\(.+\))?: ]]; then
+
+          # Check PR title format: type(scope)?: description
+          if [[ ! $PR_TITLE =~ ^(feat|fix|docs|style|refactor|test|chore|ci|build|perf|revert|trigger)(\([^)]+\))?:[[:space:]]+.+ ]]; then
             echo "❌ PR title must follow format: type(scope): description"
             echo "   Example: feat(auth): add JWT authentication"
             echo "   Allowed types: feat, fix, docs, style, refactor, test, chore, ci, build, perf, revert, trigger"
             exit 1
           fi
-          
-          # Check if PR has description
-          PR_BODY="${{ github.event.pull_request.body }}"
-          if [ -z "$PR_BODY" ]; then
+
+          # Consider whitespace-only bodies as empty
+          if [[ -z "${PR_BODY//[[:space:]]/}" ]]; then
             echo "❌ PR must have a description"
             exit 1
           fi
-          
+
           echo "✅ Branch protection requirements validated"
 
       - name: Check required status checks
