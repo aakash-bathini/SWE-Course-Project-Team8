@@ -15,3 +15,22 @@ def get_weights() -> dict[str, float]:
     }
     # Weights already sum to 1.0, no normalization needed
     return weights
+
+
+def calculate_net_score(metrics: dict[str, float]) -> float:
+    """
+    Calculate net score using the defined weights
+    """
+    weights = get_weights()
+    total_score = 0.0
+    total_weight = 0.0
+
+    for metric_name, weight in weights.items():
+        if metric_name in metrics:
+            total_score += metrics[metric_name] * weight
+            total_weight += weight
+
+    if total_weight == 0:
+        return 0.0
+
+    return total_score / total_weight
