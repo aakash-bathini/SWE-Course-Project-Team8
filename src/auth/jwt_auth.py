@@ -8,11 +8,12 @@ from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
 # Configuration
-SECRET_KEY = "your-secret-key-change-in-production"  # Change in production
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 10
 ACCESS_TOKEN_EXPIRE_CALLS = 1000

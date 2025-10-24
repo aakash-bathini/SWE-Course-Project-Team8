@@ -104,7 +104,18 @@ jobs:
       - name: Pytest (coverage XML + JUnit)
         run: |
           mkdir -p test-results
-          pytest --cov=src --cov-report=xml --junit-xml=test-results/junit.xml
+          pytest --cov=. --cov-report=xml:coverage.xml --junit-xml=test-results/junit.xml
+
+      - name: Show coverage.xml (debug)
+        run: |
+          echo "=== ls -la ==="
+          ls -la
+          echo "=== coverage.xml contents ==="
+          if [ -f coverage.xml ]; then
+            sed -n '1,20p' coverage.xml
+          else
+            echo "coverage.xml not found"
+          fi
 
       - name: Upload coverage.xml
         uses: actions/upload-artifact@v4
@@ -284,19 +295,48 @@ jobs:
 
       - name: Check coverage threshold
         run: |
-          # Check if coverage meets 60% threshold
-          python -c "
-          import xml.etree.ElementTree as ET
-          tree = ET.parse('coverage/coverage.xml')
-          root = tree.getroot()
-          line_rate = float(root.get('line-rate', 0))
-          print(f'Coverage: {line_rate:.2%}')
-          if line_rate < 0.6:
+          python - <<'PY'
+          import sys, os, xml.etree.ElementTree as ET
+          
+          p = 'coverage/coverage.xml'
+          if not os.path.exists(p):
+              print("ERROR: coverage file not found at", p)
+              print("Contents of coverage/:", os.listdir('coverage') if os.path.exists('coverage') else 'coverage/ missing')
+              sys.exit(1)
+          
+          try:
+              tree = ET.parse(p)
+              root = tree.getroot()
+          except Exception as e:
+              print("ERROR: failed to parse coverage XML:", e)
+              print(open(p).read())
+              sys.exit(1)
+          
+          line_rate = root.get('line-rate')
+          if line_rate is None:
+              # fallback: search for any coverage element
+              el = root.find('.//coverage')
+              if el is not None:
+                  line_rate = el.get('line-rate')
+          
+          if line_rate is None:
+              print("ERROR: 'line-rate' attribute not found in coverage.xml")
+              print(open(p).read())
+              sys.exit(1)
+          
+          try:
+              lr = float(line_rate)
+          except:
+              print("ERROR: line-rate not a float:", line_rate)
+              sys.exit(1)
+          
+          print(f'Coverage: {lr:.2%}')
+          if lr < 0.6:
               print('ERROR: Coverage below 60% threshold')
-              exit(1)
+              sys.exit(1)
           else:
               print('SUCCESS: Coverage meets threshold')
-          "
+          PY
 
       - name: Quality Gate Passed
         run: |
