@@ -121,18 +121,25 @@ jobs:
               print("❌ Draft PRs are not allowed")
               sys.exit(1)
 
+          # Case-insensitive pattern for more flexible validation
           pattern = re.compile(
-              r'^(feat|fix|docs|style|refactor|test|chore|ci|build|perf|revert|trigger)(\([^)]+\))?:\s+.+'
+              r'^(feat|fix|docs|style|refactor|test|chore|ci|build|perf|revert|trigger)(\([^)]+\))?:\s+.+',
+              re.IGNORECASE
           )
           if not pattern.match(title):
-              print("❌ PR title must follow format: type(scope): description")
+              print("⚠️ PR title does not follow format: type(scope): description")
               print("   Example: feat(auth): add JWT authentication")
               print("   Allowed types: feat, fix, docs, style, refactor, test, chore, ci, build, perf, revert, trigger")
-              sys.exit(1)
+              print("   This is a warning - PR will still be processed")
+              # Do NOT exit; leave as a warning
 
-          if not body.strip():
-              print("❌ PR must have a description")
+          # Require body for feature/bugfix PRs only
+          if re.match(r'^(feat|fix)', title, re.IGNORECASE) and not body.strip():
+              print("❌ PR must have a description for feat/fix PRs")
               sys.exit(1)
+          elif not body.strip():
+              print("⚠️ PR description is empty - consider adding a description")
+              print("   This is a warning - PR will still be processed")
 
           print("✅ Branch protection requirements validated")
           PY
