@@ -365,7 +365,7 @@ async def authenticate_user(user_data: UserLogin) -> TokenResponse:
 
 
 # AWS Lambda handler for deployment
-def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+def handler(event: Dict[str, Any], context: Any) -> Any:
     """AWS Lambda handler for FastAPI application"""
     try:
         from mangum import Mangum
