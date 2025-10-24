@@ -103,34 +103,39 @@ jobs:
         run: |
           echo "🔒 Validating branch protection requirements..."
 
-          # Debug output
           PR_TITLE="${{ github.event.pull_request.title }}"
           PR_BODY="${{ github.event.pull_request.body }}"
+          PR_DRAFT="${{ github.event.pull_request.draft }}"
+
           echo "PR_TITLE='$PR_TITLE'"
           echo "PR_BODY='${PR_BODY:0:200}'" # print first 200 chars only
 
-          # Reject draft PRs
-          if [ "${{ github.event.pull_request.draft }}" = "true" ]; then
-            echo "❌ Draft PRs are not allowed"
-            exit 1
-          fi
+          python - <<'PY'
+          import os, re, sys
 
-          # Check PR title format: type(scope)?: description
-          # Quote the variable to avoid syntax errors when the title contains special characters
-          if [[ ! "$PR_TITLE" =~ ^(feat|fix|docs|style|refactor|test|chore|ci|build|perf|revert|trigger)(\([^)]+\))?:[[:space:]]+.+ ]]; then
-            echo "❌ PR title must follow format: type(scope): description"
-            echo "   Example: feat(auth): add JWT authentication"
-            echo "   Allowed types: feat, fix, docs, style, refactor, test, chore, ci, build, perf, revert, trigger"
-            exit 1
-          fi
+          title = os.environ.get("PR_TITLE", "") or ""
+          body = os.environ.get("PR_BODY", "") or ""
+          draft = os.environ.get("PR_DRAFT", "false").lower() in ("true", "1", "yes")
 
-          # Consider whitespace-only bodies as empty
-          if [[ -z "${PR_BODY//[[:space:]]/}" ]]; then
-            echo "❌ PR must have a description"
-            exit 1
-          fi
+          if draft:
+              print("❌ Draft PRs are not allowed")
+              sys.exit(1)
 
-          echo "✅ Branch protection requirements validated"
+          pattern = re.compile(
+              r'^(feat|fix|docs|style|refactor|test|chore|ci|build|perf|revert|trigger)(\([^)]+\))?:\s+.+'
+          )
+          if not pattern.match(title):
+              print("❌ PR title must follow format: type(scope): description")
+              print("   Example: feat(auth): add JWT authentication")
+              print("   Allowed types: feat, fix, docs, style, refactor, test, chore, ci, build, perf, revert, trigger")
+              sys.exit(1)
+
+          if not body.strip():
+              print("❌ PR must have a description")
+              sys.exit(1)
+
+          print("✅ Branch protection requirements validated")
+          PY
 
       - name: Check required status checks
         run: |
