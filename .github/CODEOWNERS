@@ -1,0 +1,42 @@
+# Code Owners
+# This file defines who can review different parts of the codebase
+
+# Global owners - can review everything
+* @aakash-bathini
+
+# Backend Python code
+/src/ @aakash-bathini @NSingh1227
+/app.py @aakash-bathini @vishalm3416
+
+# Frontend React/TypeScript code
+/frontend/ @rishimantri795 @aakash-bathini
+
+# CI/CD and GitHub workflows
+/.github/ @NSingh1227 @vishalm3416
+
+# Documentation
+/README.md @aakash-bathini
+/docs/ @aakash-bathini
+
+# Configuration files
+/requirements*.txt @aakash-bathini @NSingh1227
+/pyproject.toml @aakash-bathini
+/frontend/package.json @rishimantri795
+
+# AWS and deployment
+/src/aws/ @NSingh1227 @aakash-bathini
+
+# Authentication and security
+/src/auth/ @aakash-bathini @NSingh1227
+
+# Metrics and scoring (Phase 1 integration)
+/src/metrics/ @aakash-bathini @vishalm3416
+/src/orchestration/ @aakash-bathini @vishalm3416
+/src/scoring/ @aakash-bathini @vishalm3416
+
+# API integrations
+/src/api/ @vishalm3416 @aakash-bathini
+
+# Tests
+/tests/ @aakash-bathini @NSingh1227
+/test_*.py @aakash-bathini @NSingh1227

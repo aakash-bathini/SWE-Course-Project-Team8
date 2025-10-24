@@ -1,0 +1,60 @@
+# GitHub Copilot Auto-Review configuration
+# This file configures automated code review using GitHub Copilot
+
+# Enable Copilot Auto-Review for pull requests
+copilot:
+  enabled: true
+  
+# Review settings
+review:
+  # Automatically review all pull requests
+  auto_review: true
+  
+  # Review settings for different file types
+  python:
+    enabled: true
+    focus_areas:
+      - "security"
+      - "performance"
+      - "code_quality"
+      - "best_practices"
+  
+  typescript:
+    enabled: true
+    focus_areas:
+      - "security"
+      - "performance"
+      - "accessibility"
+      - "best_practices"
+  
+  javascript:
+    enabled: true
+    focus_areas:
+      - "security"
+      - "performance"
+      - "best_practices"
+
+# Comment settings
+comments:
+  # Provide suggestions for improvements
+  suggestions: true
+  
+  # Highlight potential security issues
+  security_alerts: true
+  
+  # Suggest performance optimizations
+  performance_tips: true
+  
+  # Provide best practice recommendations
+  best_practices: true
+
+# Integration with CI/CD
+ci_integration:
+  # Require Copilot review before merge
+  required: false
+  
+  # Block merge if critical issues found
+  block_on_critical: false
+  
+  # Provide summary of review findings
+  summary: true

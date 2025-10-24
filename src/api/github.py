@@ -90,7 +90,7 @@ def _gh_headers() -> Dict[str, str]:
 def _get_json(url: str, timeout: float = 12.0) -> Dict[str, Any]:
     r = requests.get(url, headers=_gh_headers(), timeout=timeout)
     r.raise_for_status()
-    return r.json()  # type: ignore[no-any-return]
+    return r.json()
 
 
 # selectively harvest content

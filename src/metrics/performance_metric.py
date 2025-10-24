@@ -111,11 +111,16 @@ async def metric(ctx: EvalContext) -> float:
                     "max_tokens": 1024,
                 }
                 logging.info("Performance metric attempt %d with Purdue GenAI", attempt)
-                response = requests.post(url, headers=headers, json=body)
-                raw = response.json()["choices"][0]["message"]["content"]
+                purdue_response = requests.post(url, headers=headers, json=body)
+                purdue_data = purdue_response.json()
+                raw_content = purdue_data["choices"][0]["message"]["content"]
+                raw = str(raw_content) if raw_content is not None else None
 
             # clean + parse
-            cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.DOTALL)
+            if raw is not None:
+                cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.DOTALL)
+            else:
+                cleaned = ""
             analysis_json = json.loads(cleaned)
             logging.info("Performance metric JSON parse succeeded on attempt %d", attempt)
             break  # ✅ success, stop retrying
