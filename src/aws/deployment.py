@@ -109,7 +109,7 @@ class AWSDeployment:
             else:
                 self.s3_client.create_bucket(
                     Bucket=bucket_name,
-                    CreateBucketConfiguration={"LocationConstraint": self.region}
+                    CreateBucketConfiguration={"LocationConstraint": self.region},
                 )
             logger.info(f"S3 bucket created: {bucket_name} in region {self.region}")
             return True
