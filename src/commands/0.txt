@@ -1,7 +1,0 @@
-basically, when the run executable is called, it calls cli.py which runs the right script
-
-Ex:
-
-./run url.txt
-
-run executable -> cli.py -> url_file_cmd.py -> strips urls then calls -> prep eval orchestrator then metric orchestrator and prints
