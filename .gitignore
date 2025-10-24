@@ -1,4 +1,7 @@
 # Python bytecode
 __pycache__/
 *.py[cod]
-*$py.classfrontend/node_modules/
+*$py.class
+
+# Frontend dependencies
+frontend/node_modules/

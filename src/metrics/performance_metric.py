@@ -113,7 +113,8 @@ async def metric(ctx: EvalContext) -> float:
                 logging.info("Performance metric attempt %d with Purdue GenAI", attempt)
                 purdue_response = requests.post(url, headers=headers, json=body)
                 purdue_data = purdue_response.json()
-                raw = str(purdue_data["choices"][0]["message"]["content"])
+                raw_content = purdue_data["choices"][0]["message"]["content"]
+                raw = str(raw_content) if raw_content is not None else None
 
             # clean + parse
             if raw is not None:
