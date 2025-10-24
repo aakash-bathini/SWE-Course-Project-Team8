@@ -117,13 +117,30 @@ jobs:
             echo "coverage.xml not found"
           fi
 
+      - name: Ensure coverage.xml exists
+        if: always()
+        run: |
+          echo "=== verifying coverage.xml ==="
+          if [ ! -f coverage.xml ]; then
+            cat > coverage.xml <<'XML'
+<?xml version="1.0"?>
+<coverage line-rate="0" branch-rate="0" version="0" timestamp="0"></coverage>
+XML
+            echo "Created placeholder coverage.xml"
+          else
+            echo "coverage.xml present"
+          fi
+          ls -la coverage.xml
+
       - name: Upload coverage.xml
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-xml
           path: coverage.xml
 
       - name: Upload JUnit report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: junit-report

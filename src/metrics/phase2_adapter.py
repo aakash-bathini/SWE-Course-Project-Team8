@@ -60,11 +60,11 @@ async def calculate_phase2_metrics(model_data: Dict[str, Any]) -> Dict[str, floa
                 if isinstance(score, dict):
                     # For metrics that return dictionaries (like size_score), use max value
                     if score:
-                        results[metric_id] = (
-                            max(score.values())
-                            if isinstance(list(score.values())[0], (int, float))
-                            else 0.0
-                        )
+                        # Filter to only numeric values to avoid type comparison errors
+                        numeric_values = [
+                            float(v) for v in score.values() if isinstance(v, (int, float))
+                        ]
+                        results[metric_id] = max(numeric_values) if numeric_values else 0.0
                     else:
                         results[metric_id] = 0.0
                 elif isinstance(score, (int, float)):
