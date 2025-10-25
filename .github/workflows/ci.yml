@@ -122,10 +122,8 @@ jobs:
         run: |
           echo "=== verifying coverage.xml ==="
           if [ ! -f coverage.xml ]; then
-            cat > coverage.xml <<'XML'
-<?xml version="1.0"?>
-<coverage line-rate="0" branch-rate="0" version="0" timestamp="0"></coverage>
-XML
+            echo '<?xml version="1.0"?>' > coverage.xml
+            echo '<coverage line-rate="0" branch-rate="0" version="0" timestamp="0"></coverage>' >> coverage.xml
             echo "Created placeholder coverage.xml"
           else
             echo "coverage.xml present"
