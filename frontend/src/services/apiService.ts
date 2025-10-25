@@ -38,6 +38,80 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Types matching OpenAPI spec
+export interface ArtifactMetadata {
+  name: string;
+  id: string;
+  type: 'model' | 'dataset' | 'code';
+}
+
+export interface ArtifactData {
+  url: string;
+}
+
+export interface Artifact {
+  metadata: ArtifactMetadata;
+  data: ArtifactData;
+}
+
+export interface ArtifactQuery {
+  name: string;
+  types?: ('model' | 'dataset' | 'code')[];
+}
+
+export interface ModelRating {
+  name: string;
+  category: string;
+  net_score: number;
+  net_score_latency: number;
+  ramp_up_time: number;
+  ramp_up_time_latency: number;
+  bus_factor: number;
+  bus_factor_latency: number;
+  performance_claims: number;
+  performance_claims_latency: number;
+  license: number;
+  license_latency: number;
+  dataset_and_code_score: number;
+  dataset_and_code_score_latency: number;
+  dataset_quality: number;
+  dataset_quality_latency: number;
+  code_quality: number;
+  code_quality_latency: number;
+  reproducibility: number;
+  reproducibility_latency: number;
+  reviewedness: number;
+  reviewedness_latency: number;
+  tree_score: number;
+  tree_score_latency: number;
+  size_score: {
+    raspberry_pi: number;
+    jetson_nano: number;
+    desktop_pc: number;
+    aws_server: number;
+  };
+  size_score_latency: number;
+}
+
+export interface ArtifactCost {
+  total_cost: number;
+  standalone_cost?: number;
+}
+
+export interface AuthenticationRequest {
+  user: {
+    name: string;
+    is_admin: boolean;
+  };
+  secret: {
+    password: string;
+  };
+}
+
+export interface AuthenticationToken {
+  token: string;
+}
+
 export const apiService = {
   // Health check
   async getHealth() {
@@ -45,59 +119,97 @@ export const apiService = {
     return response.data;
   },
 
-  // Model operations
-  async uploadModel(file: File, metadata: any) {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('model_data', JSON.stringify(metadata));
-    
-    const response = await apiClient.post('/models/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+  // Authentication
+  async authenticateUser(credentials: AuthenticationRequest): Promise<AuthenticationToken> {
+    const response = await apiClient.put('/authenticate', credentials);
+    return response.data;
+  },
+
+  // Registry operations
+  async resetRegistry() {
+    const response = await apiClient.delete('/reset');
+    return response.data;
+  },
+
+  // Artifact operations (OpenAPI compliant)
+  async listArtifacts(queries: ArtifactQuery[], offset?: string): Promise<ArtifactMetadata[]> {
+    const response = await apiClient.post('/artifacts', queries, {
+      params: offset ? { offset } : {},
     });
     return response.data;
   },
 
-  async rateModel(modelId: string) {
-    const response = await apiClient.get(`/models/${modelId}/rate`);
+  async createArtifact(artifactType: 'model' | 'dataset' | 'code', artifactData: ArtifactData): Promise<Artifact> {
+    const response = await apiClient.post(`/artifact/${artifactType}`, artifactData);
     return response.data;
   },
 
-  async downloadModel(modelId: string, aspect?: string) {
-    const params = aspect ? { aspect } : {};
-    const response = await apiClient.get(`/models/${modelId}/download`, { params });
+  async getArtifact(artifactType: 'model' | 'dataset' | 'code', id: string): Promise<Artifact> {
+    const response = await apiClient.get(`/artifacts/${artifactType}/${id}`);
     return response.data;
   },
 
-  async deleteModel(modelId: string) {
-    const response = await apiClient.delete(`/models/${modelId}`);
+  async updateArtifact(artifactType: 'model' | 'dataset' | 'code', id: string, artifact: Artifact) {
+    const response = await apiClient.put(`/artifacts/${artifactType}/${id}`, artifact);
     return response.data;
+  },
+
+  async deleteArtifact(artifactType: 'model' | 'dataset' | 'code', id: string) {
+    const response = await apiClient.delete(`/artifacts/${artifactType}/${id}`);
+    return response.data;
+  },
+
+  // Model rating
+  async rateModel(modelId: string): Promise<ModelRating> {
+    const response = await apiClient.get(`/artifact/model/${modelId}/rate`);
+    return response.data;
+  },
+
+  // Artifact cost
+  async getArtifactCost(artifactType: 'model' | 'dataset' | 'code', id: string, includeDependencies = false): Promise<Record<string, ArtifactCost>> {
+    const response = await apiClient.get(`/artifact/${artifactType}/${id}/cost`, {
+      params: { dependency: includeDependencies },
+    });
+    return response.data;
+  },
+
+  // Tracks
+  async getTracks() {
+    const response = await apiClient.get('/tracks');
+    return response.data;
+  },
+
+  // Legacy methods for backward compatibility (will be removed in future)
+  async uploadModel(file: File, metadata: any) {
+    // Convert to new artifact-based approach
+    const artifactData = {
+      url: URL.createObjectURL(file), // This is a placeholder - in real implementation, upload file first
+    };
+    return this.createArtifact('model', artifactData);
   },
 
   async listModels(page = 1, pageSize = 10) {
-    const response = await apiClient.get('/models', {
-      params: { page, page_size: pageSize },
-    });
-    return response.data;
+    // Convert to new artifact-based approach
+    const queries = [{ name: '*', types: ['model'] }];
+    return this.listArtifacts(queries);
+  },
+
+  async downloadModel(modelId: string) {
+    // Convert to new artifact-based approach
+    return this.getArtifact('model', modelId);
+  },
+
+  async deleteModel(modelId: string) {
+    // Convert to new artifact-based approach
+    return this.deleteArtifact('model', modelId);
   },
 
   async ingestHuggingFaceModel(modelName: string) {
-    const response = await apiClient.post('/models/ingest', null, {
-      params: { model_name: modelName },
-    });
-    return response.data;
-  },
-
-  // User operations
-  async registerUser(userData: any) {
-    const response = await apiClient.post('/register', userData);
-    return response.data;
-  },
-
-  async authenticateUser(credentials: any) {
-    const response = await apiClient.post('/authenticate', credentials);
-    return response.data;
+    // Convert to new artifact-based approach
+    const artifactData = {
+      url: `https://huggingface.co/${modelName}`,
+    };
+    return this.createArtifact('model', artifactData);
   },
 };
 

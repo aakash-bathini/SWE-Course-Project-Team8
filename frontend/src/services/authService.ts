@@ -1,4 +1,4 @@
-import { apiService } from './apiService';
+import { apiService, AuthenticationRequest, AuthenticationToken } from './apiService';
 
 interface User {
   username: string;
@@ -6,14 +6,22 @@ interface User {
 }
 
 interface LoginResponse {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
+  token: string;
 }
 
 export const authService = {
-  async login(username: string, password: string): Promise<LoginResponse> {
-    const response = await apiService.authenticateUser({ username, password });
+  async login(username: string, password: string, isAdmin = false): Promise<LoginResponse> {
+    const credentials: AuthenticationRequest = {
+      user: {
+        name: username,
+        is_admin: isAdmin,
+      },
+      secret: {
+        password: password,
+      },
+    };
+    
+    const response = await apiService.authenticateUser(credentials);
     return response;
   },
 
