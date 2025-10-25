@@ -100,15 +100,16 @@ jobs:
 
       - name: Validate PR requirements
         shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
         run: |
           echo "🔒 Validating branch protection requirements..."
-
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_BODY="${{ github.event.pull_request.body }}"
-          PR_DRAFT="${{ github.event.pull_request.draft }}"
-
-          echo "PR_TITLE='$PR_TITLE'"
-          echo "PR_BODY='${PR_BODY:0:200}'" # print first 200 chars only
+          echo "PR_TITLE='${PR_TITLE}'"
+          
+          # Safely print the first 200 characters of PR_BODY for logs without executing its lines
+          printf '%s' "$PR_BODY" | sed -n '1,200p' | sed -e "s/'/'\"'\"'/g" -e "1s/^/PR_BODY:'/; \$s/\$/'/" || true
 
           python - <<'PY'
           import os, re, sys
@@ -116,10 +117,17 @@ jobs:
           title = os.environ.get("PR_TITLE", "") or ""
           body = os.environ.get("PR_BODY", "") or ""
           draft = os.environ.get("PR_DRAFT", "false").lower() in ("true", "1", "yes")
+          actor = os.environ.get("GITHUB_ACTOR", "")
 
-          if draft:
-              print("❌ Draft PRs are not allowed")
+          # Allow draft PRs from dependabot
+          if draft and actor != "dependabot[bot]":
+              print("❌ Draft PRs are not allowed (except from dependabot)")
               sys.exit(1)
+
+          # Skip most validation for dependabot PRs
+          if actor == "dependabot[bot]":
+              print("✅ Dependabot PR - skipping detailed validation")
+              sys.exit(0)
 
           # Case-insensitive pattern for more flexible validation
           pattern = re.compile(
