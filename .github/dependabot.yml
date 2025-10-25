@@ -30,16 +30,14 @@ updates:
       time: "09:00"
     open-pull-requests-limit: 5
     reviewers:
-      - "rishimantri795"
       - "aakash-bathini"
     assignees:
-      - "rishimantri795"
+      - "aakash-bathini"
     commit-message:
       prefix: "chore"
       include: "scope"
     labels:
       - "dependencies"
-      - "frontend"
 
   # GitHub Actions dependencies
   - package-ecosystem: "github-actions"
