@@ -77,9 +77,9 @@ const App: React.FC = () => {
   const handleLogin = async (username: string, password: string) => {
     try {
       const response = await authService.login(username, password);
-      if (response.access_token) {
-        localStorage.setItem('token', response.access_token);
-        const userData = await authService.verifyToken(response.access_token);
+      if (response.token) {
+        localStorage.setItem('token', response.token);
+        const userData = await authService.verifyToken(response.token);
         setUser(userData);
         showNotification('Login successful!', 'success');
         return true;

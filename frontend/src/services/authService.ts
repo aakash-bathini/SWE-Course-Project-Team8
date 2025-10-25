@@ -1,4 +1,4 @@
-import { apiService, AuthenticationRequest, AuthenticationToken } from './apiService';
+import { apiService, AuthenticationRequest } from './apiService';
 
 interface User {
   username: string;

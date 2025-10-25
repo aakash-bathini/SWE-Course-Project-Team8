@@ -6,6 +6,8 @@ Main application entry point with REST API endpoints matching OpenAPI spec v3.3.
 from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import uvicorn
@@ -216,7 +218,7 @@ async def create_auth_token(request: AuthenticationRequest) -> AuthenticationTok
     """Create an access token (NON-BASELINE)"""
     # Check if user exists and password is correct
     user_data = users_db.get(request.user.name)
-    if not user_data or not verify_password(request.secret.password, user_data.get("password_hash", "")):
+    if not user_data or not verify_password(request.secret.password, user_data.get("password", "")):
         raise HTTPException(status_code=401, detail="The user or password is invalid.")
     
     # Create JWT token
@@ -476,6 +478,16 @@ async def get_tracks() -> Dict[str, List[str]]:
             "Other Security track"
         ]
     }
+
+# Favicon route
+@app.get("/favicon.ico")
+@app.head("/favicon.ico")
+async def favicon():
+    """Serve the favicon"""
+    return FileResponse("frontend/public/favicon.ico")
+
+# Mount static files to serve favicon and other static assets
+app.mount("/static", StaticFiles(directory="frontend/public"), name="static")
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True, log_level="info")

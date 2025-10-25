@@ -5,7 +5,6 @@ import {
   Box,
   Card,
   CardContent,
-  Grid,
   Chip,
   LinearProgress,
   Alert,
@@ -99,9 +98,9 @@ const HealthDashboard: React.FC = () => {
         )}
 
         {healthData && (
-          <Grid container spacing={3}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
             {/* System Status */}
-            <Grid item xs={12} md={6}>
+            <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
@@ -122,10 +121,10 @@ const HealthDashboard: React.FC = () => {
                   </Typography>
                 </CardContent>
               </Card>
-            </Grid>
+            </Box>
 
             {/* System Metrics */}
-            <Grid item xs={12} md={6}>
+            <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
@@ -139,51 +138,45 @@ const HealthDashboard: React.FC = () => {
                   </Typography>
                 </CardContent>
               </Card>
-            </Grid>
+            </Box>
 
             {/* Activity Metrics */}
-            <Grid item xs={12}>
+            <Box sx={{ width: '100%', mt: 3 }}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
                     Last Hour Activity
                   </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={4}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h4" color="primary">
-                          {healthData.last_hour_activity.uploads}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Uploads
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h4" color="secondary">
-                          {healthData.last_hour_activity.downloads}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Downloads
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h4" color="success.main">
-                          {healthData.last_hour_activity.searches}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Searches
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                    <Box sx={{ flex: '1 1 200px', textAlign: 'center' }}>
+                      <Typography variant="h4" color="primary">
+                        {healthData.last_hour_activity.uploads}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Uploads
+                      </Typography>
+                    </Box>
+                    <Box sx={{ flex: '1 1 200px', textAlign: 'center' }}>
+                      <Typography variant="h4" color="secondary">
+                        {healthData.last_hour_activity.downloads}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Downloads
+                      </Typography>
+                    </Box>
+                    <Box sx={{ flex: '1 1 200px', textAlign: 'center' }}>
+                      <Typography variant="h4" color="success.main">
+                        {healthData.last_hour_activity.searches}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Searches
+                      </Typography>
+                    </Box>
+                  </Box>
                 </CardContent>
               </Card>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         )}
       </Box>
     </Container>

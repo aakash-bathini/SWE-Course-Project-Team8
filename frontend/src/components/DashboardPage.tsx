@@ -3,7 +3,6 @@ import {
   Container,
   Typography,
   Box,
-  Grid,
   Card,
   CardContent,
   CardActions,
@@ -147,9 +146,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
           </Alert>
         )}
 
-        <Grid container spacing={3}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
           {/* User Info Card */}
-          <Grid item xs={12} md={6}>
+          <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -167,10 +166,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
                 </Box>
               </CardContent>
             </Card>
-          </Grid>
+          </Box>
 
           {/* System Stats Card */}
-          <Grid item xs={12} md={6}>
+          <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -205,19 +204,19 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
                 )}
               </CardContent>
             </Card>
-          </Grid>
+          </Box>
 
           {/* Quick Actions */}
-          <Grid item xs={12}>
+          <Box sx={{ width: '100%', mt: 3 }}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <Security sx={{ mr: 1 }} />
                   <Typography variant="h6">Quick Actions</Typography>
                 </Box>
-                <Grid container spacing={2}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
                   {getQuickActions().map((action, index) => (
-                    <Grid item xs={12} sm={6} md={4} key={index}>
+                    <Box sx={{ flex: '1 1 250px', minWidth: '250px' }} key={index}>
                       <Card variant="outlined">
                         <CardContent>
                           <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -242,15 +241,15 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
                           </Button>
                         </CardActions>
                       </Card>
-                    </Grid>
+                    </Box>
                   ))}
-                </Grid>
+                </Box>
               </CardContent>
             </Card>
-          </Grid>
+          </Box>
 
           {/* System Health */}
-          <Grid item xs={12}>
+          <Box sx={{ width: '100%', mt: 3 }}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -266,8 +265,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
                 </Button>
               </CardContent>
             </Card>
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
       </Box>
     </Container>
   );

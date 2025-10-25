@@ -125,6 +125,16 @@ export const apiService = {
     return response.data;
   },
 
+  async registerUser(userData: {
+    username: string;
+    password: string;
+    permissions: string[];
+  }) {
+    // For Milestone 1, user registration is not implemented in the backend
+    // This is a placeholder that would make an API call in a real implementation
+    throw new Error('User registration not implemented in Milestone 1');
+  },
+
   // Registry operations
   async resetRegistry() {
     const response = await apiClient.delete('/reset');
@@ -190,7 +200,7 @@ export const apiService = {
 
   async listModels(page = 1, pageSize = 10) {
     // Convert to new artifact-based approach
-    const queries = [{ name: '*', types: ['model'] }];
+    const queries: ArtifactQuery[] = [{ name: '*', types: ['model'] }];
     return this.listArtifacts(queries);
   },
 
