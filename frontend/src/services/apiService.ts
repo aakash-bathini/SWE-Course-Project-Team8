@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type AxiosRequestHeaders } from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -16,8 +16,8 @@ apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
-      // Ensure headers object exists and is mutable
-      const headers: Record<string, string> = (config.headers as Record<string, string>) || {};
+      // Ensure headers object exists and is typed for axios
+      const headers: AxiosRequestHeaders = (config.headers as AxiosRequestHeaders) || {} as AxiosRequestHeaders;
       // Spec uses X-Authorization; keep Authorization for compatibility
       headers['X-Authorization'] = token;
       // If token already includes 'bearer', pass through; else prefix
