@@ -5,7 +5,7 @@ Main application entry point with REST API endpoints matching OpenAPI spec v3.3.
 
 from fastapi import FastAPI, HTTPException, Depends, Query, Header, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -13,9 +13,7 @@ from typing import List, Optional, Dict, Any
 import uvicorn
 import logging
 from datetime import datetime
-import json
 from enum import Enum
-from typing import Optional
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -49,7 +47,6 @@ app.add_middleware(
 security = HTTPBearer()
 
 # Import Phase 2 components
-from src.orchestration.metric_orchestrator import orchestrate
 from src.api.huggingface import scrape_hf_url
 
 # In-memory storage for demo (will be replaced with SQLite in Milestone 2)
@@ -268,13 +265,6 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
     user_data = users_db.get(request.user.name)
     if not user_data or not verify_password(request.secret.password, user_data.get("password", "")):
         raise HTTPException(status_code=401, detail="The user or password is invalid.")
-
-    # Create JWT token
-    token_data = {
-        "sub": request.user.name,
-        "is_admin": request.user.is_admin,
-        "iat": datetime.utcnow(),
-    }
 
     # For now, return a simple token (will implement proper JWT in Phase 2)
     token = f"bearer demo_token_{request.user.name}"
