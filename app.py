@@ -295,8 +295,8 @@ async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
 @app.post("/artifacts")
 async def artifacts_list(
     queries: List[ArtifactQuery],
-    offset: Optional[str] = Query(None),
     response: Response,
+    offset: Optional[str] = Query(None),
     user: Dict[str, Any] = Depends(verify_token),
 ) -> List[ArtifactMetadata]:
     """Get the artifacts from the registry (BASELINE)"""
