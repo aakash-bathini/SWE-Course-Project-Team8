@@ -16,11 +16,14 @@ apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
+      // Ensure headers object exists and is mutable
+      const headers: Record<string, string> = (config.headers as Record<string, string>) || {};
       // Spec uses X-Authorization; keep Authorization for compatibility
-      (config.headers as any)['X-Authorization'] = token;
+      headers['X-Authorization'] = token;
       // If token already includes 'bearer', pass through; else prefix
       const hasBearer = token.toLowerCase().startsWith('bearer ');
-      (config.headers as any).Authorization = hasBearer ? token : `Bearer ${token}`;
+      headers.Authorization = hasBearer ? token : `Bearer ${token}`;
+      config.headers = headers;
     }
     return config;
   },

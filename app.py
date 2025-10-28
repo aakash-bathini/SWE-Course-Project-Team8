@@ -294,7 +294,11 @@ async def artifacts_list(
             # Filter by name and types
             for artifact_id, artifact_data in artifacts_db.items():
                 if artifact_data["metadata"]["name"] == query.name:
-                    artifact_type_value = ArtifactType(artifact_data["metadata"]["type"]) if isinstance(artifact_data["metadata"].get("type"), str) else artifact_data["metadata"].get("type")
+                    artifact_type_value = (
+                        ArtifactType(artifact_data["metadata"]["type"])  # type: ignore[arg-type]
+                        if isinstance(artifact_data["metadata"].get("type"), str)
+                        else artifact_data["metadata"].get("type")
+                    )
                     if not query.types or (artifact_type_value in query.types):
                         results.append(ArtifactMetadata(
                             name=artifact_data["metadata"]["name"],
