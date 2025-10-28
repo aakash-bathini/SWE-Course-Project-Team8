@@ -272,6 +272,7 @@ jobs:
           pip install awscli
 
       - name: Configure AWS credentials
+        if: ${{ secrets.AWS_ACCESS_KEY_ID && secrets.AWS_SECRET_ACCESS_KEY }}
         uses: aws-actions/configure-aws-credentials@v5
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -287,11 +288,35 @@ jobs:
         run: |
           zip -r deployment.zip . -x "*.git*" "frontend/*" "test-results/*" "*.log"
 
-      - name: Deploy to AWS Lambda
+      - name: Deploy to AWS Lambda (if secrets provided)
+        if: ${{ secrets.AWS_ACCESS_KEY_ID && secrets.AWS_SECRET_ACCESS_KEY && secrets.LAMBDA_ROLE_ARN }}
+        env:
+          LAMBDA_FUNCTION_NAME: trustworthy-model-registry
+          LAMBDA_ROLE_ARN: ${{ secrets.LAMBDA_ROLE_ARN }}
         run: |
-          # This will be implemented in Milestone 2
-          echo "AWS deployment will be implemented in Milestone 2"
-          # aws lambda update-function-code --function-name trustworthy-model-registry --zip-file fileb://deployment.zip
+          set -e
+          echo "Attempting to deploy to Lambda..."
+          # Try update, else create
+          if aws lambda get-function --function-name "$LAMBDA_FUNCTION_NAME" >/dev/null 2>&1; then
+            echo "Updating existing Lambda function: $LAMBDA_FUNCTION_NAME"
+            aws lambda update-function-code --function-name "$LAMBDA_FUNCTION_NAME" --zip-file fileb://deployment.zip >/dev/null
+          else
+            echo "Creating Lambda function: $LAMBDA_FUNCTION_NAME"
+            aws lambda create-function \
+              --function-name "$LAMBDA_FUNCTION_NAME" \
+              --runtime python3.11 \
+              --role "$LAMBDA_ROLE_ARN" \
+              --handler src.aws.deployment.handler \
+              --timeout 30 \
+              --memory-size 512 \
+              --zip-file fileb://deployment.zip >/dev/null
+          fi
+          echo "Lambda deployment step completed. Configure API Gateway separately to expose a public URL."
+
+      - name: Skip AWS deploy (no secrets)
+        if: ${{ !secrets.AWS_ACCESS_KEY_ID || !secrets.AWS_SECRET_ACCESS_KEY || !secrets.LAMBDA_ROLE_ARN }}
+        run: |
+          echo "AWS credentials or role not provided; skipping deploy."
 
   # Code Quality Gate
   quality-gate:

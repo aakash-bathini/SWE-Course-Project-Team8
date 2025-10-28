@@ -21,8 +21,10 @@ export const authService = {
       },
     };
     
-    const response = await apiService.authenticateUser(credentials);
-    return response;
+    const tokenString = await apiService.authenticateUser(credentials);
+    // Store raw string token
+    localStorage.setItem('token', tokenString);
+    return { token: tokenString };
   },
 
   async verifyToken(token: string): Promise<User | null> {

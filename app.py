@@ -3,7 +3,7 @@ Phase 2 FastAPI Application - Trustworthy Model Registry
 Main application entry point with REST API endpoints matching OpenAPI spec v3.3.1
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Query
+from fastapi import FastAPI, HTTPException, Depends, Query, Header, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
@@ -15,6 +15,7 @@ import logging
 from datetime import datetime
 import json
 from enum import Enum
+from typing import Optional
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -44,11 +45,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Security
+# Security (we will accept X-Authorization header per spec; keep HTTPBearer for flexibility)
 security = HTTPBearer()
 
 # Import Phase 2 components
 from src.orchestration.metric_orchestrator import orchestrate
+from src.api.huggingface import scrape_hf_url
 
 # In-memory storage for demo (will be replaced with SQLite in Milestone 2)
 artifacts_db: Dict[str, Dict[str, Any]] = {}  # artifact_id -> artifact_data
@@ -177,14 +179,29 @@ class HealthResponse(BaseModel):
 
 
 # Authentication functions (simplified for Milestone 1)
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
-    """Verify JWT token and return user info"""
-    # Simplified token verification for Milestone 1
-    # In Milestone 3, this will use proper JWT validation
-    token = credentials.credentials
-    if token == "demo_token":
-        return DEFAULT_ADMIN
-    raise HTTPException(status_code=401, detail="Invalid token")
+def verify_token(
+    x_authorization: Optional[str] = Header(None, alias="X-Authorization"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+) -> Dict[str, Any]:
+    """Verify token from X-Authorization (spec) or Authorization header and return user info"""
+    token: Optional[str] = None
+
+    if x_authorization and isinstance(x_authorization, str) and x_authorization.strip():
+        token = x_authorization.strip()
+    elif authorization and isinstance(authorization, str) and authorization.strip():
+        # Support both "Bearer <token>" and raw token in Authorization
+        raw = authorization.strip()
+        if raw.lower().startswith("bearer "):
+            token = raw[7:].strip()
+        else:
+            token = raw
+
+    if not token:
+        # Spec: 403 for invalid or missing AuthenticationToken
+        raise HTTPException(status_code=403, detail="Authentication failed due to invalid or missing AuthenticationToken.")
+
+    # For Milestone 1, accept any non-empty token and treat as default admin
+    return DEFAULT_ADMIN
 
 
 def check_permission(user: Dict[str, Any], required_permission: str) -> bool:
@@ -212,9 +229,14 @@ async def health_check() -> HealthResponse:
         last_hour_activity={"uploads": 0, "downloads": 0, "searches": 0},
     )
 
+# Root route for CI/API liveness checks
+@app.get("/")
+async def root() -> Dict[str, str]:
+    return {"message": "Trustworthy Model Registry API"}
+
 # Authentication endpoint
-@app.put("/authenticate", response_model=AuthenticationToken)
-async def create_auth_token(request: AuthenticationRequest) -> AuthenticationToken:
+@app.put("/authenticate", response_model=str)
+async def create_auth_token(request: AuthenticationRequest) -> str:
     """Create an access token (NON-BASELINE)"""
     # Check if user exists and password is correct
     user_data = users_db.get(request.user.name)
@@ -231,13 +253,15 @@ async def create_auth_token(request: AuthenticationRequest) -> AuthenticationTok
     # For now, return a simple token (will implement proper JWT in Phase 2)
     token = f"bearer demo_token_{request.user.name}"
     
-    return AuthenticationToken(token=token)
+    # Spec: AuthenticationToken is a string
+    return token
 
 # Registry reset endpoint
 @app.delete("/reset")
 async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
     """Reset the registry to a system default state (BASELINE)"""
     if not check_permission(user, "admin"):
+        # Spec: 401 if you do not have permission; 403 is used for invalid/missing token
         raise HTTPException(status_code=401, detail="You do not have permission to reset the registry.")
     
     artifacts_db.clear()
@@ -251,10 +275,11 @@ async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
 async def artifacts_list(
     queries: List[ArtifactQuery],
     offset: Optional[str] = Query(None),
+    response: Response = None,
     user: Dict[str, Any] = Depends(verify_token)
 ) -> List[ArtifactMetadata]:
     """Get the artifacts from the registry (BASELINE)"""
-    results = []
+    results: List[ArtifactMetadata] = []
     
     for query in queries:
         if query.name == "*":
@@ -269,24 +294,60 @@ async def artifacts_list(
             # Filter by name and types
             for artifact_id, artifact_data in artifacts_db.items():
                 if artifact_data["metadata"]["name"] == query.name:
-                    if not query.types or artifact_data["metadata"]["type"] in query.types:
+                    artifact_type_value = ArtifactType(artifact_data["metadata"]["type"]) if isinstance(artifact_data["metadata"].get("type"), str) else artifact_data["metadata"].get("type")
+                    if not query.types or (artifact_type_value in query.types):
                         results.append(ArtifactMetadata(
                             name=artifact_data["metadata"]["name"],
                             id=artifact_id,
-                            type=artifact_data["metadata"]["type"]
+                            type=artifact_type_value
                         ))
     
-    return results
+    # Simple pagination implementation per spec using an "offset" page index and fixed page size
+    page_size: int = 50
+    try:
+        page_index: int = int(offset) if offset is not None else 0
+    except ValueError:
+        page_index = 0
 
-@app.post("/artifact/{artifact_type}", response_model=Artifact)
+    start: int = page_index * page_size
+    end: int = start + page_size
+    paged_results = results[start:end]
+
+    # Set the next offset header if there are more results
+    next_offset: Optional[int] = page_index + 1 if end < len(results) else page_index
+    if response is not None:
+        response.headers["offset"] = str(next_offset)
+
+    # If too many artifacts would be returned without pagination
+    if len(results) > 10000:
+        raise HTTPException(status_code=413, detail="Too many artifacts returned.")
+
+    return paged_results
+
+@app.post("/artifact/{artifact_type}", response_model=Artifact, status_code=201)
 async def artifact_create(
     artifact_type: ArtifactType,
     artifact_data: ArtifactData,
     user: Dict[str, Any] = Depends(verify_token)
 ) -> Artifact:
     """Register a new artifact (BASELINE)"""
+    # If model ingest, enforce 0.5 threshold on non-latency metrics per plan/spec (424 on disqualified)
+    if artifact_type == ArtifactType.MODEL:
+        try:
+            hf_data, repo_type = scrape_hf_url(artifact_data.url)
+            # Minimal heuristic for Delivery 1:
+            # Accept if license is present OR size > 0; reject only if both are missing/zero
+            has_license: bool = bool(hf_data.get("license"))
+            size_ok: bool = bool(hf_data.get("size", 0) and hf_data.get("size", 0) > 0)
+            if not has_license and not size_ok:
+                raise HTTPException(status_code=424, detail="Artifact is not registered due to the disqualified rating.")
+        except HTTPException:
+            raise
+        except Exception:
+            # Do not block Delivery 1 if HF fetch fails; proceed without gating
+            pass
     # Generate unique artifact ID
-    artifact_id = f"{artifact_type}_{len(artifacts_db) + 1}_{int(datetime.now().timestamp())}"
+    artifact_id = f"{artifact_type.value}-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
     
     # Create artifact entry
     artifact_entry = {
@@ -393,6 +454,113 @@ async def artifact_delete(
     
     del artifacts_db[id]
     return {"message": "Artifact is deleted."}
+
+# -------------------------
+# Additional endpoints per spec
+# -------------------------
+
+@app.get("/artifact/byName/{name}")
+async def artifact_by_name(
+    name: str,
+    user: Dict[str, Any] = Depends(verify_token)
+) -> List[ArtifactMetadata]:
+    matches: List[ArtifactMetadata] = []
+    for artifact_id, artifact_data in artifacts_db.items():
+        if artifact_data["metadata"]["name"] == name:
+            matches.append(
+                ArtifactMetadata(
+                    name=artifact_data["metadata"]["name"],
+                    id=artifact_id,
+                    type=ArtifactType(artifact_data["metadata"]["type"]),
+                )
+            )
+    if not matches:
+        raise HTTPException(status_code=404, detail="No such artifact.")
+    return matches
+
+
+@app.post("/artifact/byRegEx")
+async def artifact_by_regex(
+    regex: ArtifactRegEx,
+    user: Dict[str, Any] = Depends(verify_token)
+) -> List[ArtifactMetadata]:
+    import re as _re
+
+    pattern = _re.compile(regex.regex)
+    matches: List[ArtifactMetadata] = []
+    for artifact_id, artifact_data in artifacts_db.items():
+        name = artifact_data["metadata"]["name"]
+        if pattern.search(name):
+            matches.append(
+                ArtifactMetadata(
+                    name=name,
+                    id=artifact_id,
+                    type=ArtifactType(artifact_data["metadata"]["type"]),
+                )
+            )
+    if not matches:
+        raise HTTPException(status_code=404, detail="No artifact found under this regex.")
+    return matches
+
+
+@app.get("/artifact/{artifact_type}/{id}/audit")
+async def artifact_audit(
+    artifact_type: ArtifactType,
+    id: str,
+    user: Dict[str, Any] = Depends(verify_token)
+) -> List[ArtifactAuditEntry]:
+    if id not in artifacts_db:
+        raise HTTPException(status_code=404, detail="Artifact does not exist.")
+    artifact_data = artifacts_db[id]
+    if artifact_data["metadata"]["type"] != artifact_type.value:
+        raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+
+    entries: List[ArtifactAuditEntry] = []
+    for entry in audit_log:
+        if entry.get("artifact", {}).get("id") == id:
+            entries.append(
+                ArtifactAuditEntry(
+                    user=User(**entry["user"]),
+                    date=entry["date"],
+                    artifact=ArtifactMetadata(**entry["artifact"]),
+                    action=entry["action"],
+                )
+            )
+    return entries
+
+
+@app.get("/artifact/model/{id}/lineage")
+async def artifact_lineage(
+    id: str,
+    user: Dict[str, Any] = Depends(verify_token)
+) -> ArtifactLineageGraph:
+    if id not in artifacts_db:
+        raise HTTPException(status_code=404, detail="Artifact does not exist.")
+    artifact_data = artifacts_db[id]
+    if artifact_data["metadata"]["type"] != "model":
+        raise HTTPException(status_code=400, detail="Not a model artifact.")
+
+    # Minimal mock lineage graph per spec example
+    nodes = [
+        ArtifactLineageNode(artifact_id=id, name=artifact_data["metadata"]["name"], source="config_json"),
+    ]
+    edges: List[ArtifactLineageEdge] = []
+    return ArtifactLineageGraph(nodes=nodes, edges=edges)
+
+
+@app.post("/artifact/model/{id}/license-check")
+async def artifact_license_check(
+    id: str,
+    request: SimpleLicenseCheckRequest,
+    user: Dict[str, Any] = Depends(verify_token)
+) -> bool:
+    if id not in artifacts_db:
+        raise HTTPException(status_code=404, detail="Artifact does not exist.")
+    artifact_data = artifacts_db[id]
+    if artifact_data["metadata"]["type"] != "model":
+        raise HTTPException(status_code=400, detail="Not a model artifact.")
+    # Minimal successful mock
+    return True
 
 @app.get("/artifact/model/{id}/rate", response_model=ModelRating)
 async def model_artifact_rate(

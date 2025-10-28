@@ -16,7 +16,11 @@ apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      // Spec uses X-Authorization; keep Authorization for compatibility
+      (config.headers as any)['X-Authorization'] = token;
+      // If token already includes 'bearer', pass through; else prefix
+      const hasBearer = token.toLowerCase().startsWith('bearer ');
+      (config.headers as any).Authorization = hasBearer ? token : `Bearer ${token}`;
     }
     return config;
   },
@@ -108,9 +112,8 @@ export interface AuthenticationRequest {
   };
 }
 
-export interface AuthenticationToken {
-  token: string;
-}
+// AuthenticationToken is a string per spec; backend returns a raw string token
+export type AuthenticationToken = string;
 
 export const apiService = {
   // Health check
@@ -122,7 +125,7 @@ export const apiService = {
   // Authentication
   async authenticateUser(credentials: AuthenticationRequest): Promise<AuthenticationToken> {
     const response = await apiClient.put('/authenticate', credentials);
-    return response.data;
+    return response.data as AuthenticationToken;
   },
 
   async registerUser(userData: {
