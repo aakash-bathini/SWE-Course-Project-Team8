@@ -24,8 +24,8 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "lint": "eslint -c eslint.config.cjs src --ext .ts,.tsx",
-    "lint:fix": "eslint -c eslint.config.cjs src --ext .ts,.tsx --fix",
+    "lint": "eslint -c eslint.config.cjs \"src/**/*.{ts,tsx}\"",
+    "lint:fix": "eslint -c eslint.config.cjs \"src/**/*.{ts,tsx}\" --fix",
     "type-check": "tsc --noEmit"
   },
   "eslintConfig": {
