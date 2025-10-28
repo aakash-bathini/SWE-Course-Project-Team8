@@ -5,7 +5,7 @@ Main application entry point with REST API endpoints matching OpenAPI spec v3.3.
 
 from fastapi import FastAPI, HTTPException, Depends, Query, Header, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -13,9 +13,7 @@ from typing import List, Optional, Dict, Any
 import uvicorn
 import logging
 from datetime import datetime
-import json
 from enum import Enum
-from typing import Optional
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -49,7 +47,6 @@ app.add_middleware(
 security = HTTPBearer()
 
 # Import Phase 2 components
-from src.orchestration.metric_orchestrator import orchestrate
 from src.api.huggingface import scrape_hf_url
 
 # In-memory storage for demo (will be replaced with SQLite in Milestone 2)
@@ -72,40 +69,50 @@ users_db[admin_username] = DEFAULT_ADMIN
 
 # Pydantic models matching OpenAPI spec v3.3.1
 
+
 class ArtifactType(str, Enum):
     MODEL = "model"
     DATASET = "dataset"
     CODE = "code"
+
 
 class ArtifactMetadata(BaseModel):
     name: str
     id: str
     type: ArtifactType
 
+
 class ArtifactData(BaseModel):
     url: str
+
 
 class Artifact(BaseModel):
     metadata: ArtifactMetadata
     data: ArtifactData
 
+
 class ArtifactQuery(BaseModel):
     name: str
     types: Optional[List[ArtifactType]] = None
+
 
 class User(BaseModel):
     name: str
     is_admin: bool
 
+
 class UserAuthenticationInfo(BaseModel):
     password: str
+
 
 class AuthenticationRequest(BaseModel):
     user: User
     secret: UserAuthenticationInfo
 
+
 class AuthenticationToken(BaseModel):
     token: str
+
 
 class ModelRating(BaseModel):
     name: str
@@ -135,9 +142,11 @@ class ModelRating(BaseModel):
     size_score: Dict[str, float]
     size_score_latency: float
 
+
 class ArtifactCost(BaseModel):
     total_cost: float
     standalone_cost: Optional[float] = None
+
 
 class ArtifactAuditEntry(BaseModel):
     user: User
@@ -145,29 +154,36 @@ class ArtifactAuditEntry(BaseModel):
     artifact: ArtifactMetadata
     action: str
 
+
 class ArtifactLineageNode(BaseModel):
     artifact_id: str
     name: str
     source: str
     metadata: Optional[Dict[str, Any]] = None
 
+
 class ArtifactLineageEdge(BaseModel):
     from_node_artifact_id: str
     to_node_artifact_id: str
     relationship: str
 
+
 class ArtifactLineageGraph(BaseModel):
     nodes: List[ArtifactLineageNode]
     edges: List[ArtifactLineageEdge]
 
+
 class SimpleLicenseCheckRequest(BaseModel):
     github_url: str
+
 
 class ArtifactRegEx(BaseModel):
     regex: str
 
+
 class EnumerateOffset(BaseModel):
     offset: str
+
 
 class HealthResponse(BaseModel):
     status: str
@@ -198,7 +214,10 @@ def verify_token(
 
     if not token:
         # Spec: 403 for invalid or missing AuthenticationToken
-        raise HTTPException(status_code=403, detail="Authentication failed due to invalid or missing AuthenticationToken.")
+        raise HTTPException(
+            status_code=403,
+            detail="Authentication failed due to invalid or missing AuthenticationToken.",
+        )
 
     # For Milestone 1, accept any non-empty token and treat as default admin
     return DEFAULT_ADMIN
@@ -208,6 +227,7 @@ def check_permission(user: Dict[str, Any], required_permission: str) -> bool:
     """Check if user has required permission"""
     return required_permission in user.get("permissions", [])
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash"""
     # For demo purposes, simple string comparison
@@ -216,6 +236,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 # API Endpoints matching OpenAPI spec v3.3.1
+
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check() -> HealthResponse:
@@ -229,10 +250,12 @@ async def health_check() -> HealthResponse:
         last_hour_activity={"uploads": 0, "downloads": 0, "searches": 0},
     )
 
+
 # Root route for CI/API liveness checks
 @app.get("/")
 async def root() -> Dict[str, str]:
     return {"message": "Trustworthy Model Registry API"}
+
 
 # Authentication endpoint
 @app.put("/authenticate", response_model=str)
@@ -242,19 +265,13 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
     user_data = users_db.get(request.user.name)
     if not user_data or not verify_password(request.secret.password, user_data.get("password", "")):
         raise HTTPException(status_code=401, detail="The user or password is invalid.")
-    
-    # Create JWT token
-    token_data = {
-        "sub": request.user.name,
-        "is_admin": request.user.is_admin,
-        "iat": datetime.utcnow()
-    }
-    
+
     # For now, return a simple token (will implement proper JWT in Phase 2)
     token = f"bearer demo_token_{request.user.name}"
-    
+
     # Spec: AuthenticationToken is a string
     return token
+
 
 # Registry reset endpoint
 @app.delete("/reset")
@@ -262,34 +279,40 @@ async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
     """Reset the registry to a system default state (BASELINE)"""
     if not check_permission(user, "admin"):
         # Spec: 401 if you do not have permission; 403 is used for invalid/missing token
-        raise HTTPException(status_code=401, detail="You do not have permission to reset the registry.")
-    
+        raise HTTPException(
+            status_code=401, detail="You do not have permission to reset the registry."
+        )
+
     artifacts_db.clear()
     audit_log.clear()
-    
+
     return {"message": "Registry is reset."}
 
+
 # Artifact endpoints matching OpenAPI spec
+
 
 @app.post("/artifacts")
 async def artifacts_list(
     queries: List[ArtifactQuery],
+    response: Response,
     offset: Optional[str] = Query(None),
-    response: Response = None,
-    user: Dict[str, Any] = Depends(verify_token)
+    user: Dict[str, Any] = Depends(verify_token),
 ) -> List[ArtifactMetadata]:
     """Get the artifacts from the registry (BASELINE)"""
     results: List[ArtifactMetadata] = []
-    
+
     for query in queries:
         if query.name == "*":
             # Return all artifacts
             for artifact_id, artifact_data in artifacts_db.items():
-                results.append(ArtifactMetadata(
-                    name=artifact_data["metadata"]["name"],
-                    id=artifact_id,
-                    type=artifact_data["metadata"]["type"]
-                ))
+                results.append(
+                    ArtifactMetadata(
+                        name=artifact_data["metadata"]["name"],
+                        id=artifact_id,
+                        type=artifact_data["metadata"]["type"],
+                    )
+                )
         else:
             # Filter by name and types
             for artifact_id, artifact_data in artifacts_db.items():
@@ -300,12 +323,14 @@ async def artifacts_list(
                         else artifact_data["metadata"].get("type")
                     )
                     if not query.types or (artifact_type_value in query.types):
-                        results.append(ArtifactMetadata(
-                            name=artifact_data["metadata"]["name"],
-                            id=artifact_id,
-                            type=artifact_type_value
-                        ))
-    
+                        results.append(
+                            ArtifactMetadata(
+                                name=artifact_data["metadata"]["name"],
+                                id=artifact_id,
+                                type=artifact_type_value,
+                            )
+                        )
+
     # Simple pagination implementation per spec using an "offset" page index and fixed page size
     page_size: int = 50
     try:
@@ -319,8 +344,7 @@ async def artifacts_list(
 
     # Set the next offset header if there are more results
     next_offset: Optional[int] = page_index + 1 if end < len(results) else page_index
-    if response is not None:
-        response.headers["offset"] = str(next_offset)
+    response.headers["offset"] = str(next_offset)
 
     # If too many artifacts would be returned without pagination
     if len(results) > 10000:
@@ -328,11 +352,12 @@ async def artifacts_list(
 
     return paged_results
 
+
 @app.post("/artifact/{artifact_type}", response_model=Artifact, status_code=201)
 async def artifact_create(
     artifact_type: ArtifactType,
     artifact_data: ArtifactData,
-    user: Dict[str, Any] = Depends(verify_token)
+    user: Dict[str, Any] = Depends(verify_token),
 ) -> Artifact:
     """Register a new artifact (BASELINE)"""
     # If model ingest, enforce 0.5 threshold on non-latency metrics per plan/spec (424 on disqualified)
@@ -344,7 +369,10 @@ async def artifact_create(
             has_license: bool = bool(hf_data.get("license"))
             size_ok: bool = bool(hf_data.get("size", 0) and hf_data.get("size", 0) > 0)
             if not has_license and not size_ok:
-                raise HTTPException(status_code=424, detail="Artifact is not registered due to the disqualified rating.")
+                raise HTTPException(
+                    status_code=424,
+                    detail="Artifact is not registered due to the disqualified rating.",
+                )
         except HTTPException:
             raise
         except Exception:
@@ -352,121 +380,125 @@ async def artifact_create(
             pass
     # Generate unique artifact ID
     artifact_id = f"{artifact_type.value}-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
-    
+
     # Create artifact entry
     artifact_entry = {
         "metadata": {
             "name": artifact_data.url.split("/")[-1],  # Extract name from URL
             "id": artifact_id,
-            "type": artifact_type.value
+            "type": artifact_type.value,
         },
-        "data": {
-            "url": artifact_data.url
-        },
+        "data": {"url": artifact_data.url},
         "created_at": datetime.now().isoformat(),
-        "created_by": user["username"]
+        "created_by": user["username"],
     }
-    
+
     artifacts_db[artifact_id] = artifact_entry
-    
+
     # Log audit entry
-    audit_log.append({
-        "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
-        "date": datetime.now().isoformat(),
-        "artifact": artifact_entry["metadata"],
-        "action": "CREATE"
-    })
-    
+    audit_log.append(
+        {
+            "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
+            "date": datetime.now().isoformat(),
+            "artifact": artifact_entry["metadata"],
+            "action": "CREATE",
+        }
+    )
+
     return Artifact(
         metadata=ArtifactMetadata(**artifact_entry["metadata"]),
-        data=ArtifactData(url=artifact_entry["data"]["url"])
+        data=ArtifactData(url=artifact_entry["data"]["url"]),
     )
+
 
 @app.get("/artifacts/{artifact_type}/{id}", response_model=Artifact)
 async def artifact_retrieve(
-    artifact_type: ArtifactType,
-    id: str,
-    user: Dict[str, Any] = Depends(verify_token)
+    artifact_type: ArtifactType, id: str, user: Dict[str, Any] = Depends(verify_token)
 ) -> Artifact:
     """Interact with the artifact with this id (BASELINE)"""
     if id not in artifacts_db:
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
-    
+
     artifact_data = artifacts_db[id]
     if artifact_data["metadata"]["type"] != artifact_type.value:
         raise HTTPException(status_code=400, detail="Artifact type mismatch.")
-    
+
     return Artifact(
         metadata=ArtifactMetadata(**artifact_data["metadata"]),
-        data=ArtifactData(url=artifact_data["data"]["url"])
+        data=ArtifactData(url=artifact_data["data"]["url"]),
     )
+
 
 @app.put("/artifacts/{artifact_type}/{id}")
 async def artifact_update(
     artifact_type: ArtifactType,
     id: str,
     artifact: Artifact,
-    user: Dict[str, Any] = Depends(verify_token)
+    user: Dict[str, Any] = Depends(verify_token),
 ):
     """Update this content of the artifact (BASELINE)"""
     if id not in artifacts_db:
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
-    
+
     artifact_data = artifacts_db[id]
     if artifact_data["metadata"]["type"] != artifact_type.value:
         raise HTTPException(status_code=400, detail="Artifact type mismatch.")
-    
+
     # Update artifact
     artifacts_db[id] = {
         "metadata": artifact.metadata.dict(),
         "data": artifact.data.dict(),
         "updated_at": datetime.now().isoformat(),
-        "updated_by": user["username"]
+        "updated_by": user["username"],
     }
-    
+
     # Log audit entry
-    audit_log.append({
-        "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
-        "date": datetime.now().isoformat(),
-        "artifact": artifact.metadata.dict(),
-        "action": "UPDATE"
-    })
-    
+    audit_log.append(
+        {
+            "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
+            "date": datetime.now().isoformat(),
+            "artifact": artifact.metadata.dict(),
+            "action": "UPDATE",
+        }
+    )
+
     return {"message": "Artifact is updated."}
+
 
 @app.delete("/artifacts/{artifact_type}/{id}")
 async def artifact_delete(
-    artifact_type: ArtifactType,
-    id: str,
-    user: Dict[str, Any] = Depends(verify_token)
+    artifact_type: ArtifactType, id: str, user: Dict[str, Any] = Depends(verify_token)
 ):
     """Delete this artifact (NON-BASELINE)"""
     if id not in artifacts_db:
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
-    
+
     artifact_data = artifacts_db[id]
     if artifact_data["metadata"]["type"] != artifact_type.value:
         raise HTTPException(status_code=400, detail="Artifact type mismatch.")
-    
+
     # Log audit entry before deletion
-    audit_log.append({
-        "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
-        "date": datetime.now().isoformat(),
-        "artifact": artifact_data["metadata"],
-        "action": "DELETE"
-    })
-    
+    audit_log.append(
+        {
+            "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
+            "date": datetime.now().isoformat(),
+            "artifact": artifact_data["metadata"],
+            "action": "DELETE",
+        }
+    )
+
     del artifacts_db[id]
     return {"message": "Artifact is deleted."}
+
 
 # -------------------------
 # Additional endpoints per spec
 # -------------------------
 
+
 @app.get("/artifact/byName/{name}")
 async def artifact_by_name(
-    name: str,
-    user: Dict[str, Any] = Depends(verify_token)
+    name: str, user: Dict[str, Any] = Depends(verify_token)
 ) -> List[ArtifactMetadata]:
     matches: List[ArtifactMetadata] = []
     for artifact_id, artifact_data in artifacts_db.items():
@@ -485,8 +517,7 @@ async def artifact_by_name(
 
 @app.post("/artifact/byRegEx")
 async def artifact_by_regex(
-    regex: ArtifactRegEx,
-    user: Dict[str, Any] = Depends(verify_token)
+    regex: ArtifactRegEx, user: Dict[str, Any] = Depends(verify_token)
 ) -> List[ArtifactMetadata]:
     import re as _re
 
@@ -509,9 +540,7 @@ async def artifact_by_regex(
 
 @app.get("/artifact/{artifact_type}/{id}/audit")
 async def artifact_audit(
-    artifact_type: ArtifactType,
-    id: str,
-    user: Dict[str, Any] = Depends(verify_token)
+    artifact_type: ArtifactType, id: str, user: Dict[str, Any] = Depends(verify_token)
 ) -> List[ArtifactAuditEntry]:
     if id not in artifacts_db:
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
@@ -535,8 +564,7 @@ async def artifact_audit(
 
 @app.get("/artifact/model/{id}/lineage")
 async def artifact_lineage(
-    id: str,
-    user: Dict[str, Any] = Depends(verify_token)
+    id: str, user: Dict[str, Any] = Depends(verify_token)
 ) -> ArtifactLineageGraph:
     if id not in artifacts_db:
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
@@ -546,7 +574,9 @@ async def artifact_lineage(
 
     # Minimal mock lineage graph per spec example
     nodes = [
-        ArtifactLineageNode(artifact_id=id, name=artifact_data["metadata"]["name"], source="config_json"),
+        ArtifactLineageNode(
+            artifact_id=id, name=artifact_data["metadata"]["name"], source="config_json"
+        ),
     ]
     edges: List[ArtifactLineageEdge] = []
     return ArtifactLineageGraph(nodes=nodes, edges=edges)
@@ -554,9 +584,7 @@ async def artifact_lineage(
 
 @app.post("/artifact/model/{id}/license-check")
 async def artifact_license_check(
-    id: str,
-    request: SimpleLicenseCheckRequest,
-    user: Dict[str, Any] = Depends(verify_token)
+    id: str, request: SimpleLicenseCheckRequest, user: Dict[str, Any] = Depends(verify_token)
 ) -> bool:
     if id not in artifacts_db:
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
@@ -566,19 +594,17 @@ async def artifact_license_check(
     # Minimal successful mock
     return True
 
+
 @app.get("/artifact/model/{id}/rate", response_model=ModelRating)
-async def model_artifact_rate(
-    id: str,
-    user: Dict[str, Any] = Depends(verify_token)
-) -> ModelRating:
+async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_token)) -> ModelRating:
     """Get ratings for this model artifact (BASELINE)"""
     if id not in artifacts_db:
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
-    
+
     artifact_data = artifacts_db[id]
     if artifact_data["metadata"]["type"] != "model":
         raise HTTPException(status_code=400, detail="Not a model artifact.")
-    
+
     # Generate mock rating data (will be replaced with actual metrics in Phase 2)
     return ModelRating(
         name=artifact_data["metadata"]["name"],
@@ -605,39 +631,36 @@ async def model_artifact_rate(
         reviewedness_latency=0.8,
         tree_score=0.8,
         tree_score_latency=1.2,
-        size_score={
-            "raspberry_pi": 0.3,
-            "jetson_nano": 0.5,
-            "desktop_pc": 0.9,
-            "aws_server": 0.95
-        },
-        size_score_latency=0.5
+        size_score={"raspberry_pi": 0.3, "jetson_nano": 0.5, "desktop_pc": 0.9, "aws_server": 0.95},
+        size_score_latency=0.5,
     )
+
 
 @app.get("/artifact/{artifact_type}/{id}/cost", response_model=Dict[str, ArtifactCost])
 async def artifact_cost(
     artifact_type: ArtifactType,
     id: str,
     dependency: bool = Query(False),
-    user: Dict[str, Any] = Depends(verify_token)
+    user: Dict[str, Any] = Depends(verify_token),
 ) -> Dict[str, ArtifactCost]:
     """Get the cost of an artifact (BASELINE)"""
     if id not in artifacts_db:
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
-    
+
     artifact_data = artifacts_db[id]
     if artifact_data["metadata"]["type"] != artifact_type.value:
         raise HTTPException(status_code=400, detail="Artifact type mismatch.")
-    
+
     # Mock cost calculation (will be replaced with actual cost calculation)
     standalone_cost = 100.0
     total_cost = standalone_cost + (50.0 if dependency else 0.0)
-    
+
     result = {id: ArtifactCost(total_cost=total_cost)}
     if dependency:
         result[id].standalone_cost = standalone_cost
-    
+
     return result
+
 
 @app.get("/tracks")
 async def get_tracks() -> Dict[str, List[str]]:
@@ -645,11 +668,12 @@ async def get_tracks() -> Dict[str, List[str]]:
     return {
         "plannedTracks": [
             "Performance track",
-            "Access control track", 
+            "Access control track",
             "High assurance track",
-            "Other Security track"
+            "Other Security track",
         ]
     }
+
 
 # Favicon route
 @app.get("/favicon.ico")
@@ -657,6 +681,7 @@ async def get_tracks() -> Dict[str, List[str]]:
 async def favicon():
     """Serve the favicon"""
     return FileResponse("frontend/public/favicon.ico")
+
 
 # Mount static files to serve favicon and other static assets
 app.mount("/static", StaticFiles(directory="frontend/public"), name="static")
