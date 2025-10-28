@@ -51,6 +51,22 @@ npm install
 npm start
 ```
 
+Open the app at http://localhost:3000 and log in.
+In your browser DevTools Console, run:
+
+localStorage.setItem('token', 'demo_token'); location.reload();
+
+After reload you’ll see the nav buttons. Go to:
+
+Dashboard: http://localhost:3000/dashboard
+Upload: http://localhost:3000/upload
+Search: http://localhost:3000/search
+Download: http://localhost:3000/download
+Health: http://localhost:3000/health
+
+To log out later:
+localStorage.removeItem('token'); location.reload();
+
 ### Verify Installation
 ```bash
 # Test API endpoints
