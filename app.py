@@ -296,7 +296,7 @@ async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
 async def artifacts_list(
     queries: List[ArtifactQuery],
     offset: Optional[str] = Query(None),
-    response: Optional[Response] = None,
+    response: Response,
     user: Dict[str, Any] = Depends(verify_token),
 ) -> List[ArtifactMetadata]:
     """Get the artifacts from the registry (BASELINE)"""
@@ -344,8 +344,7 @@ async def artifacts_list(
 
     # Set the next offset header if there are more results
     next_offset: Optional[int] = page_index + 1 if end < len(results) else page_index
-    if response is not None:
-        response.headers["offset"] = str(next_offset)
+    response.headers["offset"] = str(next_offset)
 
     # If too many artifacts would be returned without pagination
     if len(results) > 10000:
