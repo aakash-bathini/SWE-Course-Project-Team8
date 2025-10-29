@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Container, Typography, Box, TextField, Button, Stack, MenuItem, ToggleButtonGroup, ToggleButton, Paper, List, ListItem, ListItemText, Alert } from '@mui/material';
 import { apiService, type ArtifactMetadata } from '../services/apiService';
 
@@ -53,6 +53,12 @@ const ModelSearchPage: React.FC<ModelSearchPageProps> = ({ user }) => {
       setLoading(false);
     }
   };
+
+  // Auto-run a wildcard search on initial load to show existing artifacts
+  useEffect(() => {
+    runSearch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Container maxWidth="lg">
