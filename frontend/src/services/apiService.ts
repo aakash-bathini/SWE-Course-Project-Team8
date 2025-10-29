@@ -156,6 +156,10 @@ export const apiService = {
   },
 
   async searchByName(name: string): Promise<ArtifactMetadata[]> {
+    if (name === '*') {
+      const response = await apiClient.post('/artifacts', [{ name: '*' }], { params: { offset: 0 } });
+      return response.data;
+    }
     const response = await apiClient.get(`/artifact/byName/${encodeURIComponent(name)}`);
     return response.data;
   },
