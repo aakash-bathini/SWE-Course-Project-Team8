@@ -420,7 +420,7 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
         "sub": user_data["username"],
         "permissions": user_data.get("permissions", []),
     }
-    jwt_token = create_user_token(payload)  # returns encoded JWT string
+    jwt_token = jwt_auth.create_access_token(payload)
 
     # Spec: AuthenticationToken is a string; we include 'bearer ' prefix to ease client use
     return f"bearer {jwt_token}"
