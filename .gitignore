@@ -1,29 +1,31 @@
-# Python bytecode
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Frontend dependencies
-frontend/node_modules/
-
-# Virtual environments
+# Local Python virtualenvs
 .venv/
 venv/
 env/
 
-# Test and tool caches
-.pytest_cache/
+# Python caches
+__pycache__/
+*.pyc
 .mypy_cache/
-.ruff_cache/
+.pytest_cache/
+
+# Coverage
 .coverage
 coverage.xml
-test-results/
 
-# OS and editor files
-.DS_Store
+# Logs
 *.log
 
-# Build artifacts
-dist/
-build/
+# SQLite local database
+registry.db
+
+# Node / frontend
+frontend/node_modules/
 frontend/build/
+
+# Dist/build
+build/
+dist/
+
+# OS
+.DS_Store

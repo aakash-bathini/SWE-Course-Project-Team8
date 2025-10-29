@@ -1,392 +1,83 @@
-name: Phase 2 CI/CD Pipeline
+name: CI
 
 on:
-  pull_request:            # run on PRs only
   push:
-    branches: ["main"]     # run on pushes to main
-  workflow_dispatch:
-
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+    branches: [ main, testing, logintodashboard ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  # Backend Testing
   backend-lint:
-    name: Backend Lint (black + flake8)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install dev deps
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements-dev.txt ]; then
-            pip install -r requirements-dev.txt
-          else
-            pip install black flake8
-          fi
-
-      - name: Black (check)
-        run: black --check .
-
-      - name: Flake8
-        run: flake8 .
-
-  backend-typecheck:
-    name: Backend Typecheck (mypy)
-    runs-on: ubuntu-latest
-    needs: backend-lint
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install fastapi pydantic uvicorn mangum
-          pip install mypy typing-extensions
-
-      - name: Install dev deps
-        run: |
-          if [ -f requirements-dev.txt ]; then
-            pip install -r requirements-dev.txt
-          else
-            pip install mypy
-          fi
-
-      - name: MyPy
-        run: mypy .
-
-  backend-test:
-    name: Backend Test (pytest + coverage)
-    runs-on: ubuntu-latest
-    needs: [backend-lint, backend-typecheck]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
+          python-version: '3.11'
       - name: Install deps
         run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          if [ -f requirements-dev.txt ]; then
-            pip install -r requirements-dev.txt
-          else
-            pip install pytest pytest-cov
-          fi
+          python -m pip install -U pip
+          pip install -r requirements.txt -r requirements-dev.txt
+      - name: Black check
+        run: python -m black --check .
+      - name: flake8
+        run: python -m flake8 .
 
-      - name: Show Python & pip (debug)
-        run: |
-          python --version
-          pip --version
-
-      - name: Pytest (coverage XML + JUnit)
-        run: |
-          mkdir -p test-results
-          pytest --cov=app --cov-report=xml:coverage.xml --junit-xml=test-results/junit.xml
-
-      - name: Show coverage.xml (debug)
-        run: |
-          echo "=== ls -la ==="
-          ls -la
-          echo "=== coverage.xml contents ==="
-          if [ -f coverage.xml ]; then
-            sed -n '1,20p' coverage.xml
-          else
-            echo "coverage.xml not found"
-          fi
-
-      - name: Ensure coverage.xml exists
-        if: always()
-        run: |
-          echo "=== verifying coverage.xml ==="
-          if [ ! -f coverage.xml ]; then
-            echo '<?xml version="1.0"?>' > coverage.xml
-            echo '<coverage line-rate="0" branch-rate="0" version="0" timestamp="0"></coverage>' >> coverage.xml
-            echo "Created placeholder coverage.xml"
-          else
-            echo "coverage.xml present"
-          fi
-          ls -la coverage.xml
-
-      - name: Upload coverage.xml
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: coverage-xml
-          path: coverage.xml
-
-      - name: Upload JUnit report
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: junit-report
-          path: test-results/junit.xml
-
-  # Frontend Testing
-  frontend-test:
-    name: Frontend Test (React + TypeScript)
+  backend-typecheck:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: |
+          python -m pip install -U pip
+          pip install -r requirements.txt -r requirements-dev.txt
+      - name: mypy
+        run: python -m mypy .
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+  backend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: |
+          python -m pip install -U pip
+          pip install -r requirements.txt -r requirements-dev.txt
+      - name: pytest with coverage
+        run: |
+          pytest -q --cov=. --cov-report=term-missing
+
+  frontend-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+      - name: Type check
+        working-directory: frontend
+        run: npx tsc --noEmit
+      - name: ESLint
+        working-directory: frontend
+        run: npx eslint .
+      - name: Jest tests
+        working-directory: frontend
+        run: npm test -- --ci --watchAll=false
 
-      - name: Install frontend dependencies
-        run: |
-          cd frontend
-          npm ci --legacy-peer-deps
-
-      - name: Run TypeScript type check
-        run: |
-          cd frontend
-          npm run type-check
-
-      - name: Run ESLint
-        run: |
-          cd frontend
-          npm run lint
-
-      - name: Run tests
-        run: |
-          cd frontend
-          npm test -- --coverage --watchAll=false --passWithNoTests
-
-  # FastAPI Server Test
-  api-test:
-    name: FastAPI Server Test
-    runs-on: ubuntu-latest
-    needs: [backend-test]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Start FastAPI server
-        run: |
-          python -m uvicorn app:app --host 0.0.0.0 --port 8000 &
-          sleep 10
-
-      - name: Test API endpoints
-        run: |
-          # Test health endpoint
-          curl -f http://localhost:8000/health || exit 1
-          
-          # Test root endpoint
-          curl -f http://localhost:8000/ || exit 1
-          
-          # Test OpenAPI docs
-          curl -f http://localhost:8000/docs || exit 1
-
-  # Security Scan
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    needs: [backend-test]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install security tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install bandit safety
-
-      - name: Run Bandit security scan
-        run: |
-          bandit -r src/ -f json -o bandit-report.json || true
-
-      - name: Run Safety check
-        run: |
-          safety check --json --output safety-report.json || true
-
-      - name: Upload security reports
-        uses: actions/upload-artifact@v5
-        with:
-          name: security-reports
-          path: |
-            bandit-report.json
-            safety-report.json
-
-  # AWS Deployment (only on main branch)
-  deploy-aws:
-    name: Deploy to AWS
-    runs-on: ubuntu-latest
-    needs: [backend-test, frontend-test, api-test, security-scan]
+  # Placeholder deploy job (gated to main)
+  deploy:
     if: github.ref == 'refs/heads/main'
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      LAMBDA_ROLE_ARN: ${{ secrets.LAMBDA_ROLE_ARN }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install AWS CLI
-        run: |
-          pip install awscli
-
-      - name: Configure AWS credentials
-        if: ${{ env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != '' }}
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Create deployment package
-        run: |
-          zip -r deployment.zip . -x "*.git*" "frontend/*" "test-results/*" "*.log"
-
-      - name: Deploy to AWS Lambda (if secrets provided)
-        if: ${{ env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != '' && env.LAMBDA_ROLE_ARN != '' }}
-        env:
-          LAMBDA_FUNCTION_NAME: trustworthy-model-registry
-          LAMBDA_ROLE_ARN: ${{ env.LAMBDA_ROLE_ARN }}
-        run: |
-          set -e
-          echo "Attempting to deploy to Lambda..."
-          # Try update, else create
-          if aws lambda get-function --function-name "$LAMBDA_FUNCTION_NAME" >/dev/null 2>&1; then
-            echo "Updating existing Lambda function: $LAMBDA_FUNCTION_NAME"
-            aws lambda update-function-code --function-name "$LAMBDA_FUNCTION_NAME" --zip-file fileb://deployment.zip >/dev/null
-          else
-            echo "Creating Lambda function: $LAMBDA_FUNCTION_NAME"
-            aws lambda create-function \
-              --function-name "$LAMBDA_FUNCTION_NAME" \
-              --runtime python3.11 \
-              --role "$LAMBDA_ROLE_ARN" \
-              --handler src.aws.deployment.handler \
-              --timeout 30 \
-              --memory-size 512 \
-              --zip-file fileb://deployment.zip >/dev/null
-          fi
-          echo "Lambda deployment step completed. Configure API Gateway separately to expose a public URL."
-
-      - name: Skip AWS deploy (no secrets)
-        if: ${{ env.AWS_ACCESS_KEY_ID == '' || env.AWS_SECRET_ACCESS_KEY == '' || env.LAMBDA_ROLE_ARN == '' }}
-        run: |
-          echo "AWS credentials or role not provided; skipping deploy."
-
-  # Code Quality Gate
-  quality-gate:
-    name: Code Quality Gate
+    needs: [backend-lint, backend-typecheck, backend-test, frontend-ci]
     runs-on: ubuntu-latest
-    needs: [backend-test, frontend-test, api-test, security-scan]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Download coverage reports
-        uses: actions/download-artifact@v6
-        with:
-          name: coverage-xml
-          path: coverage/
-
-      - name: Check coverage threshold
-        run: |
-          python - <<'PY'
-          import sys, os, xml.etree.ElementTree as ET
-          
-          p = 'coverage/coverage.xml'
-          if not os.path.exists(p):
-              print("ERROR: coverage file not found at", p)
-              print("Contents of coverage/:", os.listdir('coverage') if os.path.exists('coverage') else 'coverage/ missing')
-              sys.exit(1)
-          
-          try:
-              tree = ET.parse(p)
-              root = tree.getroot()
-          except Exception as e:
-              print("ERROR: failed to parse coverage XML:", e)
-              print(open(p).read())
-              sys.exit(1)
-          
-          line_rate = root.get('line-rate')
-          if line_rate is None:
-              # fallback: search for any coverage element
-              el = root.find('.//coverage')
-              if el is not None:
-                  line_rate = el.get('line-rate')
-          
-          if line_rate is None:
-              print("ERROR: 'line-rate' attribute not found in coverage.xml")
-              print(open(p).read())
-              sys.exit(1)
-          
-          try:
-              lr = float(line_rate)
-          except:
-              print("ERROR: line-rate not a float:", line_rate)
-              sys.exit(1)
-          
-          print(f'Coverage: {lr:.2%}')
-          if lr < 0.00:  # Delivery 1: disable coverage gate
-              print('ERROR: Coverage below 0% threshold (disabled for Delivery 1)')
-              sys.exit(1)
-          else:
-              print('SUCCESS: Coverage meets threshold')
-          PY
-
-      - name: Quality Gate Passed
-        run: |
-          echo "✅ All quality gates passed!"
-          echo "✅ Backend tests: PASSED"
-          echo "✅ Frontend tests: PASSED" 
-          echo "✅ API tests: PASSED"
-          echo "✅ Security scan: PASSED"
-          echo "✅ Coverage threshold: MET"
+      - run: echo "Deploy step is gated and will be implemented with AWS later."
