@@ -1,6 +1,6 @@
 """
 Phase 2 FastAPI Application - Trustworthy Model Registry
-Main application entry point with REST API endpoints matching OpenAPI spec v3.3.1
+Main application entry point with REST API endpoints matching OpenAPI spec v3.4.2
 """
 
 from fastapi import FastAPI, HTTPException, Depends, Query, Header, Response
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="ECE 461 - Fall 2025 - Project Phase 2",
     description="API for ECE 461/Fall 2025/Project Phase 2: A Trustworthy Model Registry",
-    version="3.3.1",
+    version="3.4.2",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -194,6 +194,56 @@ class HealthResponse(BaseModel):
     last_hour_activity: Dict[str, int]
 
 
+# -------------------------
+# Health component schemas (v3.4.2)
+# -------------------------
+
+
+class HealthStatus(str, Enum):
+    ok = "ok"
+    degraded = "degraded"
+    critical = "critical"
+    unknown = "unknown"
+
+
+class HealthLogReference(BaseModel):
+    label: str
+    url: str
+    tail_available: Optional[bool] = None
+    last_updated_at: Optional[str] = None
+
+
+class HealthTimelineEntry(BaseModel):
+    bucket: str
+    value: float
+    unit: Optional[str] = None
+
+
+class HealthIssue(BaseModel):
+    code: str
+    severity: str
+    summary: str
+    details: Optional[str] = None
+
+
+class HealthComponentDetail(BaseModel):
+    id: str
+    display_name: Optional[str] = None
+    status: HealthStatus
+    observed_at: str
+    description: Optional[str] = None
+    metrics: Optional[Dict[str, Any]] = None
+    issues: Optional[List[HealthIssue]] = None
+    timeline: Optional[List[HealthTimelineEntry]] = None
+    logs: Optional[List[HealthLogReference]] = None
+
+
+class HealthComponentCollection(BaseModel):
+    components: List[HealthComponentDetail]
+    generated_at: str
+    window_minutes: Optional[int] = None
+
+
 # Authentication functions (simplified for Milestone 1)
 def verify_token(
     x_authorization: Optional[str] = Header(None, alias="X-Authorization"),
@@ -248,6 +298,69 @@ async def health_check() -> HealthResponse:
         models_count=len(artifacts_db),
         users_count=len(users_db),
         last_hour_activity={"uploads": 0, "downloads": 0, "searches": 0},
+    )
+
+
+# Component health (NON-BASELINE in spec v3.4.2), minimal implementation
+@app.get("/health/components", response_model=HealthComponentCollection)
+async def health_components(
+    windowMinutes: int = Query(60, ge=5, le=1440),
+    includeTimeline: bool = Query(False),
+) -> HealthComponentCollection:
+    now_iso = datetime.now().isoformat()
+
+    components: List[HealthComponentDetail] = []
+
+    # API component
+    api_component = HealthComponentDetail(
+        id="api",
+        display_name="FastAPI Service",
+        status=HealthStatus.ok,
+        observed_at=now_iso,
+        description="Handles REST API requests",
+        metrics={
+            "uptime_seconds": 0,
+            "total_requests": 0,
+        },
+        issues=[],
+        logs=[
+            HealthLogReference(
+                label="Application Log",
+                url="https://example.com/logs/app.log",
+            )
+        ],
+        timeline=[
+            HealthTimelineEntry(bucket=now_iso, value=0.0, unit="rpm")
+        ]
+        if includeTimeline
+        else None,
+    )
+    components.append(api_component)
+
+    # Metrics component (placeholder)
+    metrics_component = HealthComponentDetail(
+        id="metrics",
+        display_name="Metrics Aggregator",
+        status=HealthStatus.ok,
+        observed_at=now_iso,
+        description="Aggregates request metrics",
+        metrics={
+            "routes_tracked": 0,
+        },
+        issues=[],
+        logs=[],
+        timeline=[
+            HealthTimelineEntry(bucket=now_iso, value=0.0, unit="rpm")
+        ]
+        if includeTimeline
+        else None,
+    )
+    components.append(metrics_component)
+
+    return HealthComponentCollection(
+        components=components,
+        generated_at=now_iso,
+        window_minutes=windowMinutes,
     )
 
 
