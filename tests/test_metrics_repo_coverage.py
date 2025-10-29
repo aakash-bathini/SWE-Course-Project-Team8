@@ -2,7 +2,13 @@ import pytest
 
 from src.models.model_types import EvalContext
 from src.metrics import size as size_metric
-from src.metrics import available_dataset_code, bus_factor_metric, dataset_quality, code_quality_metric, performance_metric
+from src.metrics import (
+    available_dataset_code,
+    bus_factor_metric,
+    dataset_quality,
+    code_quality_metric,
+    performance_metric,
+)
 from src.metrics.phase2_adapter import calculate_phase2_metrics
 from src.metrics.license_check import metric as license_metric
 from src.api.huggingface import parse_hf_url, _extract_github_links
@@ -41,7 +47,9 @@ def _sample_ctx() -> EvalContext:
         "contributors": {"alice": 50, "bob": 40, "carl": 10},
         "maintainability_score": 0.4,
     }
-    return EvalContext(url="https://huggingface.co/org/model", category="MODEL", hf_data=[hf], gh_data=[gh])
+    return EvalContext(
+        url="https://huggingface.co/org/model", category="MODEL", hf_data=[hf], gh_data=[gh]
+    )
 
 
 @pytest.mark.asyncio
@@ -94,7 +102,10 @@ def test_helper_and_hf_parse():
     assert parse_hf_url("https://huggingface.co/org/model")[0] == "model"
     assert parse_hf_url("https://huggingface.co/datasets/user/data")[0] == "dataset"
     # extract github links
-    links = _extract_github_links("Check https://github.com/user/repo for code.", {"repository": "https://github.com/user/repo"})
+    links = _extract_github_links(
+        "Check https://github.com/user/repo for code.",
+        {"repository": "https://github.com/user/repo"},
+    )
     assert any("github.com" in u for u in links)
 
 
@@ -115,7 +126,11 @@ async def test_additional_size_branches():
 
 
 def test_readme_parser_helpers():
-    from src.config_parsers_nlp.readme_parser import extract_license_block, find_spdx_ids, find_license_hints
+    from src.config_parsers_nlp.readme_parser import (
+        extract_license_block,
+        find_spdx_ids,
+        find_license_hints,
+    )
 
     md = """
     # License
@@ -126,5 +141,3 @@ def test_readme_parser_helpers():
     ids = find_spdx_ids(block or md)
     hints = find_license_hints(block or md)
     assert ids and hints
-
-

@@ -26,7 +26,9 @@ def upsert_default_admin(db: Session, username: str, password: str, permissions:
         db.commit()
 
 
-def create_artifact(db: Session, artifact_id: str, name: str, type_: str, url: str) -> models.Artifact:
+def create_artifact(
+    db: Session, artifact_id: str, name: str, type_: str, url: str
+) -> models.Artifact:
     art = models.Artifact(id=artifact_id, name=name, type=type_, url=url)
     db.add(art)
     db.commit()
@@ -85,7 +87,9 @@ def list_by_regex(db: Session, regex: str) -> List[models.Artifact]:
     return [a for a in items if rx.search(a.name or "")]
 
 
-def log_audit(db: Session, artifact: models.Artifact, user_name: str, user_is_admin: bool, action: str) -> None:
+def log_audit(
+    db: Session, artifact: models.Artifact, user_name: str, user_is_admin: bool, action: str
+) -> None:
     entry = models.AuditEntry(
         artifact_id=artifact.id, user_name=user_name, user_is_admin=user_is_admin, action=action
     )
@@ -101,5 +105,3 @@ def reset_registry(db: Session) -> None:
     db.query(models.AuditEntry).delete()
     db.query(models.Artifact).delete()
     db.commit()
-
-

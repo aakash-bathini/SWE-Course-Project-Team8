@@ -41,5 +41,3 @@ class AuditEntry(Base):
     date = Column(DateTime, default=datetime.utcnow)
 
     artifact = relationship("Artifact", back_populates="audits")
-
-
