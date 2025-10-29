@@ -37,6 +37,7 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
   const [info, setInfo] = useState('');
   const [licenseDialog, setLicenseDialog] = useState<{ open: boolean; id?: string }>({ open: false });
   const [licenseUrl, setLicenseUrl] = useState('https://github.com/google-research/bert');
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const canDownload = user.permissions.includes('download') || user.permissions.includes('search');
 
@@ -44,7 +45,11 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
     setLoading(true);
     setError('');
     try {
-      const queries = [{ name: nameQuery, types: [artifactType] }];
+      const qName = (nameQuery || '').trim();
+      const isEnumerate = !qName || qName === '*';
+      const queries = isEnumerate
+        ? (artifactType ? (artifactType as any) !== 'any' ? [{ name: '*', types: [artifactType] } as any] : [{ name: '*' }] : [{ name: '*' }])
+        : (artifactType && (artifactType as any) !== 'any' ? [{ name: qName, types: [artifactType] } as any] : [{ name: qName }]);
       const data = await apiService.listArtifacts(queries, '0');
       setItems(data);
       setInfo(`Found ${data.length} item(s).`);
@@ -82,6 +87,7 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
             onChange={(e) => setArtifactType(e.target.value as any)}
             sx={{ minWidth: 180 }}
           >
+            <MenuItem value="any">any</MenuItem>
             <MenuItem value="model">model</MenuItem>
             <MenuItem value="dataset">dataset</MenuItem>
             <MenuItem value="code">code</MenuItem>
@@ -100,45 +106,49 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
                 <Stack direction="row" spacing={1}>
                   {m.type === 'model' && (
                     <>
-                      <Button size="small" onClick={async () => {
+                      <Button size="small" disabled={!!busyId} onClick={async () => {
                         try {
+                          setBusyId(m.id);
                           const rating = await apiService.rateModel(m.id);
                           setInfo(`Rating for ${m.name}: net_score=${rating.net_score.toFixed(2)}`);
                           setError('');
                         } catch (e: any) {
                           setError(e?.message || 'Failed to fetch rating');
-                        }
+                        } finally { setBusyId(null); }
                       }}>Rate</Button>
-                      <Button size="small" onClick={async () => {
+                      <Button size="small" disabled={!!busyId} onClick={async () => {
                         try {
+                          setBusyId(m.id);
                           const lineage = await apiService.getModelLineage(m.id);
                           setInfo(`Lineage nodes=${(lineage?.nodes?.length||0)} edges=${(lineage?.edges?.length||0)}`);
                           setError('');
                         } catch (e: any) {
                           setError(e?.message || 'Failed to fetch lineage');
-                        }
+                        } finally { setBusyId(null); }
                       }}>Lineage</Button>
-                      <Button size="small" onClick={() => setLicenseDialog({ open: true, id: m.id })}>License Check</Button>
+                      <Button size="small" disabled={!!busyId} onClick={() => setLicenseDialog({ open: true, id: m.id })}>License Check</Button>
                     </>
                   )}
-                  <Button size="small" onClick={async () => {
+                  <Button size="small" disabled={!!busyId} onClick={async () => {
                     try {
+                      setBusyId(m.id);
                       const cost = await apiService.getArtifactCost(m.type, m.id, false);
                       setInfo(`Cost (MB) for ${m.name}: ${cost[m.id]?.total_cost}`);
                       setError('');
                     } catch (e: any) {
                       setError(e?.message || 'Failed to fetch cost');
-                    }
+                    } finally { setBusyId(null); }
                   }}>Cost</Button>
-                  <Button size="small" onClick={async () => {
+                  <Button size="small" disabled={!!busyId} onClick={async () => {
                     try {
+                      setBusyId(m.id);
                       const cost = await apiService.getArtifactCost(m.type, m.id, true);
                       const standalone = cost[m.id]?.standalone_cost ?? 'n/a';
                       setInfo(`Cost+Deps (MB) for ${m.name}: total=${cost[m.id]?.total_cost}, standalone=${standalone}`);
                       setError('');
                     } catch (e: any) {
                       setError(e?.message || 'Failed to fetch dependency cost');
-                    }
+                    } finally { setBusyId(null); }
                   }}>Cost+Deps</Button>
                 </Stack>
               }>

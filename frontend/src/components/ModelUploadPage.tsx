@@ -17,6 +17,7 @@ const ModelUploadPage: React.FC<ModelUploadPageProps> = ({ user, onNotification 
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   const canUpload = user.permissions.includes('upload');
 
@@ -31,14 +32,23 @@ const ModelUploadPage: React.FC<ModelUploadPageProps> = ({ user, onNotification 
     }
     setError('');
     setLoading(true);
+    setUploading(true);
     try {
       const result = await apiService.createArtifact(artifactType, { url: url.trim() });
       onNotification(`Registered ${result.metadata.type} '${result.metadata.name}' (id: ${result.metadata.id})`, 'success');
       setUrl('');
     } catch (e: any) {
-      onNotification(e?.message || 'Upload failed', 'error');
+      const status = e?.response?.status;
+      if (status === 424) {
+        onNotification('Upload rejected: disqualified rating (HTTP 424).', 'warning');
+      } else if (status === 403 || status === 401) {
+        onNotification('Authentication required. Please sign in again.', 'error');
+      } else {
+        onNotification(e?.message || 'Upload failed', 'error');
+      }
     } finally {
       setLoading(false);
+      setUploading(false);
     }
   };
 
@@ -78,7 +88,7 @@ const ModelUploadPage: React.FC<ModelUploadPageProps> = ({ user, onNotification 
             error={Boolean(error)}
             helperText={error || 'Provide a single downloadable source URL'}
           />
-          <Button variant="contained" onClick={handleUpload} disabled={loading || !canUpload}>
+          <Button variant="contained" onClick={handleUpload} disabled={loading || !canUpload || uploading}>
             {loading ? 'Registering...' : 'Register Artifact'}
           </Button>
         </Stack>
