@@ -53,9 +53,9 @@ def test_health_and_health_components():
     r = client.get("/health")
     assert r.status_code == 200
     data = r.json()
-    assert set(["status", "timestamp", "uptime", "models_count", "users_count", "last_hour_activity"]) <= set(
-        data.keys()
-    )
+    assert set(
+        ["status", "timestamp", "uptime", "models_count", "users_count", "last_hour_activity"]
+    ) <= set(data.keys())
 
     r2 = client.get("/health/components")
     assert r2.status_code == 200
@@ -197,5 +197,3 @@ def test_type_mismatch_and_404_errors():
     # Ask for non-existent id -> 404
     missing = client.get("/artifacts/model/does-not-exist", headers=headers)
     assert missing.status_code == 404
-
-

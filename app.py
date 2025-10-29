@@ -329,11 +329,11 @@ async def health_components(
                 url="https://example.com/logs/app.log",
             )
         ],
-        timeline=[
-            HealthTimelineEntry(bucket=now_iso, value=0.0, unit="rpm")
-        ]
-        if includeTimeline
-        else None,
+        timeline=(
+            [HealthTimelineEntry(bucket=now_iso, value=0.0, unit="rpm")]
+            if includeTimeline
+            else None
+        ),
     )
     components.append(api_component)
 
@@ -349,11 +349,11 @@ async def health_components(
         },
         issues=[],
         logs=[],
-        timeline=[
-            HealthTimelineEntry(bucket=now_iso, value=0.0, unit="rpm")
-        ]
-        if includeTimeline
-        else None,
+        timeline=(
+            [HealthTimelineEntry(bucket=now_iso, value=0.0, unit="rpm")]
+            if includeTimeline
+            else None
+        ),
     )
     components.append(metrics_component)
 
