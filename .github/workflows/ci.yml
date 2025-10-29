@@ -63,7 +63,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install (legacy peer deps to avoid eslint@8 vs ts-eslint@8 conflict)
         working-directory: frontend
-        run: npm ci --legacy-peer-deps
+        run: npm install --legacy-peer-deps
       - name: Type check
         working-directory: frontend
         run: npx tsc --noEmit
