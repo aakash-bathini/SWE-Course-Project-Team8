@@ -29,9 +29,10 @@ export const authService = {
 
   async verifyToken(token: string): Promise<User | null> {
     try {
-      // For Milestone 1, we'll use a simplified token verification
-      // In Milestone 3, this will make an actual API call to verify the JWT
-      if (token === 'demo_token') {
+      // Delivery 1 behavior: backend returns a raw string token (already includes 'bearer ')
+      // Accept any non-empty string as authenticated and provide default admin permissions.
+      // Future Milestone: replace with actual verify endpoint and claims parsing.
+      if (typeof token === 'string' && token.trim().length > 0) {
         return {
           username: 'ece30861defaultadminuser',
           permissions: ['upload', 'search', 'download', 'admin'],
