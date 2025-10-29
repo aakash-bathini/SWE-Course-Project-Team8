@@ -1,0 +1,56 @@
+name: CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deploy environment"
+        required: true
+        default: "production"
+  push:
+    branches: [ main ]
+    paths:
+      - '**'
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install backend deps
+        run: |
+          python -m pip install -U pip
+          pip install -r requirements.txt
+
+      - name: Package backend for Lambda
+        run: |
+          mkdir -p lambda_package
+          cp app.py -t lambda_package/
+          cp -r src lambda_package/
+          cd lambda_package
+          zip -r ../deployment.zip .
+          cd ..
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Placeholder: Deploy to AWS (manual wiring required)
+        run: |
+          echo "Ready to deploy: deployment.zip (Lambda) and frontend/build (S3)."
+          echo "Use AWS OIDC or AWS creds to upload and update resources."
+          echo "This step intentionally does not perform networked deploys yet."
