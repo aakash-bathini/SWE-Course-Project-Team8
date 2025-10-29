@@ -155,6 +155,16 @@ export const apiService = {
     return response.data;
   },
 
+  async searchByName(name: string): Promise<ArtifactMetadata[]> {
+    const response = await apiClient.get(`/artifact/byName/${encodeURIComponent(name)}`);
+    return response.data;
+  },
+
+  async searchByRegex(regex: string): Promise<ArtifactMetadata[]> {
+    const response = await apiClient.post('/artifact/byRegEx', { regex });
+    return response.data;
+  },
+
   async createArtifact(artifactType: 'model' | 'dataset' | 'code', artifactData: ArtifactData): Promise<Artifact> {
     const response = await apiClient.post(`/artifact/${artifactType}`, artifactData);
     return response.data;
@@ -179,6 +189,20 @@ export const apiService = {
   async rateModel(modelId: string): Promise<ModelRating> {
     const response = await apiClient.get(`/artifact/model/${modelId}/rate`);
     return response.data;
+  },
+
+  // Model lineage (graph)
+  async getModelLineage(modelId: string) {
+    const response = await apiClient.get(`/artifact/model/${modelId}/lineage`);
+    return response.data;
+  },
+
+  // License check
+  async licenseCheck(modelId: string, githubUrl: string): Promise<boolean> {
+    const response = await apiClient.post(`/artifact/model/${modelId}/license-check`, {
+      github_url: githubUrl,
+    });
+    return response.data as boolean;
   },
 
   // Artifact cost
