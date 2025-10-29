@@ -406,6 +406,38 @@ async def root() -> Dict[str, str]:
     return {"message": "Trustworthy Model Registry API"}
 
 
+# -------------------------
+# Known deferrals (Delivery 1): explicit placeholders
+# -------------------------
+
+
+@app.post("/models/upload")
+async def models_upload_placeholder() -> Dict[str, str]:
+    """Placeholder for ZIP upload (Delivery 2). Use POST /artifact/{type} with {url}."""
+    raise HTTPException(
+        status_code=501,
+        detail="ZIP upload is deferred for Delivery 1. Use POST /artifact/{artifact_type} with { url }.",
+    )
+
+
+@app.get("/models/{id}/download")
+async def models_download_placeholder(id: str) -> Dict[str, str]:
+    """Placeholder for download/sub-aspects (Delivery 2)."""
+    raise HTTPException(
+        status_code=501,
+        detail="Download and sub-aspect retrieval are deferred for Delivery 1.",
+    )
+
+
+@app.get("/verify-token")
+async def verify_token_placeholder() -> Dict[str, str]:
+    """Placeholder: tokens are validated per request in Delivery 1."""
+    raise HTTPException(
+        status_code=501,
+        detail="No standalone token verification endpoint in Delivery 1; tokens are validated per request.",
+    )
+
+
 # Authentication endpoint
 @app.put("/authenticate", response_model=str)
 async def create_auth_token(request: AuthenticationRequest) -> str:
