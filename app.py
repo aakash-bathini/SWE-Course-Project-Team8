@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-from src.auth.jwt_auth import auth as jwt_auth, create_user_token
+from src.auth.jwt_auth import auth as jwt_auth
 import os
 import uvicorn
 import logging
