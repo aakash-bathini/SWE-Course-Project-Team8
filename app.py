@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
+from src.auth.jwt_auth import auth as jwt_auth, create_user_token
 import os
 import uvicorn
 import logging
@@ -278,7 +279,8 @@ def verify_token(
     token: Optional[str] = None
 
     if x_authorization and isinstance(x_authorization, str) and x_authorization.strip():
-        token = x_authorization.strip()
+        raw = x_authorization.strip()
+        token = raw[7:].strip() if raw.lower().startswith("bearer ") else raw
     elif authorization and isinstance(authorization, str) and authorization.strip():
         # Support both "Bearer <token>" and raw token in Authorization
         raw = authorization.strip()
@@ -294,8 +296,17 @@ def verify_token(
             detail="Authentication failed due to invalid or missing AuthenticationToken.",
         )
 
-    # For Milestone 1, accept any non-empty token and treat as default admin
-    return DEFAULT_ADMIN
+    # Validate JWT token
+    payload = jwt_auth.verify_token(token)
+    if not payload:
+        raise HTTPException(
+            status_code=403,
+            detail="Authentication failed due to invalid or missing AuthenticationToken.",
+        )
+
+    username = str(payload.get("sub", DEFAULT_ADMIN["username"]))
+    permissions = payload.get("permissions", DEFAULT_ADMIN["permissions"])  # type: ignore[assignment]
+    return {"username": username, "permissions": permissions}
 
 
 def check_permission(user: Dict[str, Any], required_permission: str) -> bool:
@@ -398,17 +409,21 @@ async def root() -> Dict[str, str]:
 # Authentication endpoint
 @app.put("/authenticate", response_model=str)
 async def create_auth_token(request: AuthenticationRequest) -> str:
-    """Create an access token (NON-BASELINE)"""
-    # Check if user exists and password is correct
+    """Create an access token (Delivery 1)"""
+    # Validate user credentials against in-memory/SQLite user store
     user_data = users_db.get(request.user.name)
     if not user_data or not verify_password(request.secret.password, user_data.get("password", "")):
         raise HTTPException(status_code=401, detail="The user or password is invalid.")
 
-    # For now, return a simple token (will implement proper JWT in Phase 2)
-    token = f"bearer demo_token_{request.user.name}"
+    # Issue JWT containing subject and permissions
+    payload = {
+        "sub": user_data["username"],
+        "permissions": user_data.get("permissions", []),
+    }
+    jwt_token = create_user_token(payload)  # returns encoded JWT string
 
-    # Spec: AuthenticationToken is a string
-    return token
+    # Spec: AuthenticationToken is a string; we include 'bearer ' prefix to ease client use
+    return f"bearer {jwt_token}"
 
 
 # Registry reset endpoint
