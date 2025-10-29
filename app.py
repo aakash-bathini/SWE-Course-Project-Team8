@@ -13,6 +13,7 @@ from typing import List, Optional, Dict, Any
 import uvicorn
 import logging
 from datetime import datetime
+import asyncio
 from enum import Enum
 
 # Configure logging
@@ -48,6 +49,12 @@ security = HTTPBearer()
 
 # Import Phase 2 components
 from src.api.huggingface import scrape_hf_url
+from src.metrics.phase2_adapter import (
+    create_eval_context_from_model_data,
+    calculate_phase2_metrics,
+    calculate_phase2_net_score,
+)
+from src.metrics import size as size_metric
 
 # In-memory storage for demo (will be replaced with SQLite in Milestone 2)
 artifacts_db: Dict[str, Dict[str, Any]] = {}  # artifact_id -> artifact_data
@@ -476,20 +483,21 @@ async def artifact_create(
     # If model ingest, enforce 0.5 threshold on non-latency metrics per plan/spec (424 on disqualified)
     if artifact_type == ArtifactType.MODEL:
         try:
-            hf_data, repo_type = scrape_hf_url(artifact_data.url)
-            # Minimal heuristic for Delivery 1:
-            # Accept if license is present OR size > 0; reject only if both are missing/zero
-            has_license: bool = bool(hf_data.get("license"))
-            size_ok: bool = bool(hf_data.get("size", 0) and hf_data.get("size", 0) > 0)
-            if not has_license and not size_ok:
-                raise HTTPException(
-                    status_code=424,
-                    detail="Artifact is not registered due to the disqualified rating.",
-                )
+            # Only enforce gating for HuggingFace URLs per spec language
+            if "huggingface.co" in artifact_data.url.lower():
+                hf_data, repo_type = scrape_hf_url(artifact_data.url)
+                model_data = {"url": artifact_data.url, "hf_data": [hf_data], "gh_data": []}
+                metrics = await calculate_phase2_metrics(model_data)
+                # Require all available non-latency metrics to be at least 0.5
+                if any((isinstance(v, (int, float)) and float(v) < 0.5) for v in metrics.values()):
+                    raise HTTPException(
+                        status_code=424,
+                        detail="Artifact is not registered due to the disqualified rating.",
+                    )
         except HTTPException:
             raise
         except Exception:
-            # Do not block Delivery 1 if HF fetch fails; proceed without gating
+            # If metrics fail, allow ingest for Delivery 1
             pass
     # Generate unique artifact ID
     artifact_id = f"{artifact_type.value}-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
@@ -685,13 +693,28 @@ async def artifact_lineage(
     if artifact_data["metadata"]["type"] != "model":
         raise HTTPException(status_code=400, detail="Not a model artifact.")
 
-    # Minimal mock lineage graph per spec example
-    nodes = [
+    # Build lineage using available HF metadata when possible
+    nodes: List[ArtifactLineageNode] = [
         ArtifactLineageNode(
             artifact_id=id, name=artifact_data["metadata"]["name"], source="config_json"
-        ),
+        )
     ]
     edges: List[ArtifactLineageEdge] = []
+    try:
+        url = artifact_data["data"]["url"]
+        if isinstance(url, str) and "huggingface.co" in url.lower():
+            hf_data, _ = scrape_hf_url(url)
+            for ds in (hf_data.get("datasets") or [])[:5]:
+                ds_id = f"dataset:{ds}"
+                nodes.append(ArtifactLineageNode(artifact_id=ds_id, name=str(ds), source="config_json"))
+                edges.append(
+                    ArtifactLineageEdge(
+                        from_node_artifact_id=ds_id, to_node_artifact_id=id, relationship="fine_tuning_dataset"
+                    )
+                )
+    except Exception:
+        # Fall back to single-node graph
+        pass
     return ArtifactLineageGraph(nodes=nodes, edges=edges)
 
 
@@ -704,8 +727,14 @@ async def artifact_license_check(
     artifact_data = artifacts_db[id]
     if artifact_data["metadata"]["type"] != "model":
         raise HTTPException(status_code=400, detail="Not a model artifact.")
-    # Minimal successful mock
-    return True
+
+    # Use license metric score where 0.5+ means compatible enough
+    model_data = {"url": request.github_url, "hf_data": [], "gh_data": []}
+    ctx = create_eval_context_from_model_data(model_data)
+    from src.metrics.license_check import metric as license_metric  # local import to avoid cycles
+
+    license_score = await license_metric(ctx)
+    return bool(license_score >= 0.5)
 
 
 @app.get("/artifact/model/{id}/rate", response_model=ModelRating)
@@ -718,34 +747,61 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
     if artifact_data["metadata"]["type"] != "model":
         raise HTTPException(status_code=400, detail="Not a model artifact.")
 
-    # Generate mock rating data (will be replaced with actual metrics in Phase 2)
+    url = artifact_data["data"]["url"]
+    category = "classification"
+    size_scores: Dict[str, float] = {"raspberry_pi": 1.0, "jetson_nano": 1.0, "desktop_pc": 1.0, "aws_server": 1.0}
+
+    metrics: Dict[str, float] = {}
+    try:
+        hf_data = None
+        if isinstance(url, str) and "huggingface.co" in url.lower():
+            hf_data, _ = scrape_hf_url(url)
+            if isinstance(hf_data.get("pipeline_tag"), str):
+                category = str(hf_data.get("pipeline_tag"))
+        model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
+        metrics = await calculate_phase2_metrics(model_data)
+        # Compute size_score dict explicitly
+        ctx = create_eval_context_from_model_data(model_data)
+        size_scores = await size_metric.metric(ctx)
+    except Exception:
+        metrics = {}
+
+    net_score = calculate_phase2_net_score(metrics) if metrics else 0.0
+
+    def get_m(name: str) -> float:
+        v = metrics.get(name)
+        try:
+            return float(v) if isinstance(v, (int, float)) else 0.0
+        except Exception:
+            return 0.0
+
     return ModelRating(
         name=artifact_data["metadata"]["name"],
-        category="classification",
-        net_score=0.75,
-        net_score_latency=1.2,
-        ramp_up_time=0.8,
-        ramp_up_time_latency=0.5,
-        bus_factor=0.6,
-        bus_factor_latency=2.1,
-        performance_claims=0.9,
-        performance_claims_latency=1.8,
-        license=0.7,
-        license_latency=0.3,
-        dataset_and_code_score=0.8,
-        dataset_and_code_score_latency=1.5,
-        dataset_quality=0.75,
-        dataset_quality_latency=1.0,
-        code_quality=0.85,
-        code_quality_latency=2.0,
-        reproducibility=0.7,
-        reproducibility_latency=1.5,
-        reviewedness=0.6,
-        reviewedness_latency=0.8,
-        tree_score=0.8,
-        tree_score_latency=1.2,
-        size_score={"raspberry_pi": 0.3, "jetson_nano": 0.5, "desktop_pc": 0.9, "aws_server": 0.95},
-        size_score_latency=0.5,
+        category=category or "unknown",
+        net_score=net_score,
+        net_score_latency=0.0,
+        ramp_up_time=get_m("ramp_up_time"),
+        ramp_up_time_latency=0.0,
+        bus_factor=get_m("bus_factor"),
+        bus_factor_latency=0.0,
+        performance_claims=get_m("performance_claims"),
+        performance_claims_latency=0.0,
+        license=get_m("license"),
+        license_latency=0.0,
+        dataset_and_code_score=get_m("dataset_and_code_score"),
+        dataset_and_code_score_latency=0.0,
+        dataset_quality=get_m("dataset_quality"),
+        dataset_quality_latency=0.0,
+        code_quality=get_m("code_quality"),
+        code_quality_latency=0.0,
+        reproducibility=0.0,
+        reproducibility_latency=0.0,
+        reviewedness=0.0,
+        reviewedness_latency=0.0,
+        tree_score=0.0,
+        tree_score_latency=0.0,
+        size_score=size_scores,
+        size_score_latency=0.0,
     )
 
 
@@ -764,14 +820,27 @@ async def artifact_cost(
     if artifact_data["metadata"]["type"] != artifact_type.value:
         raise HTTPException(status_code=400, detail="Artifact type mismatch.")
 
-    # Mock cost calculation (will be replaced with actual cost calculation)
-    standalone_cost = 100.0
-    total_cost = standalone_cost + (50.0 if dependency else 0.0)
-
+    # Compute approximate cost from size metric (MB)
+    url = artifact_data["data"]["url"]
+    hf_data = None
+    if isinstance(url, str) and "huggingface.co" in url.lower():
+        try:
+            hf_data, _ = scrape_hf_url(url)
+        except Exception:
+            hf_data = None
+    model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
+    ctx = create_eval_context_from_model_data(model_data)
+    try:
+        await size_metric.metric(ctx)
+        required_bytes = int(getattr(ctx, "size_required_bytes", 0))
+    except Exception:
+        required_bytes = 0
+    mb = float(required_bytes) / (1024.0 * 1024.0)
+    standalone_cost = round(mb, 1)
+    total_cost = standalone_cost  # no dependency graph persisted yet
     result = {id: ArtifactCost(total_cost=total_cost)}
     if dependency:
         result[id].standalone_cost = standalone_cost
-
     return result
 
 
