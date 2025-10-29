@@ -46,7 +46,7 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: |
-          npm ci
+          npm install --legacy-peer-deps
           npm run build
 
       - name: "Placeholder: Deploy to AWS (manual wiring required)"
