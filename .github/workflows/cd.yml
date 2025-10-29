@@ -49,7 +49,7 @@ jobs:
           npm ci
           npm run build
 
-      - name: Placeholder: Deploy to AWS (manual wiring required)
+      - name: "Placeholder: Deploy to AWS (manual wiring required)"
         run: |
           echo "Ready to deploy: deployment.zip (Lambda) and frontend/build (S3)."
           echo "Use AWS OIDC or AWS creds to upload and update resources."
