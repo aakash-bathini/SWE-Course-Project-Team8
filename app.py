@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
+import os
 import uvicorn
 import logging
 from datetime import datetime
@@ -56,10 +57,22 @@ from src.metrics.phase2_adapter import (
 )
 from src.metrics import size as size_metric
 
-# In-memory storage for demo (will be replaced with SQLite in Milestone 2)
-artifacts_db: Dict[str, Dict[str, Any]] = {}  # artifact_id -> artifact_data
+# Storage layer selection: in-memory (default) or SQLite (Milestone 2)
+USE_SQLITE: bool = os.environ.get("USE_SQLITE", "0") == "1"
+
+artifacts_db: Dict[str, Dict[str, Any]] = {}  # artifact_id -> artifact_data (in-memory)
 users_db: Dict[str, Dict[str, Any]] = {}
 audit_log: List[Dict[str, Any]] = []
+
+if USE_SQLITE:
+    from src.db.database import Base, engine, get_db
+    from src.db import models as db_models
+    from src.db import crud as db_crud
+    from fastapi import Request
+    from sqlalchemy.orm import Session
+
+    # Ensure schema exists
+    Base.metadata.create_all(bind=engine)
 
 # Default admin user
 DEFAULT_ADMIN = {
@@ -69,9 +82,18 @@ DEFAULT_ADMIN = {
     "created_at": datetime.now().isoformat(),
 }
 
-# Add default admin to users database
+# Add default admin to users database and DB (if enabled)
 admin_username: str = str(DEFAULT_ADMIN["username"])
 users_db[admin_username] = DEFAULT_ADMIN
+if USE_SQLITE:
+    with next(get_db()) as _db:  # type: ignore[misc]
+        db_crud.ensure_schema(_db)
+        db_crud.upsert_default_admin(
+            _db,
+            username=DEFAULT_ADMIN["username"],
+            password=DEFAULT_ADMIN["password"],
+            permissions=DEFAULT_ADMIN["permissions"],  # type: ignore[arg-type]
+        )
 
 
 # Pydantic models matching OpenAPI spec v3.3.1
@@ -405,6 +427,9 @@ async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
 
     artifacts_db.clear()
     audit_log.clear()
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            db_crud.reset_registry(_db)
 
     return {"message": "Registry is reset."}
 
@@ -422,34 +447,38 @@ async def artifacts_list(
     """Get the artifacts from the registry (BASELINE)"""
     results: List[ArtifactMetadata] = []
 
-    for query in queries:
-        if query.name == "*":
-            # Return all artifacts
-            for artifact_id, artifact_data in artifacts_db.items():
-                results.append(
-                    ArtifactMetadata(
-                        name=artifact_data["metadata"]["name"],
-                        id=artifact_id,
-                        type=artifact_data["metadata"]["type"],
-                    )
-                )
-        else:
-            # Filter by name and types
-            for artifact_id, artifact_data in artifacts_db.items():
-                if artifact_data["metadata"]["name"] == query.name:
-                    artifact_type_value = (
-                        ArtifactType(artifact_data["metadata"]["type"])  # type: ignore[arg-type]
-                        if isinstance(artifact_data["metadata"].get("type"), str)
-                        else artifact_data["metadata"].get("type")
-                    )
-                    if not query.types or (artifact_type_value in query.types):
-                        results.append(
-                            ArtifactMetadata(
-                                name=artifact_data["metadata"]["name"],
-                                id=artifact_id,
-                                type=artifact_type_value,
-                            )
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            db_items = db_crud.list_by_queries(_db, [q.model_dump() for q in queries])
+            for art in db_items:
+                results.append(ArtifactMetadata(name=art.name, id=art.id, type=ArtifactType(art.type)))
+    else:
+        for query in queries:
+            if query.name == "*":
+                for artifact_id, artifact_data in artifacts_db.items():
+                    results.append(
+                        ArtifactMetadata(
+                            name=artifact_data["metadata"]["name"],
+                            id=artifact_id,
+                            type=artifact_data["metadata"]["type"],
                         )
+                    )
+            else:
+                for artifact_id, artifact_data in artifacts_db.items():
+                    if artifact_data["metadata"]["name"] == query.name:
+                        artifact_type_value = (
+                            ArtifactType(artifact_data["metadata"]["type"])  # type: ignore[arg-type]
+                            if isinstance(artifact_data["metadata"].get("type"), str)
+                            else artifact_data["metadata"].get("type")
+                        )
+                        if not query.types or (artifact_type_value in query.types):
+                            results.append(
+                                ArtifactMetadata(
+                                    name=artifact_data["metadata"]["name"],
+                                    id=artifact_id,
+                                    type=artifact_type_value,
+                                )
+                            )
 
     # Simple pagination implementation per spec using an "offset" page index and fixed page size
     page_size: int = 50
@@ -515,6 +544,15 @@ async def artifact_create(
     }
 
     artifacts_db[artifact_id] = artifact_entry
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            db_art = db_crud.create_artifact(
+                _db,
+                artifact_id=artifact_id,
+                name=artifact_entry["metadata"]["name"],
+                type_=artifact_type.value,
+                url=artifact_data.url,
+            )
 
     # Log audit entry
     audit_log.append(
@@ -525,6 +563,17 @@ async def artifact_create(
             "action": "CREATE",
         }
     )
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            db_art = db_crud.get_artifact(_db, artifact_id)
+            if db_art:
+                db_crud.log_audit(
+                    _db,
+                    artifact=db_art,
+                    user_name=user["username"],
+                    user_is_admin=user.get("is_admin", False),
+                    action="CREATE",
+                )
 
     return Artifact(
         metadata=ArtifactMetadata(**artifact_entry["metadata"]),
@@ -537,17 +586,27 @@ async def artifact_retrieve(
     artifact_type: ArtifactType, id: str, user: Dict[str, Any] = Depends(verify_token)
 ) -> Artifact:
     """Interact with the artifact with this id (BASELINE)"""
-    if id not in artifacts_db:
-        raise HTTPException(status_code=404, detail="Artifact does not exist.")
-
-    artifact_data = artifacts_db[id]
-    if artifact_data["metadata"]["type"] != artifact_type.value:
-        raise HTTPException(status_code=400, detail="Artifact type mismatch.")
-
-    return Artifact(
-        metadata=ArtifactMetadata(**artifact_data["metadata"]),
-        data=ArtifactData(url=artifact_data["data"]["url"]),
-    )
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            art = db_crud.get_artifact(_db, id)
+            if not art:
+                raise HTTPException(status_code=404, detail="Artifact does not exist.")
+            if art.type != artifact_type.value:
+                raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+            return Artifact(
+                metadata=ArtifactMetadata(name=art.name, id=art.id, type=ArtifactType(art.type)),
+                data=ArtifactData(url=art.url),
+            )
+    else:
+        if id not in artifacts_db:
+            raise HTTPException(status_code=404, detail="Artifact does not exist.")
+        artifact_data = artifacts_db[id]
+        if artifact_data["metadata"]["type"] != artifact_type.value:
+            raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+        return Artifact(
+            metadata=ArtifactMetadata(**artifact_data["metadata"]),
+            data=ArtifactData(url=artifact_data["data"]["url"]),
+        )
 
 
 @app.put("/artifacts/{artifact_type}/{id}")
@@ -572,6 +631,15 @@ async def artifact_update(
         "updated_at": datetime.now().isoformat(),
         "updated_by": user["username"],
     }
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            db_crud.update_artifact(
+                _db,
+                artifact_id=id,
+                name=artifact.metadata.name,
+                type_=artifact_type.value,
+                url=artifact.data.url,
+            )
 
     # Log audit entry
     audit_log.append(
@@ -582,6 +650,17 @@ async def artifact_update(
             "action": "UPDATE",
         }
     )
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            db_art = db_crud.get_artifact(_db, id)
+            if db_art:
+                db_crud.log_audit(
+                    _db,
+                    artifact=db_art,
+                    user_name=user["username"],
+                    user_is_admin=user.get("is_admin", False),
+                    action="UPDATE",
+                )
 
     return {"message": "Artifact is updated."}
 
@@ -609,6 +688,9 @@ async def artifact_delete(
     )
 
     del artifacts_db[id]
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            db_crud.delete_artifact(_db, id)
     return {"message": "Artifact is deleted."}
 
 
@@ -622,15 +704,21 @@ async def artifact_by_name(
     name: str, user: Dict[str, Any] = Depends(verify_token)
 ) -> List[ArtifactMetadata]:
     matches: List[ArtifactMetadata] = []
-    for artifact_id, artifact_data in artifacts_db.items():
-        if artifact_data["metadata"]["name"] == name:
-            matches.append(
-                ArtifactMetadata(
-                    name=artifact_data["metadata"]["name"],
-                    id=artifact_id,
-                    type=ArtifactType(artifact_data["metadata"]["type"]),
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            items = db_crud.list_by_name(_db, name)
+            for a in items:
+                matches.append(ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type)))
+    else:
+        for artifact_id, artifact_data in artifacts_db.items():
+            if artifact_data["metadata"]["name"] == name:
+                matches.append(
+                    ArtifactMetadata(
+                        name=artifact_data["metadata"]["name"],
+                        id=artifact_id,
+                        type=ArtifactType(artifact_data["metadata"]["type"]),
+                    )
                 )
-            )
     if not matches:
         raise HTTPException(status_code=404, detail="No such artifact.")
     return matches
@@ -642,18 +730,24 @@ async def artifact_by_regex(
 ) -> List[ArtifactMetadata]:
     import re as _re
 
-    pattern = _re.compile(regex.regex)
     matches: List[ArtifactMetadata] = []
-    for artifact_id, artifact_data in artifacts_db.items():
-        name = artifact_data["metadata"]["name"]
-        if pattern.search(name):
-            matches.append(
-                ArtifactMetadata(
-                    name=name,
-                    id=artifact_id,
-                    type=ArtifactType(artifact_data["metadata"]["type"]),
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            items = db_crud.list_by_regex(_db, regex.regex)
+            for a in items:
+                matches.append(ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type)))
+    else:
+        pattern = _re.compile(regex.regex)
+        for artifact_id, artifact_data in artifacts_db.items():
+            name = artifact_data["metadata"]["name"]
+            if pattern.search(name):
+                matches.append(
+                    ArtifactMetadata(
+                        name=name,
+                        id=artifact_id,
+                        type=ArtifactType(artifact_data["metadata"]["type"]),
+                    )
                 )
-            )
     if not matches:
         raise HTTPException(status_code=404, detail="No artifact found under this regex.")
     return matches
@@ -670,16 +764,29 @@ async def artifact_audit(
         raise HTTPException(status_code=400, detail="Artifact type mismatch.")
 
     entries: List[ArtifactAuditEntry] = []
-    for entry in audit_log:
-        if entry.get("artifact", {}).get("id") == id:
-            entries.append(
-                ArtifactAuditEntry(
-                    user=User(**entry["user"]),
-                    date=entry["date"],
-                    artifact=ArtifactMetadata(**entry["artifact"]),
-                    action=entry["action"],
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            items = db_crud.list_audit(_db, id)
+            for e in items:
+                entries.append(
+                    ArtifactAuditEntry(
+                        user=User(name=e.user_name, is_admin=e.user_is_admin),
+                        date=e.date.isoformat(),
+                        artifact=ArtifactMetadata(name="", id=id, type=artifact_type),
+                        action=e.action,
+                    )
                 )
-            )
+    else:
+        for entry in audit_log:
+            if entry.get("artifact", {}).get("id") == id:
+                entries.append(
+                    ArtifactAuditEntry(
+                        user=User(**entry["user"]),
+                        date=entry["date"],
+                        artifact=ArtifactMetadata(**entry["artifact"]),
+                        action=entry["action"],
+                    )
+                )
     return entries
 
 
