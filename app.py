@@ -451,7 +451,9 @@ async def artifacts_list(
         with next(get_db()) as _db:  # type: ignore[misc]
             db_items = db_crud.list_by_queries(_db, [q.model_dump() for q in queries])
             for art in db_items:
-                results.append(ArtifactMetadata(name=art.name, id=art.id, type=ArtifactType(art.type)))
+                results.append(
+                    ArtifactMetadata(name=art.name, id=art.id, type=ArtifactType(art.type))
+                )
     else:
         for query in queries:
             if query.name == "*":
@@ -626,8 +628,8 @@ async def artifact_update(
 
     # Update artifact
     artifacts_db[id] = {
-        "metadata": artifact.metadata.dict(),
-        "data": artifact.data.dict(),
+        "metadata": artifact.metadata.model_dump(),
+        "data": artifact.data.model_dump(),
         "updated_at": datetime.now().isoformat(),
         "updated_by": user["username"],
     }
@@ -646,7 +648,7 @@ async def artifact_update(
         {
             "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
             "date": datetime.now().isoformat(),
-            "artifact": artifact.metadata.dict(),
+            "artifact": artifact.metadata.model_dump(),
             "action": "UPDATE",
         }
     )
@@ -813,10 +815,14 @@ async def artifact_lineage(
             hf_data, _ = scrape_hf_url(url)
             for ds in (hf_data.get("datasets") or [])[:5]:
                 ds_id = f"dataset:{ds}"
-                nodes.append(ArtifactLineageNode(artifact_id=ds_id, name=str(ds), source="config_json"))
+                nodes.append(
+                    ArtifactLineageNode(artifact_id=ds_id, name=str(ds), source="config_json")
+                )
                 edges.append(
                     ArtifactLineageEdge(
-                        from_node_artifact_id=ds_id, to_node_artifact_id=id, relationship="fine_tuning_dataset"
+                        from_node_artifact_id=ds_id,
+                        to_node_artifact_id=id,
+                        relationship="fine_tuning_dataset",
                     )
                 )
     except Exception:
@@ -856,7 +862,12 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
 
     url = artifact_data["data"]["url"]
     category = "classification"
-    size_scores: Dict[str, float] = {"raspberry_pi": 1.0, "jetson_nano": 1.0, "desktop_pc": 1.0, "aws_server": 1.0}
+    size_scores: Dict[str, float] = {
+        "raspberry_pi": 1.0,
+        "jetson_nano": 1.0,
+        "desktop_pc": 1.0,
+        "aws_server": 1.0,
+    }
 
     metrics: Dict[str, float] = {}
     try:
