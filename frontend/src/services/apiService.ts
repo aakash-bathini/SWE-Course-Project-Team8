@@ -191,6 +191,20 @@ export const apiService = {
     return response.data;
   },
 
+  // Model lineage (graph)
+  async getModelLineage(modelId: string) {
+    const response = await apiClient.get(`/artifact/model/${modelId}/lineage`);
+    return response.data;
+  },
+
+  // License check
+  async licenseCheck(modelId: string, githubUrl: string): Promise<boolean> {
+    const response = await apiClient.post(`/artifact/model/${modelId}/license-check`, {
+      github_url: githubUrl,
+    });
+    return response.data as boolean;
+  },
+
   // Artifact cost
   async getArtifactCost(artifactType: 'model' | 'dataset' | 'code', id: string, includeDependencies = false): Promise<Record<string, ArtifactCost>> {
     const response = await apiClient.get(`/artifact/${artifactType}/${id}/cost`, {
