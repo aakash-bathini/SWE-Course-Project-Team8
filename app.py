@@ -544,7 +544,7 @@ async def artifact_create(
     artifacts_db[artifact_id] = artifact_entry
     if USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
-            db_art = db_crud.create_artifact(
+            db_crud.create_artifact(
                 _db,
                 artifact_id=artifact_id,
                 name=artifact_entry["metadata"]["name"],
