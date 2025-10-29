@@ -14,7 +14,6 @@ import os
 import uvicorn
 import logging
 from datetime import datetime
-import asyncio
 from enum import Enum
 
 # Configure logging
@@ -66,10 +65,7 @@ audit_log: List[Dict[str, Any]] = []
 
 if USE_SQLITE:
     from src.db.database import Base, engine, get_db
-    from src.db import models as db_models
     from src.db import crud as db_crud
-    from fastapi import Request
-    from sqlalchemy.orm import Session
 
     # Ensure schema exists
     Base.metadata.create_all(bind=engine)
