@@ -28,13 +28,12 @@ const ModelSearchPage: React.FC<ModelSearchPageProps> = ({ user }) => {
     try {
       let results: ArtifactMetadata[] = [];
       if (mode === 'name') {
-        if (!query.trim()) {
-          // wildcard enumerate with optional type
+        const qtrim = query.trim();
+        if (!qtrim || qtrim === '*') {
           const q = artifactType === 'any' ? [{ name: '*' }] : [{ name: '*', types: [artifactType] } as any];
           results = await apiService.listArtifacts(q, '0');
         } else {
-          // exact name (backend returns all types for name)
-          results = await apiService.searchByName(query.trim());
+          results = await apiService.searchByName(qtrim);
           if (artifactType !== 'any') {
             results = results.filter((m) => m.type === artifactType);
           }
