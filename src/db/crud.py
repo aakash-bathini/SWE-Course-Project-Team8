@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, cast
 from sqlalchemy.orm import Session
 
 from . import models
@@ -44,9 +44,9 @@ def update_artifact(db: Session, artifact_id: str, name: str, type_: str, url: s
     art = get_artifact(db, artifact_id)
     if not art:
         return False
-    art.name = name
-    art.type = type_
-    art.url = url
+    art.name = name  # type: ignore[assignment]
+    art.type = type_  # type: ignore[assignment]
+    art.url = url  # type: ignore[assignment]
     db.commit()
     return True
 
@@ -84,7 +84,12 @@ def list_by_regex(db: Session, regex: str) -> List[models.Artifact]:
     # simple in-Python filter for SQLite compatibility
     rx = re.compile(regex)
     items = db.query(models.Artifact).all()
-    return [a for a in items if rx.search(a.name or "")]
+    out: List[models.Artifact] = []
+    for a in items:
+        text = cast(str, a.name) if getattr(a, "name", None) is not None else ""
+        if rx.search(text):
+            out.append(a)
+    return out
 
 
 def log_audit(

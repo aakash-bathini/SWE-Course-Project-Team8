@@ -86,9 +86,9 @@ if USE_SQLITE:
         db_crud.ensure_schema(_db)
         db_crud.upsert_default_admin(
             _db,
-            username=DEFAULT_ADMIN["username"],
-            password=DEFAULT_ADMIN["password"],
-            permissions=DEFAULT_ADMIN["permissions"],  # type: ignore[arg-type]
+            username=str(DEFAULT_ADMIN["username"]),
+            password=str(DEFAULT_ADMIN["password"]),
+            permissions=list(DEFAULT_ADMIN["permissions"]),  # type: ignore[arg-type]
         )
 
 
@@ -563,11 +563,11 @@ async def artifact_create(
     )
     if USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
-            db_art = db_crud.get_artifact(_db, artifact_id)
-            if db_art:
+            art_row = db_crud.get_artifact(_db, artifact_id)
+            if art_row:
                 db_crud.log_audit(
                     _db,
-                    artifact=db_art,
+                    artifact=art_row,
                     user_name=user["username"],
                     user_is_admin=user.get("is_admin", False),
                     action="CREATE",
