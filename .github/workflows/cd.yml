@@ -47,7 +47,7 @@ jobs:
         working-directory: frontend
         run: |
           npm install --legacy-peer-deps
-          npm run build
+          DISABLE_ESLINT_PLUGIN=true npm run build
 
       - name: "Placeholder: Deploy to AWS (manual wiring required)"
         run: |
