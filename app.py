@@ -16,6 +16,7 @@ import uvicorn
 import logging
 from datetime import datetime
 from enum import Enum
+from mangum import Mangum
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -1028,6 +1029,8 @@ async def favicon():
 
 # Mount static files to serve favicon and other static assets
 app.mount("/static", StaticFiles(directory="frontend/public"), name="static")
+
+handler = Mangum(app, lifespan="off")
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True, log_level="info")

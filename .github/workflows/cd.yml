@@ -47,20 +47,20 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: us-east-1
 
       - name: Deploy Lambda via S3
         run: |
           # Create S3 bucket if it doesn't exist (ignore error if exists)
-          aws s3 mb s3://trustworthy-registry-lambda-deployment-${{ secrets.AWS_REGION }} 2>/dev/null || true
+          aws s3 mb s3://trustworthy-registry-lambda-deployment-us-east-1 2>/dev/null || true
           
           # Upload to S3
-          aws s3 cp lambda_deployment.zip s3://trustworthy-registry-lambda-deployment-${{ secrets.AWS_REGION }}/lambda_deployment.zip
+          aws s3 cp lambda_deployment.zip s3://trustworthy-registry-lambda-deployment-us-east-1/lambda_deployment.zip
           
           # Update Lambda function
           aws lambda update-function-code \
             --function-name trustworthy-model-registry \
-            --s3-bucket trustworthy-registry-lambda-deployment-${{ secrets.AWS_REGION }} \
+            --s3-bucket trustworthy-registry-lambda-deployment-us-east-1 \
             --s3-key lambda_deployment.zip
           
           echo "✅ Lambda function updated successfully!"
