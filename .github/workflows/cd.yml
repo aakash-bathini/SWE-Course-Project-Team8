@@ -22,21 +22,48 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-
-      - name: Install backend deps
-        run: |
-          python -m pip install -U pip
-          pip install -r requirements.txt
+          python-version: '3.9'  # Match Lambda runtime
 
       - name: Package backend for Lambda
         run: |
+          # Install production dependencies (built on Linux)
           mkdir -p lambda_package
-          cp app.py -t lambda_package/
+          pip install -r requirements-prod.txt -t lambda_package/
+          
+          # Copy application code
+          cp app.py lambda_package/
           cp -r src lambda_package/
+          
+          # Create deployment zip
           cd lambda_package
-          zip -r ../deployment.zip .
+          zip -r9 ../lambda_deployment.zip .
           cd ..
+          
+          # Show package size
+          ls -lh lambda_deployment.zip
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy Lambda via S3
+        run: |
+          # Create S3 bucket if it doesn't exist (ignore error if exists)
+          aws s3 mb s3://trustworthy-registry-lambda-deployment-${{ secrets.AWS_REGION }} 2>/dev/null || true
+          
+          # Upload to S3
+          aws s3 cp lambda_deployment.zip s3://trustworthy-registry-lambda-deployment-${{ secrets.AWS_REGION }}/lambda_deployment.zip
+          
+          # Update Lambda function
+          aws lambda update-function-code \
+            --function-name trustworthy-model-registry \
+            --s3-bucket trustworthy-registry-lambda-deployment-${{ secrets.AWS_REGION }} \
+            --s3-key lambda_deployment.zip
+          
+          echo "✅ Lambda function updated successfully!"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -49,8 +76,8 @@ jobs:
           npm install --legacy-peer-deps
           npm run build
 
-      - name: "Placeholder: Deploy to AWS (manual wiring required)"
+      - name: Deploy Frontend to S3 (Optional)
         run: |
-          echo "Ready to deploy: deployment.zip (Lambda) and frontend/build (S3)."
-          echo "Use AWS OIDC or AWS creds to upload and update resources."
-          echo "This step intentionally does not perform networked deploys yet."
+          echo "Frontend build ready at frontend/build/"
+          echo "To deploy frontend, add S3 bucket name as GitHub secret and uncomment below:"
+          # aws s3 sync frontend/build/ s3://YOUR-FRONTEND-BUCKET --delete
