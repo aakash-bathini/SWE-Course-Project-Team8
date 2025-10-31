@@ -1020,15 +1020,15 @@ async def get_tracks() -> Dict[str, List[str]]:
 
 
 # Favicon route
-@app.get("/favicon.ico")
-@app.head("/favicon.ico")
-async def favicon():
-    """Serve the favicon"""
-    return FileResponse("frontend/public/favicon.ico")
+# @app.get("/favicon.ico")
+# @app.head("/favicon.ico")
+# async def favicon():
+#     """Serve the favicon"""
+#     return FileResponse("frontend/public/favicon.ico")
 
 
 # Mount static files to serve favicon and other static assets
-app.mount("/static", StaticFiles(directory="frontend/public"), name="static")
+# app.mount("/static", StaticFiles(directory="frontend/public"), name="static")
 
 handler = Mangum(app, lifespan="off")
 
