@@ -70,14 +70,14 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Build frontend
-        working-directory: frontend
-        run: |
-          npm install --legacy-peer-deps
-          npm run build
+      # - name: Build frontend
+      #   working-directory: frontend
+      #   run: |
+      #     npm install --legacy-peer-deps
+      #     npm run build
 
-      - name: Deploy Frontend to S3 (Optional)
-        run: |
-          echo "Frontend build ready at frontend/build/"
-          echo "To deploy frontend, add S3 bucket name as GitHub secret and uncomment below:"
-          # aws s3 sync frontend/build/ s3://YOUR-FRONTEND-BUCKET --delete
+      # - name: Deploy Frontend to S3 (Optional)
+      #   run: |
+      #     echo "Frontend build ready at frontend/build/"
+      #     echo "To deploy frontend, add S3 bucket name as GitHub secret and uncomment below:"
+      #     # aws s3 sync frontend/build/ s3://YOUR-FRONTEND-BUCKET --delete
