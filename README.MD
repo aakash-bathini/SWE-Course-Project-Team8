@@ -841,6 +841,158 @@ grep ERROR app.log
 
 ---
 
+## 🎯 Milestone 2 Implementation Details
+
+### What Was Implemented
+
+#### 1. Download Endpoint ✅
+**Endpoint**: `GET /models/{id}/download?aspect=<type>`
+- **Location**: `app.py` lines 544-634
+- **Aspects**: full, weights, datasets, code
+- **Features**: 
+  - SHA256 checksums for integrity verification
+  - File streaming for large files
+  - Sub-aspect filtering (full/weights/datasets/code)
+  - Proper error handling for missing files
+  - ZIP compression for downloads
+- **Storage**: `uploads/{artifact_id}/` directory
+
+#### 2. Upload Endpoint ✅
+**Endpoint**: `POST /models/upload`
+- **Location**: `app.py` lines 417-542
+- **Accepts**: multipart/form-data with ZIP file
+- **Features**: 
+  - ZIP validation and extraction
+  - Model card parsing (README.md)
+  - SHA256 checksum calculation
+  - Automatic metrics calculation trigger
+  - SQLite metadata storage
+  - Audit logging
+- **Storage**: `uploads/{artifact_id}/` directory
+
+#### 3. New Phase 2 Metrics ✅
+
+**Reproducibility** (`src/metrics/reproducibility.py` - 137 lines)
+- **Logic**: Extracts and safely runs demo code from model card
+- **Scores**: 
+  - 0.0 = Code fails to execute
+  - 0.5 = Partial execution success
+  - 1.0 = Perfect execution
+- **Safety**: 5-second timeout, isolated subprocess
+
+**Reviewedness** (`src/metrics/reviewedness.py` - 168 lines)
+- **Logic**: GitHub API analysis of PR reviews
+- **Scores**: 
+  - -1.0 = No GitHub repository found
+  - 0.0-1.0 = Fraction of commits from reviewed PRs
+- **Features**: Respects GITHUB_TOKEN env var, rate limit handling
+
+**Treescore** (`src/metrics/treescore.py` - 158 lines)
+- **Logic**: Average net score of parent models in lineage graph
+- **Scores**: 
+  - 0.0 = No parent models
+  - 0.0-1.0 = Average of parent scores (recursive)
+- **Features**: Limits to 5 parents, uses simplified metrics to avoid recursion
+
+### New Files Added (6 total, ~1,040 lines)
+
+1. `src/metrics/reproducibility.py` - Reproducibility metric (137 lines)
+2. `src/metrics/reviewedness.py` - Reviewedness metric (168 lines)
+3. `src/metrics/treescore.py` - Treescore metric (158 lines)
+4. `src/storage/file_storage.py` - Storage utilities (251 lines)
+5. `src/storage/__init__.py` - Module init (1 line)
+6. `tests/test_milestone2_features.py` - Test suite (325 lines)
+
+### Testing
+
+#### Run Tests
+```bash
+# All tests
+pytest -v
+
+# Milestone 2 only
+pytest tests/test_milestone2_features.py -v
+
+# With coverage
+pytest --cov=src --cov=app --cov-report=term-missing
+```
+
+#### Manual Testing
+```bash
+# Start server
+python -m uvicorn app:app --reload
+
+# Upload model
+curl -X POST http://localhost:8000/models/upload \
+  -H "X-Authorization: bearer <TOKEN>" \
+  -F "file=@model.zip" \
+  -F "name=test_model"
+
+# Download model (get ID from upload response)
+curl -X GET "http://localhost:8000/models/model-1-123/download?aspect=full" \
+  -H "X-Authorization: bearer <TOKEN>" \
+  -o downloaded.zip
+
+# Check rating with new metrics
+curl -X GET "http://localhost:8000/artifact/model/model-1-123/rate" \
+  -H "X-Authorization: bearer <TOKEN>"
+```
+
+### Key Features
+
+#### Upload Features
+- ✅ ZIP validation
+- ✅ Automatic extraction
+- ✅ Model card parsing (README.md)
+- ✅ SHA256 checksum calculation
+- ✅ Metric calculation trigger
+- ✅ SQLite metadata storage
+- ✅ Audit logging
+
+#### Download Features
+- ✅ Sub-aspect filtering (full/weights/datasets/code)
+- ✅ SHA256 integrity checks
+- ✅ File streaming for large files
+- ✅ ZIP compression
+- ✅ Proper error handling
+- ✅ Audit logging
+
+#### Metric Features
+- ✅ Reproducibility: Code execution testing
+- ✅ Reviewedness: GitHub PR analysis
+- ✅ Treescore: Lineage graph traversal
+- ✅ All metrics in `/rate` endpoint
+- ✅ Error handling with safe defaults
+
+### API Changes
+
+#### Modified Endpoints
+- `GET /models/{id}/download` - Now fully implemented (was 501 placeholder)
+- `POST /models/upload` - Now fully implemented (was 501 placeholder)
+- `GET /artifact/model/{id}/rate` - Now returns 11 metrics (was 8)
+
+#### New Response Fields
+Rating endpoint now includes:
+```json
+{
+  "reproducibility": 1.0,
+  "reviewedness": 0.75,
+  "tree_score": 0.68,
+  // ... 8 other Phase 1 metrics
+}
+```
+
+### Configuration
+
+#### Environment Variables (Optional)
+- `GITHUB_TOKEN` - For reviewedness metric (avoids rate limits)
+- `USE_SQLITE=1` - Enable SQLite storage (default: in-memory)
+
+#### Storage Location
+- Local: `uploads/{artifact_id}/`
+- Automatically created on first upload
+- Cleaned up on artifact deletion
+
 ## 🎯 Next Steps
 
 ### Milestone 2 Completion Status ✅

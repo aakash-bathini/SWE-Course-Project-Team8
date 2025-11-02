@@ -6,7 +6,6 @@ Main application entry point with REST API endpoints matching OpenAPI spec v3.4.
 from fastapi import FastAPI, HTTPException, Depends, Query, Header, Response, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any

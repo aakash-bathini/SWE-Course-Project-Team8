@@ -8,8 +8,7 @@ import hashlib
 import shutil
 import zipfile
 import logging
-from pathlib import Path
-from typing import Optional, Dict, Any, BinaryIO
+from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 

@@ -10,7 +10,7 @@ Scoring:
 import logging
 import requests
 import os
-from typing import Optional, Dict, Any
+from typing import Optional
 from src.models.model_types import EvalContext
 
 logger = logging.getLogger(__name__)
