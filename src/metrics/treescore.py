@@ -61,7 +61,7 @@ def _extract_parent_models(context: EvalContext) -> list[str]:
     Extract parent model URLs from HuggingFace data
     """
     try:
-        parent_urls = []
+        parent_urls: list[str] = []
 
         if not context.hf_data or len(context.hf_data) == 0:
             return parent_urls
