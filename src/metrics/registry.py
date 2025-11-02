@@ -9,6 +9,9 @@ from . import (
     dataset_quality,
     ramp_up_time,
     available_dataset_code,
+    reproducibility,
+    reviewedness,
+    treescore,
 )
 
 
@@ -22,4 +25,7 @@ def get_all_metrics() -> List[MetricItem]:
         ("dataset_and_code_score", available_dataset_code.metric),
         ("dataset_quality", dataset_quality.metric),
         ("code_quality", code_quality_metric.metric),
+        ("reproducibility", reproducibility.metric),
+        ("reviewedness", reviewedness.metric),
+        ("tree_score", treescore.metric),
     ]

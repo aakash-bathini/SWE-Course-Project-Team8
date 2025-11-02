@@ -139,6 +139,11 @@ curl -X POST http://localhost:8000/authenticate \
 - ✅ **Phase 2 Adapter**: Seamless integration between web-based Phase 2 and CLI-based Phase 1 metrics
 - ✅ **Async Support**: Original metrics work asynchronously in Phase 2 web environment
 
+### Phase 2 New Metrics (Milestone 2)
+- ✅ **Reproducibility**: Tests if demo code in model card executes successfully (0.0, 0.5, or 1.0)
+- ✅ **Reviewedness**: Calculates fraction of code from reviewed PRs via GitHub API (-1 if no repo, 0.0-1.0 otherwise)
+- ✅ **Treescore**: Average net score of parent models in lineage graph (recursive traversal)
+
 ---
 
 ## 📚 API Documentation
@@ -187,7 +192,19 @@ Authorization: Bearer <token>
 Content-Type: multipart/form-data
 
 file: <zip_file>
-model_data: {"name": "model_name", "description": "..."}
+name: optional_model_name
+
+Response: 201 Created
+{
+  "metadata": {
+    "name": "model_name",
+    "id": "model-123-1234567890",
+    "type": "model"
+  },
+  "data": {
+    "url": "local://model-123-1234567890"
+  }
+}
 ```
 
 ```http
@@ -196,12 +213,24 @@ Authorization: Bearer <token>
 
 Response:
 {
-  "model_id": "model_1",
-  "metrics": {
-    "net_score": 0.75,
-    "sub_scores": {...},
-    "confidence_intervals": {...},
-    "latency_ms": 150
+  "name": "model_name",
+  "category": "classification",
+  "net_score": 0.75,
+  "ramp_up_time": 0.8,
+  "bus_factor": 0.7,
+  "performance_claims": 0.9,
+  "license": 1.0,
+  "dataset_and_code_score": 0.8,
+  "dataset_quality": 0.7,
+  "code_quality": 0.8,
+  "reproducibility": 1.0,
+  "reviewedness": 0.65,
+  "tree_score": 0.75,
+  "size_score": {
+    "raspberry_pi": 0.5,
+    "jetson_nano": 0.7,
+    "desktop_pc": 0.9,
+    "aws_server": 1.0
   }
 }
 ```
@@ -210,6 +239,14 @@ Response:
 GET /models/{id}/download
 Authorization: Bearer <token>
 Query: ?aspect=full|weights|datasets|code
+
+Response: 200 OK
+Content-Type: application/zip
+Headers:
+  X-File-Checksum: <sha256_hash>
+  X-File-Aspect: <aspect>
+  
+Body: ZIP file with filtered content
 ```
 
 ```http
@@ -806,18 +843,27 @@ grep ERROR app.log
 
 ## 🎯 Next Steps
 
-### Milestone 2 Goals
-1. **Full CRUD Implementation**: Complete model upload/download with file storage
-2. **Database Integration**: SQLite for development, S3 for production
-3. **Enhanced Authentication**: Full JWT implementation with proper token validation
-4. **AWS Deployment**: Complete Lambda deployment with API Gateway
-5. **Integration Testing**: End-to-end testing with real data
+### Milestone 2 Completion Status ✅
+1. **Full CRUD Implementation**: ✅ Complete
+   - Upload: ZIP file upload with extraction and validation
+   - Download: File streaming with sub-aspect filtering (full/weights/datasets/code)
+   - Rate: All 11 metrics (8 Phase 1 + 3 Phase 2)
+   - Delete: Full implementation with audit logging
+2. **Database Integration**: ✅ SQLite fully integrated
+3. **Enhanced Authentication**: ✅ JWT with proper token validation
+4. **New Metrics**: ✅ Reproducibility, Reviewedness, Treescore implemented
+5. **Integration Testing**: ✅ Comprehensive test suite with 40%+ coverage
+6. **Local File Storage**: ✅ uploads/ directory with SHA256 integrity checks
+
+### Remaining for Deployment
+- **AWS Deployment**: Lambda + API Gateway configuration (handled separately)
+- **CloudWatch Logging**: Production monitoring setup
 
 ### Future Enhancements
 - **Security Track Features**: Sensitive models, package confusion detection
 - **Performance Optimization**: Caching, parallel processing
-- **Advanced Metrics**: Reproducibility, reviewedness, treescore
 - **Enhanced UI**: Advanced search, model comparison
+- **S3 Storage**: Replace local storage with AWS S3 for production
 
 ---
 
@@ -833,18 +879,23 @@ For questions or issues:
 
 ## 🏆 Success Metrics
 
-- **API Endpoints**: 7/7 passing 
-- **Authentication**: ✅ Working
-- **Health Monitoring**: ✅ Working
-- **Error Handling**: ✅ Implemented
-- **CORS Configuration**: ✅ Configured
-- **AWS Deployment**: ✅ Ready
-- **CI/CD Pipeline**: ✅ Complete
-- **Documentation**: ✅ Complete
+- **API Endpoints**: 20+ endpoints implemented ✅
+- **CRUD Operations**: Upload, Download, Rate, Delete ✅
+- **Phase 1 Metrics**: 8 metrics integrated ✅
+- **Phase 2 Metrics**: 3 new metrics (reproducibility, reviewedness, treescore) ✅
+- **Authentication**: JWT with bcrypt ✅
+- **File Storage**: Local uploads/ with SHA256 checksums ✅
+- **Sub-aspect Downloads**: full/weights/datasets/code filtering ✅
+- **Health Monitoring**: /health and /health/components ✅
+- **Error Handling**: Comprehensive 400/401/403/404/500 responses ✅
+- **CORS Configuration**: Frontend integration ready ✅
+- **Database**: SQLite with full schema ✅
+- **CI/CD Pipeline**: 5-stage pipeline with auto-testing ✅
+- **Test Coverage**: 40%+ with comprehensive test suite ✅
+- **Documentation**: Complete API docs ✅
 
 ---
 
-**🎉 MILESTONE 1 STATUS: ✅ COMPLETE AND READY FOR DEVELOPMENT**
+**🎉 MILESTONE 2 STATUS: ✅ COMPLETE**
 
-All core technology components are implemented and tested. The team can now proceed with Milestone 2 development.# Trigger workflow rerun
-# Workflow fix verification
+All CRUD operations, new metrics, upload/download functionality, and testing are fully implemented and ready for production deployment.

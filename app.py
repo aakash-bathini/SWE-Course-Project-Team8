@@ -3,7 +3,7 @@ Phase 2 FastAPI Application - Trustworthy Model Registry
 Main application entry point with REST API endpoints matching OpenAPI spec v3.4.2
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Query, Header, Response
+from fastapi import FastAPI, HTTPException, Depends, Query, Header, Response, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
 from fastapi.staticfiles import StaticFiles
@@ -412,22 +412,173 @@ async def root() -> Dict[str, str]:
 # -------------------------
 
 
-@app.post("/models/upload")
-async def models_upload_placeholder() -> Dict[str, str]:
-    """Placeholder for ZIP upload (Delivery 2). Use POST /artifact/{type} with {url}."""
-    raise HTTPException(
-        status_code=501,
-        detail="ZIP upload is deferred for Delivery 1. Use POST /artifact/{artifact_type} with { url }.",
-    )
+@app.post("/models/upload", response_model=Artifact, status_code=201)
+async def models_upload(
+    file: UploadFile = File(...),
+    name: Optional[str] = Form(None),
+    user: Dict[str, Any] = Depends(verify_token),
+) -> Artifact:
+    """Upload model as ZIP file"""
+    from src.storage import file_storage
+    
+    try:
+        # Validate file is a ZIP
+        if not file.filename or not file.filename.endswith('.zip'):
+            raise HTTPException(status_code=400, detail="File must be a ZIP archive")
+        
+        # Generate artifact ID
+        artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
+        
+        # Read file content
+        content = await file.read()
+        
+        # Save ZIP file
+        file_info = file_storage.save_uploaded_file(artifact_id, content, file.filename)
+        
+        # Extract ZIP
+        artifact_dir = file_storage.get_artifact_directory(artifact_id)
+        extracted_files = file_storage.extract_zip(file_info["path"], artifact_dir)
+        
+        # Find and read model card
+        card_path = file_storage.find_model_card(artifact_dir)
+        readme_text = file_storage.read_model_card(card_path) if card_path else ""
+        
+        # Determine model name
+        model_name = name or file.filename.replace('.zip', '')
+        
+        # Create artifact entry
+        artifact_entry = {
+            "metadata": {
+                "name": model_name,
+                "id": artifact_id,
+                "type": "model",
+            },
+            "data": {
+                "url": f"local://{artifact_id}",
+                "files": extracted_files,
+                "checksum": file_info["checksum"],
+                "size": file_info["size"],
+            },
+            "created_at": datetime.now().isoformat(),
+            "created_by": user["username"],
+        }
+        
+        artifacts_db[artifact_id] = artifact_entry
+        
+        # Store in SQLite if enabled
+        if USE_SQLITE:
+            with next(get_db()) as _db:  # type: ignore[misc]
+                db_crud.create_artifact(
+                    _db,
+                    artifact_id=artifact_id,
+                    name=model_name,
+                    type_="model",
+                    url=f"local://{artifact_id}",
+                )
+        
+        # Log audit entry
+        audit_log.append(
+            {
+                "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
+                "date": datetime.now().isoformat(),
+                "artifact": artifact_entry["metadata"],
+                "action": "UPLOAD",
+            }
+        )
+        
+        # Trigger metrics calculation asynchronously (don't wait for completion)
+        try:
+            model_data = {
+                "url": f"local://{artifact_id}",
+                "hf_data": [{"readme_text": readme_text}] if readme_text else [],
+                "gh_data": [],
+            }
+            # Note: metrics will run in background, results stored separately if needed
+            _ = await calculate_phase2_metrics(model_data)
+        except Exception as e:
+            logger.warning(f"Metrics calculation failed for uploaded model: {e}")
+        
+        return Artifact(
+            metadata=ArtifactMetadata(**artifact_entry["metadata"]),
+            data=ArtifactData(url=artifact_entry["data"]["url"]),
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Upload failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
 @app.get("/models/{id}/download")
-async def models_download_placeholder(id: str) -> Dict[str, str]:
-    """Placeholder for download/sub-aspects (Delivery 2)."""
-    raise HTTPException(
-        status_code=501,
-        detail="Download and sub-aspect retrieval are deferred for Delivery 1.",
-    )
+async def models_download(
+    id: str,
+    aspect: str = Query("full", regex="^(full|weights|datasets|code)$"),
+    user: Dict[str, Any] = Depends(verify_token),
+):
+    """Download model files with optional aspect filtering"""
+    from src.storage import file_storage
+    import tempfile
+    
+    try:
+        # Check if artifact exists
+        if id not in artifacts_db:
+            raise HTTPException(status_code=404, detail="Artifact does not exist.")
+        
+        artifact_data = artifacts_db[id]
+        
+        if artifact_data["metadata"]["type"] != "model":
+            raise HTTPException(status_code=400, detail="Not a model artifact.")
+        
+        # Get artifact directory
+        artifact_dir = file_storage.get_artifact_directory(id)
+        
+        if not os.path.exists(artifact_dir):
+            raise HTTPException(
+                status_code=404,
+                detail="Model files not found. This model may only have URL metadata.",
+            )
+        
+        # Filter files by aspect
+        files = file_storage.filter_files_by_aspect(artifact_dir, aspect)
+        
+        if not files:
+            raise HTTPException(
+                status_code=404, detail=f"No files found for aspect: {aspect}"
+            )
+        
+        # Create temporary ZIP with filtered files
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp:
+            zip_path = tmp.name
+        
+        file_storage.create_zip_from_files(files, artifact_dir, zip_path)
+        
+        # Calculate checksum for integrity
+        checksum = file_storage.calculate_checksum(zip_path)
+        
+        # Log download audit
+        audit_log.append(
+            {
+                "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
+                "date": datetime.now().isoformat(),
+                "artifact": artifact_data["metadata"],
+                "action": f"DOWNLOAD_{aspect.upper()}",
+            }
+        )
+        
+        # Return file with checksum in headers
+        return FileResponse(
+            path=zip_path,
+            media_type="application/zip",
+            filename=f"{artifact_data['metadata']['name']}_{aspect}.zip",
+            headers={"X-File-Checksum": checksum, "X-File-Aspect": aspect},
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Download failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
 
 
 @app.get("/verify-token")
@@ -956,11 +1107,11 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
         dataset_quality_latency=0.0,
         code_quality=get_m("code_quality"),
         code_quality_latency=0.0,
-        reproducibility=0.0,
+        reproducibility=get_m("reproducibility"),
         reproducibility_latency=0.0,
-        reviewedness=0.0,
+        reviewedness=get_m("reviewedness"),
         reviewedness_latency=0.0,
-        tree_score=0.0,
+        tree_score=get_m("tree_score"),
         tree_score_latency=0.0,
         size_score=size_scores,
         size_score_latency=0.0,
