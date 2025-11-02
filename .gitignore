@@ -29,3 +29,10 @@ dist/
 
 # OS
 .DS_Store
+
+# Test files and uploads (temporary)
+uploads/
+test-model/
+test-model.zip
+downloaded-model.zip
+search.json

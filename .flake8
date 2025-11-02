@@ -1,7 +1,17 @@
 [flake8]
 max-line-length = 100
 extend-ignore = E203,W503,E501,E402,E722,E741
-exclude = .git,__pycache__,.venv,.mypy_cache,.pytest_cache,.cache
+exclude = 
+    .git,
+    __pycache__,
+    .venv,
+    .mypy_cache,
+    .pytest_cache,
+    .cache,
+    frontend/node_modules,
+    node_modules,
+    uploads,
+    test-model
 per-file-ignores =
   tests/*: F401,F811,E402,E501,E741
   src/tests/*: F401,F811,E402,E501,E741
