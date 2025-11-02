@@ -420,32 +420,32 @@ async def models_upload(
 ) -> Artifact:
     """Upload model as ZIP file"""
     from src.storage import file_storage
-    
+
     try:
         # Validate file is a ZIP
-        if not file.filename or not file.filename.endswith('.zip'):
+        if not file.filename or not file.filename.endswith(".zip"):
             raise HTTPException(status_code=400, detail="File must be a ZIP archive")
-        
+
         # Generate artifact ID
         artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
-        
+
         # Read file content
         content = await file.read()
-        
+
         # Save ZIP file
         file_info = file_storage.save_uploaded_file(artifact_id, content, file.filename)
-        
+
         # Extract ZIP
         artifact_dir = file_storage.get_artifact_directory(artifact_id)
         extracted_files = file_storage.extract_zip(file_info["path"], artifact_dir)
-        
+
         # Find and read model card
         card_path = file_storage.find_model_card(artifact_dir)
         readme_text = file_storage.read_model_card(card_path) if card_path else ""
-        
+
         # Determine model name
-        model_name = name or file.filename.replace('.zip', '')
-        
+        model_name = name or file.filename.replace(".zip", "")
+
         # Create artifact entry
         artifact_entry = {
             "metadata": {
@@ -462,9 +462,9 @@ async def models_upload(
             "created_at": datetime.now().isoformat(),
             "created_by": user["username"],
         }
-        
+
         artifacts_db[artifact_id] = artifact_entry
-        
+
         # Store in SQLite if enabled
         if USE_SQLITE:
             with next(get_db()) as _db:  # type: ignore[misc]
@@ -475,7 +475,7 @@ async def models_upload(
                     type_="model",
                     url=f"local://{artifact_id}",
                 )
-        
+
         # Log audit entry
         audit_log.append(
             {
@@ -485,7 +485,7 @@ async def models_upload(
                 "action": "UPLOAD",
             }
         )
-        
+
         # Trigger metrics calculation asynchronously (don't wait for completion)
         try:
             model_data = {
@@ -497,12 +497,12 @@ async def models_upload(
             _ = await calculate_phase2_metrics(model_data)
         except Exception as e:
             logger.warning(f"Metrics calculation failed for uploaded model: {e}")
-        
+
         return Artifact(
             metadata=ArtifactMetadata(**artifact_entry["metadata"]),
             data=ArtifactData(url=artifact_entry["data"]["url"]),
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -519,43 +519,41 @@ async def models_download(
     """Download model files with optional aspect filtering"""
     from src.storage import file_storage
     import tempfile
-    
+
     try:
         # Check if artifact exists
         if id not in artifacts_db:
             raise HTTPException(status_code=404, detail="Artifact does not exist.")
-        
+
         artifact_data = artifacts_db[id]
-        
+
         if artifact_data["metadata"]["type"] != "model":
             raise HTTPException(status_code=400, detail="Not a model artifact.")
-        
+
         # Get artifact directory
         artifact_dir = file_storage.get_artifact_directory(id)
-        
+
         if not os.path.exists(artifact_dir):
             raise HTTPException(
                 status_code=404,
                 detail="Model files not found. This model may only have URL metadata.",
             )
-        
+
         # Filter files by aspect
         files = file_storage.filter_files_by_aspect(artifact_dir, aspect)
-        
+
         if not files:
-            raise HTTPException(
-                status_code=404, detail=f"No files found for aspect: {aspect}"
-            )
-        
+            raise HTTPException(status_code=404, detail=f"No files found for aspect: {aspect}")
+
         # Create temporary ZIP with filtered files
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
             zip_path = tmp.name
-        
+
         file_storage.create_zip_from_files(files, artifact_dir, zip_path)
-        
+
         # Calculate checksum for integrity
         checksum = file_storage.calculate_checksum(zip_path)
-        
+
         # Log download audit
         audit_log.append(
             {
@@ -565,7 +563,7 @@ async def models_download(
                 "action": f"DOWNLOAD_{aspect.upper()}",
             }
         )
-        
+
         # Return file with checksum in headers
         return FileResponse(
             path=zip_path,
@@ -573,7 +571,7 @@ async def models_download(
             filename=f"{artifact_data['metadata']['name']}_{aspect}.zip",
             headers={"X-File-Checksum": checksum, "X-File-Aspect": aspect},
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:

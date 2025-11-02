@@ -26,21 +26,21 @@ async def metric(context: EvalContext) -> float:
     try:
         # Extract demo code from HF data (model card)
         demo_code = _extract_demo_code(context)
-        
+
         if not demo_code:
             logger.info("No demo code found in model card")
             return 0.0
-        
+
         # Try to execute the code
         execution_result = _test_code_execution(demo_code)
-        
+
         if execution_result == "perfect":
             return 1.0
         elif execution_result == "partial":
             return 0.5
         else:
             return 0.0
-            
+
     except Exception as e:
         logger.error(f"Reproducibility metric error: {e}")
         return 0.0
@@ -53,28 +53,28 @@ def _extract_demo_code(context: EvalContext) -> Optional[str]:
     try:
         if not context.hf_data or len(context.hf_data) == 0:
             return None
-        
+
         hf_info = context.hf_data[0]
         readme_text = hf_info.get("readme_text", "")
-        
+
         if not readme_text:
             return None
-        
+
         # Find Python code blocks in markdown
         # Pattern: ```python ... ``` or ```py ... ```
         code_pattern = r"```(?:python|py)\s*\n(.*?)```"
         matches = re.findall(code_pattern, readme_text, re.DOTALL | re.IGNORECASE)
-        
+
         if not matches:
             return None
-        
+
         # Return the first substantial code block (>20 chars)
         for code in matches:
             if len(code.strip()) > 20:
                 return code.strip()
-        
+
         return None
-        
+
     except Exception as e:
         logger.error(f"Error extracting demo code: {e}")
         return None
@@ -88,7 +88,7 @@ def _test_code_execution(code: str) -> str:
     try:
         # Create a temporary file with the code
         with tempfile.NamedTemporaryFile(
-            mode='w', suffix='.py', delete=False, encoding='utf-8'
+            mode="w", suffix=".py", delete=False, encoding="utf-8"
         ) as f:
             temp_file = f.name
             # Add basic error handling and imports
@@ -108,16 +108,13 @@ except Exception as e:
     sys.exit(1)
 """
             f.write(test_code)
-        
+
         try:
             # Run with timeout to prevent hanging
             result = subprocess.run(
-                ['python', temp_file],
-                capture_output=True,
-                timeout=5,
-                text=True
+                ["python", temp_file], capture_output=True, timeout=5, text=True
             )
-            
+
             if result.returncode == 0:
                 return "perfect"
             elif result.returncode == 50:
@@ -125,12 +122,12 @@ except Exception as e:
                 return "partial"
             else:
                 return "failed"
-                
+
         finally:
             # Clean up temp file
             if os.path.exists(temp_file):
                 os.unlink(temp_file)
-    
+
     except subprocess.TimeoutExpired:
         logger.warning("Code execution timeout - considering as partial success")
         return "partial"
@@ -142,5 +139,4 @@ except Exception as e:
 def _indent_code(code: str, spaces: int) -> str:
     """Add indentation to code block"""
     indent = " " * spaces
-    return "\n".join(indent + line if line.strip() else line 
-                     for line in code.split("\n"))
+    return "\n".join(indent + line if line.strip() else line for line in code.split("\n"))
