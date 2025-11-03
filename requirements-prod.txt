@@ -71,7 +71,7 @@ shellingham==1.5.4
 typer-slim==0.20.0
 typing-inspection==0.4.2
 jmespath==1.0.1
-urllib3==1.26.20
+urllib3==2.5.0
 Pygments==2.19.2
 cffi==2.0.0
 pycparser==2.23
