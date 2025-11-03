@@ -14,6 +14,15 @@ const apiClient = axios.create({
 // Add request interceptor to include auth token
 apiClient.interceptors.request.use(
   (config) => {
+    // Avoid attaching auth headers to public health endpoint to prevent CORS preflight
+    try {
+      const urlStr = (config.url ?? '').toString();
+      if (urlStr.endsWith('/health')) {
+        return config;
+      }
+    } catch (e) {
+      // no-op safeguard
+    }
     const token = localStorage.getItem('token');
     if (token) {
       // Ensure headers object exists and is typed for axios

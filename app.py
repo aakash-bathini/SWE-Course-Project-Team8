@@ -36,9 +36,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",  # Development
         "http://localhost:8000",  # Local development
-        "https://*.execute-api.us-east-1.amazonaws.com",  # AWS API Gateway
-        "http://*.s3-website-us-east-1.amazonaws.com",  # S3 static hosting
-        "*",  # Allow all for development - restrict in production
+        # Frontend (Amplify) production origin - must be explicit when credentials are used
+        "https://main.d1vmhndnokays2.amplifyapp.com",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
