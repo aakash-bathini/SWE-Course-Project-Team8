@@ -23,8 +23,13 @@ def ensure_storage_directory() -> None:
 
 
 def get_artifact_directory(artifact_id: str) -> str:
-    """Get the directory path for an artifact"""
-    return os.path.join(STORAGE_ROOT, artifact_id)
+    """Get the directory path for an artifact, safely under STORAGE_ROOT"""
+    # Compose and normalize the path
+    artifact_path = os.path.normpath(os.path.join(STORAGE_ROOT, artifact_id))
+    # Ensure the normalized path still resides within STORAGE_ROOT
+    if not artifact_path.startswith(STORAGE_ROOT):
+        raise ValueError("Invalid artifact id/path traversal detected")
+    return artifact_path
 
 
 def save_uploaded_file(artifact_id: str, file_content: bytes, filename: str) -> Dict[str, Any]:
