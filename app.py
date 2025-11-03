@@ -931,7 +931,7 @@ async def artifact_by_regex(
             for a in items:
                 matches.append(ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type)))
     else:
-        pattern = _re.compile(regex.regex)
+        pattern = _re.compile(_re.escape(regex.regex))
         for artifact_id, artifact_data in artifacts_db.items():
             name = artifact_data["metadata"]["name"]
             if pattern.search(name):
