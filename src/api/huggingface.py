@@ -104,20 +104,35 @@ def _extract_github_links(readme_text: str | None, card_yaml: Dict[str, Any]) ->
     # common card.yaml fields for github
     for key in ("repository", "code", "github", "source", "repo"):
         val = card_yaml.get(key)
-        if isinstance(val, str) and "github.com" in val:
-            links.add(val.strip())
+        if isinstance(val, str):
+            try:
+                host = urlparse(val.strip()).hostname or ""
+            except Exception:
+                host = ""
+            if host.lower() == "github.com":
+                links.add(val.strip())
 
     # search through nested structs for github
     for key in ("papers", "links", "resources"):
         val = card_yaml.get(key)
         if isinstance(val, list):
             for item in val:
-                if isinstance(item, str) and "github.com" in item:
-                    links.add(item.strip())
+                if isinstance(item, str):
+                    try:
+                        host = urlparse(item.strip()).hostname or ""
+                    except Exception:
+                        host = ""
+                    if host.lower() == "github.com":
+                        links.add(item.strip())
         elif isinstance(val, dict):
             for item in val.values():
-                if isinstance(item, str) and "github.com" in item:
-                    links.add(item.strip())
+                if isinstance(item, str):
+                    try:
+                        host = urlparse(item.strip()).hostname or ""
+                    except Exception:
+                        host = ""
+                    if host.lower() == "github.com":
+                        links.add(item.strip())
 
     # search readme for github
     if readme_text:
