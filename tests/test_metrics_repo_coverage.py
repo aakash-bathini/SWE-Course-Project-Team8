@@ -1,4 +1,5 @@
 import pytest
+from urllib.parse import urlparse
 
 from src.models.model_types import EvalContext
 from src.metrics import size as size_metric
