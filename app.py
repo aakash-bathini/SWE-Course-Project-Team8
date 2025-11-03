@@ -39,6 +39,8 @@ app.add_middleware(
         # Frontend (Amplify) production origin - must be explicit when credentials are used
         "https://main.d1vmhndnokays2.amplifyapp.com",
     ],
+    # Accept any Amplify app subdomain (e.g., preview branches) over HTTPS
+    allow_origin_regex=r"https://.*\.amplifyapp\.com",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
