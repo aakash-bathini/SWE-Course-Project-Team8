@@ -11,6 +11,7 @@ import logging
 import requests
 import os
 from typing import Optional
+from urllib.parse import urlparse
 from src.models.model_types import EvalContext
 
 logger = logging.getLogger(__name__)
@@ -66,7 +67,7 @@ def _extract_github_url(context: EvalContext) -> Optional[str]:
             # Check card_yaml for repository field
             card_yaml = hf_info.get("card_yaml", {})
             repo_url = card_yaml.get("repository") or card_yaml.get("repo")
-            if repo_url and "github.com" in repo_url:
+            if repo_url and urlparse(repo_url).hostname == "github.com":
                 return repo_url
 
         return None
