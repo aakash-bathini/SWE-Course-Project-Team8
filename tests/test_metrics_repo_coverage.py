@@ -106,7 +106,7 @@ def test_helper_and_hf_parse():
         "Check https://github.com/user/repo for code.",
         {"repository": "https://github.com/user/repo"},
     )
-    assert any("github.com" in u for u in links)
+    assert any(urlparse(u).hostname == "github.com" for u in links)
 
 
 @pytest.mark.asyncio
