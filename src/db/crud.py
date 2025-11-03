@@ -82,7 +82,8 @@ def list_by_name(db: Session, name: str) -> List[models.Artifact]:
 
 def list_by_regex(db: Session, regex: str) -> List[models.Artifact]:
     # simple in-Python filter for SQLite compatibility
-    rx = re.compile(regex)
+    safe_regex = re.escape(regex)
+    rx = re.compile(safe_regex)
     items = db.query(models.Artifact).all()
     out: List[models.Artifact] = []
     for a in items:
