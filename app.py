@@ -1548,15 +1548,19 @@ async def get_tracks() -> Dict[str, List[str]]:
 
 # Create Mangum handler for Lambda
 # This is the entry point that Lambda calls (configured as app.handler)
-# Wrap in try/except to catch initialization errors
+logger.info("Initializing Mangum handler for Lambda...")
 try:
     handler = Mangum(app, lifespan="off")
+    logger.info("✅ Mangum handler initialized successfully")
 except Exception as e:
-    logger.error(f"Failed to initialize Mangum handler: {e}", exc_info=True)
+    logger.error(f"❌ Failed to initialize Mangum handler: {e}", exc_info=True)
+    import traceback
 
-    # Create a minimal handler that logs the error
+    logger.error(f"Full traceback: {traceback.format_exc()}")
+
+    # Create a fallback handler that returns 500 and logs the error
     def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # type: ignore[assignment]
-        logger.error(f"Handler initialization failed. Event: {event.get('rawPath', 'unknown')}")
+        logger.error(f"Handler initialization failed. Event received: {event}")
         return {
             "statusCode": 500,
             "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
