@@ -755,6 +755,13 @@ async def delete_user(username: str, user: Dict[str, Any] = Depends(verify_token
 @app.put("/authenticate", response_model=str)
 async def create_auth_token(request: AuthenticationRequest) -> str:
     """Create an access token (Milestone 3 - with proper validation)"""
+    # CRITICAL: Log entry point immediately
+    print("=== AUTHENTICATE ENDPOINT CALLED ===")
+    print(f"DEBUG: Request user.name={request.user.name}, is_admin={request.user.is_admin}")
+    print(f"DEBUG: Password length={len(request.secret.password)}")
+    sys.stdout.flush()
+    logger.info(f"Authenticate endpoint called for user: {request.user.name}")
+
     # CRITICAL: Ensure default admin exists on EVERY request (Lambda cold start protection)
     admin_username = str(DEFAULT_ADMIN["username"])
     if admin_username not in users_db:
@@ -809,6 +816,10 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
 @app.delete("/reset")
 async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
     """Reset the registry to a system default state (BASELINE)"""
+    print("=== RESET ENDPOINT CALLED ===")
+    sys.stdout.flush()
+    logger.info("Reset endpoint called")
+
     if not check_permission(user, "admin"):
         # Spec: 401 if you do not have permission; 403 is used for invalid/missing token
         raise HTTPException(
@@ -1624,17 +1635,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     # Log handler invocation for debugging
     try:
-        event_keys = list(event.keys()) if isinstance(event, dict) else "not a dict"
-        event_path = event.get("path", "N/A") if isinstance(event, dict) else "N/A"
-        event_method = event.get("httpMethod", "N/A") if isinstance(event, dict) else "N/A"
+        if isinstance(event, dict):
+            event_keys = list(event.keys())
+            # Support both API Gateway REST API and HTTP API v2 formats
+            event_path = event.get("path") or event.get("rawPath", "N/A")
+            event_method = event.get("httpMethod") or event.get("requestContext", {}).get(
+                "http", {}
+            ).get("method", "N/A")
+            route_key = event.get("routeKey", "N/A")
+        else:
+            event_keys = "not a dict"
+            event_path = "N/A"
+            event_method = "N/A"
+            route_key = "N/A"
 
         logger.info(f"Handler invoked. Event keys: {event_keys}")
-        logger.info(f"Event path: {event_path}")
-        logger.info(f"Event httpMethod: {event_method}")
-        print(f"DEBUG: Event keys={event_keys}, path={event_path}, method={event_method}")
+        logger.info(f"Event path: {event_path}, method: {event_method}, routeKey: {route_key}")
+        print(
+            f"DEBUG: Event keys={event_keys}, path={event_path}, method={event_method}, routeKey={route_key}"
+        )
         sys.stdout.flush()
     except Exception as log_err:
         print(f"ERROR logging event: {log_err}")
+        import traceback
+
+        print(f"Traceback: {traceback.format_exc()}")
         sys.stdout.flush()
 
     try:
@@ -1657,7 +1682,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         response = _mangum_handler(event, context)
 
         logger.info(f"Mangum handler returned. Response type: {type(response)}")
-        print(f"DEBUG: Mangum returned type={type(response)}")
+        if isinstance(response, dict):
+            status_code = response.get("statusCode", "N/A")
+            body_preview = str(response.get("body", ""))[:200] if response.get("body") else "N/A"
+            print(f"DEBUG: Mangum returned statusCode={status_code}, body preview={body_preview}")
+        else:
+            print(f"DEBUG: Mangum returned type={type(response)}")
         sys.stdout.flush()
 
         # Ensure response has correct format (per Stack Overflow requirements)
