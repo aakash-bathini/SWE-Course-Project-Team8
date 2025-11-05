@@ -755,15 +755,20 @@ async def delete_user(username: str, user: Dict[str, Any] = Depends(verify_token
 @app.put("/authenticate", response_model=str)
 async def create_auth_token(request: AuthenticationRequest) -> str:
     """Create an access token (Milestone 3 - with proper validation)"""
-    # Validate user credentials against in-memory/SQLite user store
-    # Ensure default admin exists (in case of Lambda cold start or reset)
+    # CRITICAL: Ensure default admin exists on EVERY request (Lambda cold start protection)
     admin_username = str(DEFAULT_ADMIN["username"])
     if admin_username not in users_db:
         users_db[admin_username] = DEFAULT_ADMIN.copy()
         logger.info(f"Recreated default admin user: {admin_username}")
+        print(f"DEBUG: Recreated default admin user: {admin_username}")
+        sys.stdout.flush()
 
+    # Validate user credentials against in-memory/SQLite user store
     user_data = users_db.get(request.user.name)
     if not user_data:
+        logger.warning(f"User not found: {request.user.name}")
+        print(f"DEBUG: User not found: {request.user.name}, users_db keys: {list(users_db.keys())}")
+        sys.stdout.flush()
         raise HTTPException(status_code=401, detail="The user or password is invalid.")
 
     # Use bcrypt for password verification (Milestone 3 requirement)
@@ -772,6 +777,8 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
         # Password is hashed, use bcrypt verification
         if not jwt_auth.verify_password(request.secret.password, stored_password):
             logger.warning(f"Password verification failed for user: {request.user.name}")
+            print(f"DEBUG: Bcrypt password verification failed for user: {request.user.name}")
+            sys.stdout.flush()
             raise HTTPException(status_code=401, detail="The user or password is invalid.")
     else:
         # Plain text password (for default admin during migration)
@@ -780,6 +787,11 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
                 f"Plain text password mismatch for user: {request.user.name}. "
                 f"Expected length: {len(stored_password)}, Got length: {len(request.secret.password)}"
             )
+            print(
+                f"DEBUG: Password mismatch for user: {request.user.name}. "
+                f"Expected: {repr(stored_password[:20])}..., Got: {repr(request.secret.password[:20])}..."
+            )
+            sys.stdout.flush()
             raise HTTPException(status_code=401, detail="The user or password is invalid.")
 
     # Issue JWT containing subject and permissions
@@ -803,6 +815,7 @@ async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
             status_code=401, detail="You do not have permission to reset the registry."
         )
 
+    # Clear all artifacts (CRITICAL: ensure this is complete)
     artifacts_db.clear()
     audit_log.clear()
 
@@ -812,20 +825,34 @@ async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
     # Clear users but preserve default admin (per spec requirement)
     users_db.clear()
 
-    # Recreate default admin user
+    # CRITICAL: Recreate default admin user immediately after clear
     admin_username: str = str(DEFAULT_ADMIN["username"])
     users_db[admin_username] = DEFAULT_ADMIN.copy()
 
+    # Log reset completion
+    logger.info(
+        f"Registry reset completed. Artifacts cleared: {len(artifacts_db) == 0}, Default admin recreated: {admin_username in users_db}"
+    )
+    print(
+        f"DEBUG: Reset completed. artifacts_db size: {len(artifacts_db)}, users_db keys: {list(users_db.keys())}"
+    )
+    sys.stdout.flush()
+
     if USE_SQLITE:
-        with next(get_db()) as _db:  # type: ignore[misc]
-            db_crud.reset_registry(_db)
-            # Recreate default admin in database
-            db_crud.upsert_default_admin(
-                _db,
-                username=str(DEFAULT_ADMIN["username"]),
-                password=str(DEFAULT_ADMIN["password"]),
-                permissions=list(DEFAULT_ADMIN["permissions"]),  # type: ignore[arg-type]
-            )
+        try:
+            with next(get_db()) as _db:  # type: ignore[misc]
+                db_crud.reset_registry(_db)
+                # Recreate default admin in database
+                db_crud.upsert_default_admin(
+                    _db,
+                    username=str(DEFAULT_ADMIN["username"]),
+                    password=str(DEFAULT_ADMIN["password"]),
+                    permissions=list(DEFAULT_ADMIN["permissions"]),  # type: ignore[arg-type]
+                )
+        except Exception as e:
+            logger.error(f"Failed to reset SQLite database: {e}")
+            print(f"DEBUG: SQLite reset failed: {e}")
+            sys.stdout.flush()
 
     return {"message": "Registry is reset."}
 
