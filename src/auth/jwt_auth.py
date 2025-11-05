@@ -36,6 +36,10 @@ class JWTAuth:
 
     def get_password_hash(self, password: str) -> str:
         """Hash a password"""
+        # Bcrypt has a 72-byte limit, so truncate if necessary
+        # This is safe because bcrypt truncates internally anyway
+        if len(password.encode('utf-8')) > 72:
+            password = password[:72]
         result = pwd_context.hash(password)
         return str(result)
 
