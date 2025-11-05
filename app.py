@@ -755,6 +755,13 @@ async def delete_user(username: str, user: Dict[str, Any] = Depends(verify_token
 @app.put("/authenticate", response_model=str)
 async def create_auth_token(request: AuthenticationRequest) -> str:
     """Create an access token (Milestone 3 - with proper validation)"""
+    # CRITICAL: Log entry point immediately
+    print(f"=== AUTHENTICATE ENDPOINT CALLED ===")
+    print(f"DEBUG: Request user.name={request.user.name}, is_admin={request.user.is_admin}")
+    print(f"DEBUG: Password length={len(request.secret.password)}")
+    sys.stdout.flush()
+    logger.info(f"Authenticate endpoint called for user: {request.user.name}")
+
     # CRITICAL: Ensure default admin exists on EVERY request (Lambda cold start protection)
     admin_username = str(DEFAULT_ADMIN["username"])
     if admin_username not in users_db:
