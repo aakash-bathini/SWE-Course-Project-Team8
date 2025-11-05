@@ -46,13 +46,22 @@ app.add_middleware(
 security = HTTPBearer()
 
 # Import Phase 2 components (after app initialization to avoid circular imports)
-from src.api.huggingface import scrape_hf_url  # noqa: E402
-from src.metrics.phase2_adapter import (  # noqa: E402
-    create_eval_context_from_model_data,
-    calculate_phase2_metrics,
-    calculate_phase2_net_score,
-)
-from src.metrics import size as size_metric  # noqa: E402
+try:
+    from src.api.huggingface import scrape_hf_url  # noqa: E402
+    from src.metrics.phase2_adapter import (  # noqa: E402
+        create_eval_context_from_model_data,
+        calculate_phase2_metrics,
+        calculate_phase2_net_score,
+    )
+    from src.metrics import size as size_metric  # noqa: E402
+except ImportError as e:
+    logger.warning(f"Optional imports failed (may not be available in Lambda): {e}")
+    # Set to None to prevent errors
+    scrape_hf_url = None
+    create_eval_context_from_model_data = None
+    calculate_phase2_metrics = None
+    calculate_phase2_net_score = None
+    size_metric = None
 
 # Storage layer selection: in-memory (default) or SQLite (Milestone 2)
 USE_SQLITE: bool = os.environ.get("USE_SQLITE", "0") == "1"
@@ -854,6 +863,10 @@ async def models_ingest(
 
     try:
         # Scrape HuggingFace data
+        if scrape_hf_url is None or calculate_phase2_metrics is None:
+            raise HTTPException(
+                status_code=501, detail="HuggingFace ingestion not available in this environment."
+            )
         hf_data, repo_type = scrape_hf_url(hf_url)
         model_data = {"url": hf_url, "hf_data": [hf_data], "gh_data": []}
 
@@ -1016,26 +1029,27 @@ async def artifact_create(
         try:
             # Only enforce gating for HuggingFace URLs per spec language
             if "huggingface.co" in artifact_data.url.lower():
-                hf_data, repo_type = scrape_hf_url(artifact_data.url)
-                model_data = {"url": artifact_data.url, "hf_data": [hf_data], "gh_data": []}
-                metrics = await calculate_phase2_metrics(model_data)
-                # Filter out latency metrics - only check non-latency metrics for threshold
-                non_latency_metrics = {
-                    k: v
-                    for k, v in metrics.items()
-                    if not k.endswith("_latency") and k != "net_score_latency"
-                }
-                # Require all available non-latency metrics to be at least 0.5
-                failing_metrics = [
-                    k
-                    for k, v in non_latency_metrics.items()
-                    if isinstance(v, (int, float)) and float(v) < 0.5
-                ]
-                if failing_metrics:
-                    raise HTTPException(
-                        status_code=424,
-                        detail=f"Artifact is not registered due to the disqualified rating. Failing metrics: {', '.join(failing_metrics)}",
-                    )
+                if scrape_hf_url is not None and calculate_phase2_metrics is not None:
+                    hf_data, repo_type = scrape_hf_url(artifact_data.url)
+                    model_data = {"url": artifact_data.url, "hf_data": [hf_data], "gh_data": []}
+                    metrics = await calculate_phase2_metrics(model_data)
+                    # Filter out latency metrics - only check non-latency metrics for threshold
+                    non_latency_metrics = {
+                        k: v
+                        for k, v in metrics.items()
+                        if not k.endswith("_latency") and k != "net_score_latency"
+                    }
+                    # Require all available non-latency metrics to be at least 0.5
+                    failing_metrics = [
+                        k
+                        for k, v in non_latency_metrics.items()
+                        if isinstance(v, (int, float)) and float(v) < 0.5
+                    ]
+                    if failing_metrics:
+                        raise HTTPException(
+                            status_code=424,
+                            detail=f"Artifact is not registered due to the disqualified rating. Failing metrics: {', '.join(failing_metrics)}",
+                        )
         except HTTPException:
             raise
         except Exception:
