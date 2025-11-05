@@ -39,6 +39,7 @@ app.add_middleware(
         "http://localhost:8000",  # Local development
         # Frontend (Amplify) production origin - must be explicit when credentials are used
         "https://main.d1vmhndnokays2.amplifyapp.com",
+        # Allow any Amplify app subdomain (e.g., preview branches) over HTTPS
     ],
     # Accept any Amplify app subdomain (e.g., preview branches) over HTTPS
     allow_origin_regex=r"https://.*\.amplifyapp\.com",

@@ -1,5 +1,8 @@
 import axios, { type AxiosRequestHeaders } from 'axios';
 
+// API URL configuration: Use environment variable for production, default to localhost for development
+// In production (AWS Amplify), set REACT_APP_API_URL to your API Gateway URL
+// Example: REACT_APP_API_URL=https://han6e7iv6e.execute-api.us-east-1.amazonaws.com
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 // Create axios instance with default config
