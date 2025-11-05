@@ -24,7 +24,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.9'  # Match Lambda runtime
+          python-version: '3.11'  # Match Lambda runtime
 
       - name: Package backend for Lambda
         run: |
@@ -59,11 +59,18 @@ jobs:
           # Upload to S3
           aws s3 cp lambda_deployment.zip s3://trustworthy-registry-lambda-deployment-us-east-1/lambda_deployment.zip
           
-          # Update Lambda function
+          # Update Lambda function code
           aws lambda update-function-code \
             --function-name trustworthy-model-registry \
             --s3-bucket trustworthy-registry-lambda-deployment-us-east-1 \
             --s3-key lambda_deployment.zip
+          
+          # Update Lambda function configuration (environment variables, timeout, memory)
+          aws lambda update-function-configuration \
+            --function-name trustworthy-model-registry \
+            --timeout 60 \
+            --memory-size 1024 \
+            --environment "Variables={USE_SQLITE=0,ENVIRONMENT=production,LOG_LEVEL=INFO}"
           
           echo "✅ Lambda function updated successfully!"
 

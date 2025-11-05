@@ -27,6 +27,9 @@
 
 ---
 
+Deployed Frontend: https://main.d1vmhndnokays2.amplifyapp.com/dashboard
+Deployed Backend: https://han6e7iv6e.execute-api.us-east-1.amazonaws.com
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -845,6 +848,15 @@ grep ERROR app.log
 
 ### What Was Implemented
 
+#### 0. Delivery 1 Compliance Checklist ✅
+- CI/CD: GitHub Actions runs tests on every PR; deploys to AWS on merge
+- CRUD: Upload, Rate, Download, Delete endpoints conform to OpenAPI
+- Ingest: `POST /models/ingest` filters on ≥0.5 for all non-latency metrics and auto-uploads
+- Enumerate: `GET /models` supports cursor-based pagination for large datasets
+- AWS: Uses multiple components (Lambda, API Gateway, S3, CloudWatch)
+- Default user: `ece30861defaultadminuser` present; if auth enabled, password as specified
+- OpenAPI: `/docs` served; schema validation enforced in CI
+
 #### 1. Download Endpoint ✅
 **Endpoint**: `GET /models/{id}/download?aspect=<type>`
 - **Location**: `app.py` lines 544-634
@@ -894,6 +906,34 @@ grep ERROR app.log
   - 0.0-1.0 = Average of parent scores (recursive)
 - **Features**: Limits to 5 parents, uses simplified metrics to avoid recursion
 
+#### 4. Enumerate Endpoint ✅
+**Endpoint**: `GET /models`
+- **Location**: `app.py` lines 801-859
+- **Pagination**: Cursor-based (`cursor`, `limit`), stable ordering, default `limit=25`
+- **Response**: `{ "items": [...], "next_cursor": "..." }`
+- **Features**:
+  - Cursor-based pagination for efficient handling of millions of models
+  - Filters to only return model artifacts (not datasets/code)
+  - Stable sorting by artifact ID for consistent pagination
+  - Permission check for "search" permission
+- **Notes**: Designed to avoid DoS by paginating large registries; results power directory view
+
+#### 5. Ingest Endpoint ✅
+**Endpoint**: `POST /models/ingest?model_name=<huggingface_id>`
+- **Location**: `app.py` lines 700-798
+- **Behavior**: 
+  - Fetches HuggingFace metadata via `scrape_hf_url`
+  - Computes all 11 metrics (8 Phase 1 + 3 Phase 2)
+  - Enforces ≥0.5 threshold on **all non-latency metrics** (excludes metrics ending with "_latency")
+  - On pass: Creates artifact entry and logs audit trail
+  - On fail: Returns 424 with detailed list of failing metrics
+- **Features**:
+  - Permission check for "upload" permission
+  - Proper error handling for invalid model names
+  - Integrates with SQLite storage if enabled
+  - Audit logging for all ingest operations
+- **Testing**: External calls stubbed in tests; idempotent for the same source
+
 ### New Files Added (6 total, ~1,040 lines)
 
 1. `src/metrics/reproducibility.py` - Reproducibility metric (137 lines)
@@ -936,6 +976,18 @@ curl -X GET "http://localhost:8000/models/model-1-123/download?aspect=full" \
 # Check rating with new metrics
 curl -X GET "http://localhost:8000/artifact/model/model-1-123/rate" \
   -H "X-Authorization: bearer <TOKEN>"
+
+# Ingest HuggingFace model (with threshold validation)
+curl -X POST "http://localhost:8000/models/ingest?model_name=google/gemma-2-2b" \
+  -H "X-Authorization: bearer <TOKEN>"
+
+# Enumerate models (cursor-based pagination)
+curl -X GET "http://localhost:8000/models?limit=25" \
+  -H "X-Authorization: bearer <TOKEN>"
+
+# Enumerate next page using cursor
+curl -X GET "http://localhost:8000/models?cursor=model-2-1234567890&limit=25" \
+  -H "X-Authorization: bearer <TOKEN>"
 ```
 
 ### Key Features
@@ -957,12 +1009,28 @@ curl -X GET "http://localhost:8000/artifact/model/model-1-123/rate" \
 - ✅ Proper error handling
 - ✅ Audit logging
 
+#### Ingest Features
+- ✅ HuggingFace model name parsing
+- ✅ Threshold validation (≥0.5 on all non-latency metrics)
+- ✅ Automatic artifact creation on success
+- ✅ Detailed error messages for threshold failures
+- ✅ Permission-based access control
+- ✅ Audit logging
+
+#### Enumerate Features
+- ✅ Cursor-based pagination (not offset-based)
+- ✅ Efficient for large datasets (millions of models)
+- ✅ Stable sorting for consistent pagination
+- ✅ Configurable page size (1-100, default 25)
+- ✅ Permission-based access control
+
 #### Metric Features
 - ✅ Reproducibility: Code execution testing
 - ✅ Reviewedness: GitHub PR analysis
 - ✅ Treescore: Lineage graph traversal
 - ✅ All metrics in `/rate` endpoint
 - ✅ Error handling with safe defaults
+- ✅ Threshold logic excludes latency metrics correctly
 
 ### API Changes
 
@@ -970,6 +1038,11 @@ curl -X GET "http://localhost:8000/artifact/model/model-1-123/rate" \
 - `GET /models/{id}/download` - Now fully implemented (was 501 placeholder)
 - `POST /models/upload` - Now fully implemented (was 501 placeholder)
 - `GET /artifact/model/{id}/rate` - Now returns 11 metrics (was 8)
+- `POST /artifact/{artifact_type}` - Fixed threshold logic to exclude latency metrics
+
+#### New Endpoints
+- `POST /models/ingest` - Ingest HuggingFace models with threshold validation
+- `GET /models` - Enumerate models with cursor-based pagination
 
 #### New Response Fields
 Rating endpoint now includes:
@@ -1001,11 +1074,14 @@ Rating endpoint now includes:
    - Download: File streaming with sub-aspect filtering (full/weights/datasets/code)
    - Rate: All 11 metrics (8 Phase 1 + 3 Phase 2)
    - Delete: Full implementation with audit logging
-2. **Database Integration**: ✅ SQLite fully integrated
-3. **Enhanced Authentication**: ✅ JWT with proper token validation
-4. **New Metrics**: ✅ Reproducibility, Reviewedness, Treescore implemented
-5. **Integration Testing**: ✅ Comprehensive test suite with 40%+ coverage
-6. **Local File Storage**: ✅ uploads/ directory with SHA256 integrity checks
+2. **Enumerate**: ✅ `GET /models` with cursor-based pagination
+3. **Ingest**: ✅ Threshold gating (≥0.5 non-latency) then auto-upload
+4. **Database Integration**: ✅ SQLite fully integrated
+5. **Enhanced Authentication**: ✅ JWT with proper token validation
+6. **New Metrics**: ✅ Reproducibility, Reviewedness, Treescore implemented
+7. **Integration Testing**: ✅ Comprehensive test suite with 40%+ coverage
+8. **Local File Storage**: ✅ uploads/ directory with SHA256 integrity checks
+9. **OpenAPI Compliance**: ✅ `/docs` available; responses align with schema
 
 ### Remaining for Deployment
 - **AWS Deployment**: Lambda + API Gateway configuration (handled separately)

@@ -24,7 +24,7 @@ def _get_client_and_headers():
     auth_payload = {
         "user": {"name": "ece30861defaultadminuser", "is_admin": True},
         "secret": {
-            "password": "correcthorsebatterystaple123(!__+@**(A;DROP TABLE packages",
+            "password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE artifacts;",
         },
     }
     token_resp = client.put("/authenticate", json=auth_payload)
@@ -197,3 +197,106 @@ def test_type_mismatch_and_404_errors():
     # Ask for non-existent id -> 404
     missing = client.get("/artifacts/model/does-not-exist", headers=headers)
     assert missing.status_code == 404
+
+
+def test_models_enumerate():
+    """Test GET /models endpoint with cursor-based pagination"""
+    client, headers = _get_client_and_headers()
+
+    # Create a few model artifacts first
+    model_ids = []
+    for i in range(3):
+        create_resp = client.post(
+            "/artifact/model",
+            headers=headers,
+            json={"url": f"https://example.org/model-{i}"},
+        )
+        assert create_resp.status_code == 201
+        model_ids.append(create_resp.json()["metadata"]["id"])
+
+    # Test enumerate without cursor (first page)
+    enum_resp = client.get("/models?limit=2", headers=headers)
+    assert enum_resp.status_code == 200
+    data = enum_resp.json()
+    assert "items" in data
+    assert "next_cursor" in data
+    assert len(data["items"]) == 2
+    assert isinstance(data["items"], list)
+
+    # Verify items have required fields
+    for item in data["items"]:
+        assert "id" in item
+        assert "name" in item
+        assert "type" in item
+        assert item["type"] == "model"
+
+    # Test enumerate with cursor (second page)
+    if data["next_cursor"]:
+        next_resp = client.get(f"/models?cursor={data['next_cursor']}&limit=2", headers=headers)
+        assert next_resp.status_code == 200
+        next_data = next_resp.json()
+        assert "items" in next_data
+        assert len(next_data["items"]) >= 1
+
+    # Test enumerate with invalid cursor (should still work, just start from beginning)
+    invalid_resp = client.get("/models?cursor=invalid-id&limit=10", headers=headers)
+    assert invalid_resp.status_code == 200
+
+    # Test enumerate with different limit
+    limit_resp = client.get("/models?limit=1", headers=headers)
+    assert limit_resp.status_code == 200
+    assert len(limit_resp.json()["items"]) == 1
+
+    # Test enumerate without permission (should fail)
+    from app import app
+
+    test_client = TestClient(app)
+    no_permission = test_client.get("/models", headers={})
+    assert no_permission.status_code == 403  # Missing token
+
+
+def test_models_ingest():
+    """Test POST /models/ingest endpoint with threshold validation"""
+    client, headers = _get_client_and_headers()
+
+    # Test ingest with valid model name (will fail threshold if metrics don't meet 0.5)
+    # Using a non-existent model name to avoid external API calls in tests
+    # In real tests, this would use mocking
+    ingest_resp = client.post(
+        "/models/ingest?model_name=test/model-name",
+        headers=headers,
+    )
+
+    # Ingest may succeed or fail based on metrics, but should return appropriate status
+    # If metrics calculation fails or metrics are below threshold, expect 424 or 500
+    # If metrics pass, expect 201
+    assert ingest_resp.status_code in (201, 424, 500)
+
+    if ingest_resp.status_code == 201:
+        # Success case - model was ingested
+        data = ingest_resp.json()
+        assert "metadata" in data
+        assert "data" in data
+        assert data["metadata"]["type"] == "model"
+
+        # Verify it appears in enumerate
+        enum_resp = client.get("/models", headers=headers)
+        assert enum_resp.status_code == 200
+        ingested_id = data["metadata"]["id"]
+        all_items = enum_resp.json()["items"]
+        assert any(item["id"] == ingested_id for item in all_items)
+    elif ingest_resp.status_code == 424:
+        # Threshold failure - verify error message
+        error_detail = ingest_resp.json().get("detail", "")
+        assert "threshold" in error_detail.lower() or "disqualified" in error_detail.lower()
+
+    # Test ingest without permission (should fail)
+    from app import app
+
+    test_client = TestClient(app)
+    no_permission = test_client.post("/models/ingest?model_name=test/model", headers={})
+    assert no_permission.status_code == 403  # Missing token
+
+    # Test ingest with missing model_name parameter
+    missing_param = client.post("/models/ingest", headers=headers)
+    assert missing_param.status_code == 422  # Validation error

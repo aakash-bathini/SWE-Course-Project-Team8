@@ -166,13 +166,8 @@ async def metric(ctx: EvalContext) -> float:
         logging.info(
             f"High-engagement model detected (downloads: {downloads}, likes: {likes}), boosting ramp-up score"
         )
-        # Boost the score significantly for well-known models
-        total_score = min(1.0, total_score + 0.4)  # Add substantial boost
+        # Boost the score significantly for well-known models (includes documentation boost)
+        total_score = min(1.0, total_score + 0.55)  # Combined boost for high-engagement models
         logging.info(f"Enhanced ramp-up score: {total_score:.3f}")
-
-    # Models with excellent documentation typically have better ramp-up time
-    if downloads > 1000000 or likes > 1000:  # Very popular models
-        total_score = min(1.0, total_score + 0.15)  # Add boost for well-documented models
-        logging.info(f"Well-documented model detected, boosting ramp-up score to {total_score:.3f}")
 
     return round(total_score, 2)

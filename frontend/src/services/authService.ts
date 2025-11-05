@@ -9,6 +9,29 @@ interface LoginResponse {
   token: string;
 }
 
+// Simple JWT payload decoder (Milestone 3)
+// Note: We don't verify the signature here - backend validates on each request
+function decodeJWT(token: string): { sub?: string; permissions?: string[] } | null {
+  try {
+    // Remove 'bearer ' prefix if present
+    const cleanToken = token.replace(/^bearer\s+/i, '');
+    
+    // JWT format: header.payload.signature
+    const parts = cleanToken.split('.');
+    if (parts.length !== 3) {
+      return null;
+    }
+    
+    // Decode payload (base64url)
+    const payload = parts[1];
+    const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(decoded);
+  } catch (error) {
+    console.error('JWT decode failed:', error);
+    return null;
+  }
+}
+
 export const authService = {
   async login(username: string, password: string, isAdmin = false): Promise<LoginResponse> {
     const credentials: AuthenticationRequest = {
@@ -22,21 +45,24 @@ export const authService = {
     };
     
     const tokenString = await apiService.authenticateUser(credentials);
-    // Store raw string token
+    // Store raw string token (includes 'bearer ' prefix)
     localStorage.setItem('token', tokenString);
     return { token: tokenString };
   },
 
   async verifyToken(token: string): Promise<User | null> {
     try {
-      // Delivery 1 behavior: backend returns a raw string token (already includes 'bearer ')
-      // Accept any non-empty string as authenticated and provide default admin permissions.
-      // Future Milestone: replace with actual verify endpoint and claims parsing.
+      // Milestone 3: Decode JWT token to extract user info
       if (typeof token === 'string' && token.trim().length > 0) {
-        return {
-          username: 'ece30861defaultadminuser',
-          permissions: ['upload', 'search', 'download', 'admin'],
-        };
+        const decoded = decodeJWT(token);
+        if (decoded && decoded.sub) {
+          return {
+            username: decoded.sub,
+            permissions: decoded.permissions || [],
+          };
+        }
+        // Fallback for invalid tokens (shouldn't happen, but handle gracefully)
+        return null;
       }
       return null;
     } catch (error) {
@@ -50,7 +76,14 @@ export const authService = {
     password: string;
     permissions: string[];
   }): Promise<any> {
+    // Milestone 3: Admin-only user registration
     const response = await apiService.registerUser(userData);
+    return response;
+  },
+
+  async deleteUser(username: string): Promise<any> {
+    // Milestone 3: User deletion (users can delete own, admins can delete any)
+    const response = await apiService.deleteUser(username);
     return response;
   },
 

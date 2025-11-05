@@ -14,8 +14,15 @@ def ensure_schema(db: Session) -> None:
 
 
 def upsert_default_admin(db: Session, username: str, password: str, permissions: List[str]) -> None:
+    """Create or update default admin user"""
     user = db.get(models.User, username)
-    if not user:
+    if user:
+        # Update existing user
+        user.password = password  # type: ignore[assignment]
+        user.is_admin = True  # type: ignore[assignment]
+        user.permissions = ",".join(permissions)  # type: ignore[assignment]
+    else:
+        # Create new user
         user = models.User(
             username=username,
             password=password,
@@ -23,7 +30,7 @@ def upsert_default_admin(db: Session, username: str, password: str, permissions:
             permissions=",".join(permissions),
         )
         db.add(user)
-        db.commit()
+    db.commit()
 
 
 def create_artifact(
@@ -108,6 +115,10 @@ def list_audit(db: Session, artifact_id: str) -> List[models.AuditEntry]:
 
 
 def reset_registry(db: Session) -> None:
+    """Reset registry - clear all artifacts and audit entries"""
+    # Clear all artifacts and audit entries
     db.query(models.AuditEntry).delete()
     db.query(models.Artifact).delete()
+    # Clear all users except default admin (will be recreated by caller)
+    db.query(models.User).delete()
     db.commit()
