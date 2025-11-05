@@ -109,8 +109,7 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
 
   useEffect(() => {
     fetchList();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // Empty deps array is intentional - only run on mount
 
   return (
     <Container maxWidth="lg">
