@@ -222,7 +222,7 @@ def test_models_enumerate():
     assert "next_cursor" in data
     assert len(data["items"]) == 2
     assert isinstance(data["items"], list)
-    
+
     # Verify items have required fields
     for item in data["items"]:
         assert "id" in item
@@ -249,6 +249,7 @@ def test_models_enumerate():
 
     # Test enumerate without permission (should fail)
     from app import app
+
     test_client = TestClient(app)
     no_permission = test_client.get("/models", headers={})
     assert no_permission.status_code == 403  # Missing token
@@ -265,19 +266,19 @@ def test_models_ingest():
         "/models/ingest?model_name=test/model-name",
         headers=headers,
     )
-    
+
     # Ingest may succeed or fail based on metrics, but should return appropriate status
     # If metrics calculation fails or metrics are below threshold, expect 424 or 500
     # If metrics pass, expect 201
     assert ingest_resp.status_code in (201, 424, 500)
-    
+
     if ingest_resp.status_code == 201:
         # Success case - model was ingested
         data = ingest_resp.json()
         assert "metadata" in data
         assert "data" in data
         assert data["metadata"]["type"] == "model"
-        
+
         # Verify it appears in enumerate
         enum_resp = client.get("/models", headers=headers)
         assert enum_resp.status_code == 200
@@ -291,6 +292,7 @@ def test_models_ingest():
 
     # Test ingest without permission (should fail)
     from app import app
+
     test_client = TestClient(app)
     no_permission = test_client.post("/models/ingest?model_name=test/model", headers={})
     assert no_permission.status_code == 403  # Missing token

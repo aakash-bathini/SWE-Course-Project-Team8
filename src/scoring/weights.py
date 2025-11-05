@@ -20,11 +20,11 @@ def get_weights() -> dict[str, float]:
 def calculate_net_score(metrics: dict[str, float]) -> float:
     """
     Calculate net score using the defined weights
-    
-    Only includes Phase 1 metrics per plan requirements. Phase 2 metrics 
-    (reproducibility, reviewedness, treescore) are tracked separately and 
+
+    Only includes Phase 1 metrics per plan requirements. Phase 2 metrics
+    (reproducibility, reviewedness, treescore) are tracked separately and
     not included in NetScore calculation.
-    
+
     Note: Metrics with invalid values (e.g., -1.0 for reviewedness when no GitHub repo)
     are automatically excluded as they are not in the weights dictionary.
     """

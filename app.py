@@ -13,6 +13,7 @@ from src.auth.jwt_auth import auth as jwt_auth
 import os
 import uvicorn
 import logging
+import hashlib
 from datetime import datetime
 from enum import Enum
 from mangum import Mangum
@@ -72,10 +73,10 @@ if USE_SQLITE:
     # Ensure schema exists
     Base.metadata.create_all(bind=engine)
 
-# Default admin user
+# Default admin user - password matches OpenAPI spec exactly
 DEFAULT_ADMIN = {
     "username": "ece30861defaultadminuser",
-    "password": "correcthorsebatterystaple123(!__+@**(A;DROP TABLE packages",
+    "password": "correcthorsebatterystaple123(!__+@**(A'\";DROP TABLE artifacts;",
     "permissions": ["upload", "search", "download", "admin"],
     "created_at": datetime.now().isoformat(),
 }
@@ -271,7 +272,11 @@ class HealthComponentCollection(BaseModel):
     window_minutes: Optional[int] = None
 
 
-# Authentication functions (simplified for Milestone 1)
+# Server-side token call count tracking (Milestone 3 requirement: 1000 calls or 10 hours)
+token_call_counts: Dict[str, int] = {}  # token_hash -> call_count
+
+
+# Authentication functions (Milestone 3 - with call count tracking)
 def verify_token(
     x_authorization: Optional[str] = Header(None, alias="X-Authorization"),
     authorization: Optional[str] = Header(None, alias="Authorization"),
@@ -305,6 +310,24 @@ def verify_token(
             detail="Authentication failed due to invalid or missing AuthenticationToken.",
         )
 
+    # Track call count server-side (Milestone 3 requirement: 1000 calls or 10 hours)
+    # Use token hash as key to track calls
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+
+    # Get or initialize call count
+    current_calls = token_call_counts.get(token_hash, payload.get("call_count", 0))
+
+    # Check if exceeded max calls
+    max_calls = payload.get("max_calls", 1000)
+    if current_calls >= max_calls:
+        raise HTTPException(
+            status_code=403,
+            detail="Authentication failed due to invalid or missing AuthenticationToken.",
+        )
+
+    # Increment call count
+    token_call_counts[token_hash] = current_calls + 1
+
     username = str(payload.get("sub", DEFAULT_ADMIN["username"]))
     permissions = payload.get("permissions", DEFAULT_ADMIN["permissions"])  # type: ignore[assignment]
     return {"username": username, "permissions": permissions}
@@ -315,11 +338,11 @@ def check_permission(user: Dict[str, Any], required_permission: str) -> bool:
     return required_permission in user.get("permissions", [])
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against its hash"""
-    # For demo purposes, simple string comparison
-    # In production, use proper password hashing
-    return plain_password == hashed_password
+# User registration request model (Milestone 3)
+class UserRegistrationRequest(BaseModel):
+    username: str
+    password: str
+    permissions: List[str]
 
 
 # API Endpoints matching OpenAPI spec v3.3.1
@@ -588,14 +611,100 @@ async def verify_token_placeholder() -> Dict[str, str]:
     )
 
 
+# User registration endpoint (Milestone 3 - admin only)
+@app.post("/register")
+async def register_user(
+    request: UserRegistrationRequest, user: Dict[str, Any] = Depends(verify_token)
+):
+    """Register a new user (Milestone 3 - admin only)"""
+    # Only admins can register users
+    if not check_permission(user, "admin"):
+        raise HTTPException(status_code=401, detail="You do not have permission to register users.")
+
+    # Check if user already exists
+    if request.username in users_db:
+        raise HTTPException(status_code=409, detail="User already exists.")
+
+    # Hash password with bcrypt (Milestone 3 requirement)
+    hashed_password = jwt_auth.get_password_hash(request.password)
+
+    # Create user entry
+    new_user = {
+        "username": request.username,
+        "password": hashed_password,
+        "permissions": request.permissions,
+        "created_at": datetime.now().isoformat(),
+        "is_admin": "admin" in request.permissions,
+    }
+
+    users_db[request.username] = new_user
+
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            from src.db import models as db_models
+
+            db_user = db_models.User(
+                username=request.username,
+                password=hashed_password,
+                is_admin="admin" in request.permissions,
+                permissions=",".join(request.permissions),
+            )
+            _db.add(db_user)
+            _db.commit()
+
+    return {"message": "User registered successfully."}
+
+
+# User deletion endpoint (Milestone 3)
+@app.delete("/user/{username}")
+async def delete_user(username: str, user: Dict[str, Any] = Depends(verify_token)):
+    """Delete a user (Milestone 3 - users can delete own account, admins can delete any)"""
+    # Users can delete their own account, admins can delete any account
+    if username != user["username"] and not check_permission(user, "admin"):
+        raise HTTPException(
+            status_code=401, detail="You do not have permission to delete this user."
+        )
+
+    # Prevent deleting default admin
+    if username == DEFAULT_ADMIN["username"]:
+        raise HTTPException(status_code=400, detail="Cannot delete default admin user.")
+
+    if username not in users_db:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    del users_db[username]
+
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            from src.db import models as db_models
+
+            db_user = _db.get(db_models.User, username)
+            if db_user:
+                _db.delete(db_user)
+                _db.commit()
+
+    return {"message": "User deleted successfully."}
+
+
 # Authentication endpoint
 @app.put("/authenticate", response_model=str)
 async def create_auth_token(request: AuthenticationRequest) -> str:
-    """Create an access token (Delivery 1)"""
+    """Create an access token (Milestone 3 - with proper validation)"""
     # Validate user credentials against in-memory/SQLite user store
     user_data = users_db.get(request.user.name)
-    if not user_data or not verify_password(request.secret.password, user_data.get("password", "")):
+    if not user_data:
         raise HTTPException(status_code=401, detail="The user or password is invalid.")
+
+    # Use bcrypt for password verification (Milestone 3 requirement)
+    stored_password = user_data.get("password", "")
+    if isinstance(stored_password, str) and stored_password.startswith("$2b$"):
+        # Password is hashed, use bcrypt verification
+        if not jwt_auth.verify_password(request.secret.password, stored_password):
+            raise HTTPException(status_code=401, detail="The user or password is invalid.")
+    else:
+        # Plain text password (for default admin during migration)
+        if request.secret.password != stored_password:
+            raise HTTPException(status_code=401, detail="The user or password is invalid.")
 
     # Issue JWT containing subject and permissions
     payload = {
@@ -620,9 +729,27 @@ async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
 
     artifacts_db.clear()
     audit_log.clear()
+
+    # Clear token call counts on reset
+    token_call_counts.clear()
+
+    # Clear users but preserve default admin (per spec requirement)
+    users_db.clear()
+
+    # Recreate default admin user
+    admin_username: str = str(DEFAULT_ADMIN["username"])
+    users_db[admin_username] = DEFAULT_ADMIN.copy()
+
     if USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             db_crud.reset_registry(_db)
+            # Recreate default admin in database
+            db_crud.upsert_default_admin(
+                _db,
+                username=str(DEFAULT_ADMIN["username"]),
+                password=str(DEFAULT_ADMIN["password"]),
+                permissions=list(DEFAULT_ADMIN["permissions"]),  # type: ignore[arg-type]
+            )
 
     return {"message": "Registry is reset."}
 
@@ -705,41 +832,43 @@ async def models_ingest(
     """Ingest a HuggingFace model after validating it meets 0.5 threshold on all non-latency metrics (BASELINE)"""
     if not check_permission(user, "upload"):
         raise HTTPException(status_code=401, detail="You do not have permission to ingest models.")
-    
+
     # Construct HuggingFace URL
     hf_url = f"https://huggingface.co/{model_name}"
-    
+
     try:
         # Scrape HuggingFace data
         hf_data, repo_type = scrape_hf_url(hf_url)
         model_data = {"url": hf_url, "hf_data": [hf_data], "gh_data": []}
-        
+
         # Calculate all metrics
         metrics = await calculate_phase2_metrics(model_data)
-        
+
         # Filter out latency metrics - only check non-latency metrics for threshold
         # Latency metrics have "_latency" suffix or are "net_score_latency", "size_score_latency", etc.
         non_latency_metrics = {
-            k: v for k, v in metrics.items() 
+            k: v
+            for k, v in metrics.items()
             if not k.endswith("_latency") and k != "net_score_latency"
         }
-        
+
         # Check threshold: all non-latency metrics must be >= 0.5
         failing_metrics = [
-            k for k, v in non_latency_metrics.items() 
+            k
+            for k, v in non_latency_metrics.items()
             if isinstance(v, (int, float)) and float(v) < 0.5
         ]
-        
+
         if failing_metrics:
             raise HTTPException(
                 status_code=424,
                 detail=f"Model does not meet 0.5 threshold requirement. Failing metrics: {', '.join(failing_metrics)}",
             )
-        
+
         # Model passed threshold - proceed with ingest (create artifact)
         artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
         model_display_name = model_name.split("/")[-1] if "/" in model_name else model_name
-        
+
         artifact_entry = {
             "metadata": {
                 "name": model_display_name,
@@ -751,9 +880,9 @@ async def models_ingest(
             "created_by": user["username"],
             "hf_model_name": model_name,
         }
-        
+
         artifacts_db[artifact_id] = artifact_entry
-        
+
         if USE_SQLITE:
             with next(get_db()) as _db:  # type: ignore[misc]
                 db_crud.create_artifact(
@@ -763,7 +892,7 @@ async def models_ingest(
                     type_="model",
                     url=hf_url,
                 )
-        
+
         # Log audit entry
         audit_log.append(
             {
@@ -773,7 +902,7 @@ async def models_ingest(
                 "action": "INGEST",
             }
         )
-        
+
         if USE_SQLITE:
             with next(get_db()) as _db:  # type: ignore[misc]
                 art_row = db_crud.get_artifact(_db, artifact_id)
@@ -785,12 +914,12 @@ async def models_ingest(
                         user_is_admin=user.get("is_admin", False),
                         action="INGEST",
                     )
-        
+
         return Artifact(
             metadata=ArtifactMetadata(**artifact_entry["metadata"]),
             data=ArtifactData(url=artifact_entry["data"]["url"]),
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -807,10 +936,10 @@ async def models_enumerate(
     """Enumerate models with cursor-based pagination (BASELINE)"""
     if not check_permission(user, "search"):
         raise HTTPException(status_code=401, detail="You do not have permission to search models.")
-    
+
     # Get all model artifacts
     all_models: List[ArtifactMetadata] = []
-    
+
     if USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             # Query only models from database
@@ -831,10 +960,10 @@ async def models_enumerate(
                         type=ArtifactType(artifact_data["metadata"]["type"]),
                     )
                 )
-    
+
     # Sort by ID for stable pagination
     all_models.sort(key=lambda x: x.id)
-    
+
     # Cursor-based pagination
     start_idx = 0
     if cursor:
@@ -843,16 +972,16 @@ async def models_enumerate(
             if model.id == cursor:
                 start_idx = idx + 1
                 break
-    
+
     # Get the page of results
     end_idx = min(start_idx + limit, len(all_models))
     page_models = all_models[start_idx:end_idx]
-    
+
     # Determine next cursor
     next_cursor = None
     if end_idx < len(all_models):
         next_cursor = page_models[-1].id if page_models else None
-    
+
     return {
         "items": [model.model_dump() for model in page_models],
         "next_cursor": next_cursor,
@@ -876,12 +1005,14 @@ async def artifact_create(
                 metrics = await calculate_phase2_metrics(model_data)
                 # Filter out latency metrics - only check non-latency metrics for threshold
                 non_latency_metrics = {
-                    k: v for k, v in metrics.items() 
+                    k: v
+                    for k, v in metrics.items()
                     if not k.endswith("_latency") and k != "net_score_latency"
                 }
                 # Require all available non-latency metrics to be at least 0.5
                 failing_metrics = [
-                    k for k, v in non_latency_metrics.items() 
+                    k
+                    for k, v in non_latency_metrics.items()
                     if isinstance(v, (int, float)) and float(v) < 0.5
                 ]
                 if failing_metrics:
