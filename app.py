@@ -813,7 +813,7 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
                     stored_password[:backtick_pos] + stored_password[backtick_pos + 1 :]
                 )
                 if request.secret.password == stored_without_backtick:
-                    print(f"DEBUG: Password matches 62-char variant (missing backtick)")
+                    print("DEBUG: Password matches 62-char variant (missing backtick)")
                     password_matches = True
 
         if not password_matches:
