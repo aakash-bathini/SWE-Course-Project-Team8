@@ -24,7 +24,7 @@ def client_and_token():
     auth_payload = {
         "user": {"name": "ece30861defaultadminuser", "is_admin": True},
         "secret": {
-            "password": "correcthorsebatterystaple123(!__+@**(A'\";DROP TABLE artifacts;",
+            "password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE artifacts;",
         },
     }
     token_resp = client.put("/authenticate", json=auth_payload)

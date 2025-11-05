@@ -77,7 +77,7 @@ if USE_SQLITE:
 # Default admin user - password matches OpenAPI spec exactly
 DEFAULT_ADMIN = {
     "username": "ece30861defaultadminuser",
-    "password": "correcthorsebatterystaple123(!__+@**(A'\";DROP TABLE artifacts;",
+    "password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE artifacts;",
     "permissions": ["upload", "search", "download", "admin"],
     "created_at": datetime.now().isoformat(),
 }
