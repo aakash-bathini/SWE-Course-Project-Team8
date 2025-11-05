@@ -20,6 +20,7 @@ import {
   People,
   Security,
 } from '@mui/icons-material';
+import apiService from '../services/apiService';
 
 interface User {
   username: string;
@@ -51,18 +52,15 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
 
   const fetchSystemStats = async () => {
     try {
-      const response = await fetch('/health');
-      if (response.ok) {
-        const data = await response.json();
-        setStats({
-          modelsCount: data.models_count,
-          usersCount: data.users_count,
-          lastHourActivity: data.last_hour_activity,
-        });
-      } else {
-        setError('Failed to fetch system statistics');
-      }
+      const data = await apiService.getHealth();
+      setStats({
+        modelsCount: data.models_count,
+        usersCount: data.users_count,
+        lastHourActivity: data.last_hour_activity,
+      });
+      setError('');
     } catch (err) {
+      console.error('Failed to fetch system statistics:', err);
       setError('Error connecting to the system');
     } finally {
       setLoading(false);
