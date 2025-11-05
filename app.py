@@ -1520,7 +1520,18 @@ async def get_tracks() -> Dict[str, List[str]]:
 # app.mount("/static", StaticFiles(directory="frontend/public"), name="static")
 
 # Create Mangum handler for Lambda
-handler = Mangum(app, lifespan="off")
+try:
+    handler = Mangum(app, lifespan="off")
+except Exception as e:
+    logger.error(f"Failed to create Mangum handler: {e}", exc_info=True)
+
+    # Create a fallback handler that returns errors
+    def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # type: ignore[misc]
+        return {
+            "statusCode": 500,
+            "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+            "body": '{"message":"Internal Server Error"}',
+        }
 
 
 # Lambda handler wrapper with error handling
