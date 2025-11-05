@@ -770,10 +770,15 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
     if isinstance(stored_password, str) and stored_password.startswith("$2b$"):
         # Password is hashed, use bcrypt verification
         if not jwt_auth.verify_password(request.secret.password, stored_password):
+            logger.warning(f"Password verification failed for user: {request.user.name}")
             raise HTTPException(status_code=401, detail="The user or password is invalid.")
     else:
         # Plain text password (for default admin during migration)
         if request.secret.password != stored_password:
+            logger.warning(
+                f"Plain text password mismatch for user: {request.user.name}. "
+                f"Expected length: {len(stored_password)}, Got length: {len(request.secret.password)}"
+            )
             raise HTTPException(status_code=401, detail="The user or password is invalid.")
 
     # Issue JWT containing subject and permissions
