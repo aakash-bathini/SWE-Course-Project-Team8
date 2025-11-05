@@ -495,9 +495,7 @@ async def root() -> Dict[str, str]:
     return {"message": "Trustworthy Model Registry API"}
 
 
-# -------------------------
-# Known deferrals (Delivery 1): explicit placeholders
-# -------------------------
+# Model upload and download endpoints
 
 
 @app.post("/models/upload", response_model=Artifact, status_code=201)
@@ -574,17 +572,16 @@ async def models_upload(
             }
         )
 
-        # Trigger metrics calculation asynchronously (don't wait for completion)
-        try:
-            model_data = {
-                "url": f"local://{artifact_id}",
-                "hf_data": [{"readme_text": readme_text}] if readme_text else [],
-                "gh_data": [],
-            }
-            # Note: metrics will run in background, results stored separately if needed
-            _ = await calculate_phase2_metrics(model_data)
-        except Exception as e:
-            logger.warning(f"Metrics calculation failed for uploaded model: {e}")
+            # Trigger metrics calculation
+            try:
+                model_data = {
+                    "url": f"local://{artifact_id}",
+                    "hf_data": [{"readme_text": readme_text}] if readme_text else [],
+                    "gh_data": [],
+                }
+                await calculate_phase2_metrics(model_data)
+            except Exception as e:
+                logger.warning(f"Metrics calculation failed for uploaded model: {e}")
 
         return Artifact(
             metadata=ArtifactMetadata(**artifact_entry["metadata"]),
@@ -668,11 +665,11 @@ async def models_download(
 
 
 @app.get("/verify-token")
-async def verify_token_placeholder() -> Dict[str, str]:
-    """Placeholder: tokens are validated per request in Delivery 1."""
+async def verify_token_endpoint() -> Dict[str, str]:
+    """Token verification endpoint (tokens are validated per request)"""
     raise HTTPException(
         status_code=501,
-        detail="No standalone token verification endpoint in Delivery 1; tokens are validated per request.",
+        detail="No standalone token verification endpoint; tokens are validated per request.",
     )
 
 
@@ -1606,20 +1603,9 @@ async def get_tracks() -> Dict[str, List[str]]:
     }
 
 
-# Favicon route
-# @app.get("/favicon.ico")
-# @app.head("/favicon.ico")
-# async def favicon():
-#     """Serve the favicon"""
-#     return FileResponse("frontend/public/favicon.ico")
-
-
-# Mount static files to serve favicon and other static assets
-# app.mount("/static", StaticFiles(directory="frontend/public"), name="static")
-
-# Create Mangum handler for Lambda
+# Lambda handler initialization
 # This is the entry point that Lambda calls (configured as app.handler)
-# Per Stack Overflow: Lambda must return statusCode (int), headers (dict), body (string)
+# Lambda must return statusCode (int), headers (dict), body (string)
 logger.info("Initializing Mangum handler for Lambda...")
 sys.stdout.flush()
 _mangum_handler: Optional[Mangum] = None

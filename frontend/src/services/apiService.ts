@@ -112,9 +112,32 @@ export interface ModelRating {
   size_score_latency: number;
 }
 
-export interface ArtifactCost {
-  total_cost: number;
-  standalone_cost?: number;
+export interface HealthComponent {
+  id: string;
+  display_name: string;
+  status: 'ok' | 'degraded' | 'down';
+  observed_at: string;
+  description: string;
+  metrics: Record<string, any>;
+  issues: string[];
+  logs: Array<{ label: string; url: string }>;
+  timeline?: Array<{ bucket: string; value: number; unit: string }>;
+}
+
+export interface HealthComponentsResponse {
+  components: HealthComponent[];
+  generated_at: string;
+  window_minutes: number;
+}
+
+export interface ArtifactAuditEntry {
+  user: {
+    name: string;
+    is_admin: boolean;
+  };
+  date: string;
+  artifact: ArtifactMetadata;
+  action: string;
 }
 
 export interface AuthenticationRequest {
@@ -148,6 +171,13 @@ export const apiService = {
   async getHealth() {
     const response = await apiClient.get('/health');
     return response.data;
+  },
+
+  async getHealthComponents(windowMinutes = 60, includeTimeline = false) {
+    const response = await apiClient.get('/health/components', {
+      params: { windowMinutes, includeTimeline },
+    });
+    return response.data as HealthComponentsResponse;
   },
 
   // Authentication
@@ -244,10 +274,34 @@ export const apiService = {
     return response.data;
   },
 
-  // Tracks
-  async getTracks() {
-    const response = await apiClient.get('/tracks');
-    return response.data;
+  // Artifact audit trail
+  async getArtifactAudit(artifactType: 'model' | 'dataset' | 'code', id: string): Promise<ArtifactAuditEntry[]> {
+    const response = await apiClient.get(`/artifact/${artifactType}/${id}/audit`);
+    return response.data as ArtifactAuditEntry[];
+  },
+
+  // Model file download (ZIP)
+  async downloadModel(id: string, aspect: 'full' | 'weights' | 'datasets' | 'code' = 'full'): Promise<Blob> {
+    const response = await apiClient.get(`/models/${id}/download`, {
+      params: { aspect },
+      responseType: 'blob',
+    });
+    return response.data as Blob;
+  },
+
+  // Model ZIP upload
+  async uploadModelZip(file: File, name?: string): Promise<Artifact> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (name) {
+      formData.append('name', name);
+    }
+    const response = await apiClient.post('/models/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data as Artifact;
   },
 
   // Legacy methods for backward compatibility (will be removed in future)
