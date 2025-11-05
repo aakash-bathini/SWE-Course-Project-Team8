@@ -65,12 +65,26 @@ jobs:
             --s3-bucket trustworthy-registry-lambda-deployment-us-east-1 \
             --s3-key lambda_deployment.zip
           
+          # Wait for function code update to complete before updating configuration
+          echo "Waiting for Lambda function code update to complete..."
+          aws lambda wait function-updated \
+            --function-name trustworthy-model-registry \
+            --max-attempts 30 \
+            --delay 2
+          
           # Update Lambda function configuration (environment variables, timeout, memory)
           aws lambda update-function-configuration \
             --function-name trustworthy-model-registry \
             --timeout 60 \
             --memory-size 1024 \
             --environment "Variables={USE_SQLITE=0,ENVIRONMENT=production,LOG_LEVEL=INFO}"
+          
+          # Wait for configuration update to complete
+          echo "Waiting for Lambda function configuration update to complete..."
+          aws lambda wait function-updated \
+            --function-name trustworthy-model-registry \
+            --max-attempts 30 \
+            --delay 2
           
           echo "✅ Lambda function updated successfully!"
 
