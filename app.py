@@ -1608,9 +1608,6 @@ async def get_tracks() -> Dict[str, List[str]]:
     """Get the list of tracks a student has planned to implement"""
     return {
         "plannedTracks": [
-            "Performance track",
-            "Access control track",
-            "High assurance track",
             "Other Security track",
         ]
     }
