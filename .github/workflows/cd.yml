@@ -28,10 +28,17 @@ jobs:
 
       - name: Package backend for Lambda
         run: |
-          # Install production dependencies (built on Linux, which matches Lambda's environment)
+          # Install production dependencies using Docker to match Lambda's environment exactly
+          # This ensures compiled extensions like pydantic_core work correctly
           mkdir -p lambda_package
-          pip install --upgrade pip setuptools wheel
-          pip install -r requirements-prod.txt -t lambda_package/ --no-cache-dir
+          
+          # Use Docker to build in Amazon Linux 2 (matching Lambda's environment)
+          docker run --rm -v $(pwd):/var/task \
+            public.ecr.aws/lambda/python:3.11 \
+            /bin/bash -c "
+            pip install --upgrade pip setuptools wheel -q
+            pip install -r /var/task/requirements-prod.txt -t /var/task/lambda_package/ --no-cache-dir
+            "
           
           # Copy application code
           cp app.py lambda_package/
@@ -40,10 +47,21 @@ jobs:
           # Verify critical dependencies are installed
           if [ ! -d "lambda_package/pydantic_core" ]; then
             echo "❌ ERROR: pydantic_core not found!"
-            ls -la lambda_package/ | grep pydantic
+            ls -la lambda_package/ | grep pydantic || echo "No pydantic packages found"
             exit 1
           fi
-          echo "✅ pydantic_core installed successfully"
+          
+          # Check if _pydantic_core.so exists (the compiled extension)
+          if [ ! -f "lambda_package/pydantic_core/_pydantic_core.so" ] && [ ! -f "lambda_package/pydantic_core/_pydantic_core.cpython-*.so" ]; then
+            echo "⚠️  WARNING: pydantic_core compiled extension not found!"
+            echo "Listing pydantic_core contents:"
+            ls -la lambda_package/pydantic_core/ || echo "Directory doesn't exist"
+            echo "Trying fallback: regular pip install..."
+            pip install --upgrade pip setuptools wheel
+            pip install -r requirements-prod.txt -t lambda_package/ --no-cache-dir --force-reinstall
+          fi
+          
+          echo "✅ Dependencies installed successfully"
           
           # Create deployment zip
           cd lambda_package
