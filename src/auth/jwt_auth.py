@@ -38,17 +38,17 @@ class JWTAuth:
         """Hash a password"""
         # Bcrypt has a 72-byte limit, so truncate if necessary
         # This is safe because bcrypt truncates internally anyway
-        password_bytes = password.encode('utf-8')
+        password_bytes = password.encode("utf-8")
         if len(password_bytes) > 72:
             # Truncate to 72 bytes, but decode back to string carefully
-            password = password_bytes[:72].decode('utf-8', errors='ignore')
+            password = password_bytes[:72].decode("utf-8", errors="ignore")
         try:
             result = pwd_context.hash(password)
             return str(result)
         except (ValueError, AttributeError) as e:
             # Fallback: if bcrypt fails, truncate more aggressively
             if len(password_bytes) > 72:
-                password = password_bytes[:72].decode('utf-8', errors='replace')
+                password = password_bytes[:72].decode("utf-8", errors="replace")
                 result = pwd_context.hash(password)
                 return str(result)
             raise
