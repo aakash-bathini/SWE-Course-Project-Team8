@@ -28,30 +28,22 @@ jobs:
 
       - name: Package backend for Lambda
         run: |
-          # Install production dependencies (built on Linux)
-          # Use --platform to ensure we get Linux x86_64 wheels for Lambda
+          # Install production dependencies (built on Linux, which matches Lambda's environment)
           mkdir -p lambda_package
-          pip install --platform manylinux2014_x86_64 --only-binary=:all: --upgrade pip setuptools wheel
-          pip install --platform manylinux2014_x86_64 --only-binary=:all: -r requirements-prod.txt -t lambda_package/ --no-cache-dir
-          
-          # If --platform doesn't work, fall back to regular install (works on Linux runners)
-          if [ ! -d "lambda_package/pydantic_core" ]; then
-            echo "Warning: pydantic_core not found, trying regular install..."
-            pip install -r requirements-prod.txt -t lambda_package/ --no-cache-dir
-          fi
+          pip install --upgrade pip setuptools wheel
+          pip install -r requirements-prod.txt -t lambda_package/ --no-cache-dir
           
           # Copy application code
           cp app.py lambda_package/
           cp -r src lambda_package/
           
-          # Verify pydantic_core is installed
-          if [ -d "lambda_package/pydantic_core" ]; then
-            echo "✅ pydantic_core found"
-            ls -la lambda_package/pydantic_core/ | head -10
-          else
+          # Verify critical dependencies are installed
+          if [ ! -d "lambda_package/pydantic_core" ]; then
             echo "❌ ERROR: pydantic_core not found!"
+            ls -la lambda_package/ | grep pydantic
             exit 1
           fi
+          echo "✅ pydantic_core installed successfully"
           
           # Create deployment zip
           cd lambda_package
