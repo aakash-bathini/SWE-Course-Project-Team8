@@ -1566,15 +1566,19 @@ async def get_tracks() -> Dict[str, List[str]]:
 # This is the entry point that Lambda calls (configured as app.handler)
 # Per Stack Overflow: Lambda must return statusCode (int), headers (dict), body (string)
 logger.info("Initializing Mangum handler for Lambda...")
+sys.stdout.flush()
 _mangum_handler: Optional[Mangum] = None
 try:
     _mangum_handler = Mangum(app, lifespan="off")
     logger.info("✅ Mangum handler initialized successfully")
+    sys.stdout.flush()
 except Exception as e:
     logger.error(f"❌ Failed to initialize Mangum handler: {e}", exc_info=True)
     import traceback
 
     logger.error(f"Full traceback: {traceback.format_exc()}")
+    sys.stdout.flush()
+    sys.stderr.flush()
     _mangum_handler = None
 
 
