@@ -70,12 +70,17 @@ artifacts_db: Dict[str, Dict[str, Any]] = {}  # artifact_id -> artifact_data (in
 users_db: Dict[str, Dict[str, Any]] = {}
 audit_log: List[Dict[str, Any]] = []
 
+# Initialize SQLite if enabled (wrap in try/except for Lambda compatibility)
 if USE_SQLITE:
-    from src.db.database import Base, engine, get_db
-    from src.db import crud as db_crud
+    try:
+        from src.db.database import Base, engine, get_db
+        from src.db import crud as db_crud
 
-    # Ensure schema exists
-    Base.metadata.create_all(bind=engine)
+        # Ensure schema exists
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        logger.warning(f"SQLite initialization failed: {e}, falling back to in-memory storage")
+        USE_SQLITE = False
 
 # Default admin user - password matches OpenAPI spec exactly
 DEFAULT_ADMIN = {
@@ -89,14 +94,17 @@ DEFAULT_ADMIN = {
 admin_username: str = str(DEFAULT_ADMIN["username"])
 users_db[admin_username] = DEFAULT_ADMIN
 if USE_SQLITE:
-    with next(get_db()) as _db:  # type: ignore[misc]
-        db_crud.ensure_schema(_db)
-        db_crud.upsert_default_admin(
-            _db,
-            username=str(DEFAULT_ADMIN["username"]),
-            password=str(DEFAULT_ADMIN["password"]),
-            permissions=list(DEFAULT_ADMIN["permissions"]),  # type: ignore[arg-type]
-        )
+    try:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            db_crud.ensure_schema(_db)
+            db_crud.upsert_default_admin(
+                _db,
+                username=str(DEFAULT_ADMIN["username"]),
+                password=str(DEFAULT_ADMIN["password"]),
+                permissions=list(DEFAULT_ADMIN["permissions"]),  # type: ignore[arg-type]
+            )
+    except Exception as e:
+        logger.warning(f"Failed to initialize default admin in database: {e}")
 
 
 # Pydantic models matching OpenAPI spec v3.3.1
