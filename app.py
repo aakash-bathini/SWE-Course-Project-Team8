@@ -756,7 +756,7 @@ async def delete_user(username: str, user: Dict[str, Any] = Depends(verify_token
 async def create_auth_token(request: AuthenticationRequest) -> str:
     """Create an access token (Milestone 3 - with proper validation)"""
     # CRITICAL: Log entry point immediately
-    print(f"=== AUTHENTICATE ENDPOINT CALLED ===")
+    print("=== AUTHENTICATE ENDPOINT CALLED ===")
     print(f"DEBUG: Request user.name={request.user.name}, is_admin={request.user.is_admin}")
     print(f"DEBUG: Password length={len(request.secret.password)}")
     sys.stdout.flush()
@@ -816,6 +816,10 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
 @app.delete("/reset")
 async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
     """Reset the registry to a system default state (BASELINE)"""
+    print("=== RESET ENDPOINT CALLED ===")
+    sys.stdout.flush()
+    logger.info("Reset endpoint called")
+
     if not check_permission(user, "admin"):
         # Spec: 401 if you do not have permission; 403 is used for invalid/missing token
         raise HTTPException(
