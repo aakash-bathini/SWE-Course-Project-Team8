@@ -51,14 +51,14 @@ app.add_middleware(
 # Security (we will accept X-Authorization header per spec; keep HTTPBearer for flexibility)
 security = HTTPBearer()
 
-# Import Phase 2 components
-from src.api.huggingface import scrape_hf_url
-from src.metrics.phase2_adapter import (
+# Import Phase 2 components (after app initialization to avoid circular imports)
+from src.api.huggingface import scrape_hf_url  # noqa: E402
+from src.metrics.phase2_adapter import (  # noqa: E402
     create_eval_context_from_model_data,
     calculate_phase2_metrics,
     calculate_phase2_net_score,
 )
-from src.metrics import size as size_metric
+from src.metrics import size as size_metric  # noqa: E402
 
 # Storage layer selection: in-memory (default) or SQLite (Milestone 2)
 USE_SQLITE: bool = os.environ.get("USE_SQLITE", "0") == "1"
