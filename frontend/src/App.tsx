@@ -28,6 +28,8 @@ import ModelUploadPage from './components/ModelUploadPage';
 import ModelSearchPage from './components/ModelSearchPage';
 import ModelDownloadPage from './components/ModelDownloadPage';
 import HealthDashboard from './components/HealthDashboard';
+import UserManagementPage from './components/UserManagementPage';
+import ModelEnumerationPage from './components/ModelEnumerationPage';
 
 // Import services
 import { authService } from './services/authService';
@@ -290,6 +292,26 @@ const App: React.FC = () => {
             element={
               user ? (
                 <HealthDashboard />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              user && hasPermission('admin') ? (
+                <UserManagementPage user={user} onNotification={showNotification} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/models"
+            element={
+              user && hasPermission('search') ? (
+                <ModelEnumerationPage user={user} />
               ) : (
                 <Navigate to="/login" replace />
               )

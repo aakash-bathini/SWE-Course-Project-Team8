@@ -112,6 +112,34 @@ export interface ModelRating {
   size_score_latency: number;
 }
 
+export interface HealthComponent {
+  id: string;
+  display_name: string;
+  status: 'ok' | 'degraded' | 'down';
+  observed_at: string;
+  description: string;
+  metrics: Record<string, any>;
+  issues: string[];
+  logs: Array<{ label: string; url: string }>;
+  timeline?: Array<{ bucket: string; value: number; unit: string }>;
+}
+
+export interface HealthComponentsResponse {
+  components: HealthComponent[];
+  generated_at: string;
+  window_minutes: number;
+}
+
+export interface ArtifactAuditEntry {
+  user: {
+    name: string;
+    is_admin: boolean;
+  };
+  date: string;
+  artifact: ArtifactMetadata;
+  action: string;
+}
+
 export interface ArtifactCost {
   total_cost: number;
   standalone_cost?: number;
@@ -148,6 +176,13 @@ export const apiService = {
   async getHealth() {
     const response = await apiClient.get('/health');
     return response.data;
+  },
+
+  async getHealthComponents(windowMinutes = 60, includeTimeline = false) {
+    const response = await apiClient.get('/health/components', {
+      params: { windowMinutes, includeTimeline },
+    });
+    return response.data as HealthComponentsResponse;
   },
 
   // Authentication
@@ -244,40 +279,38 @@ export const apiService = {
     return response.data;
   },
 
-  // Tracks
-  async getTracks() {
-    const response = await apiClient.get('/tracks');
-    return response.data;
+  // Artifact audit trail
+  async getArtifactAudit(artifactType: 'model' | 'dataset' | 'code', id: string): Promise<ArtifactAuditEntry[]> {
+    const response = await apiClient.get(`/artifact/${artifactType}/${id}/audit`);
+    return response.data as ArtifactAuditEntry[];
   },
 
-  // Legacy methods for backward compatibility (will be removed in future)
-  async uploadModel(file: File, metadata: any) {
-    // Convert to new artifact-based approach
-    const artifactData = {
-      url: URL.createObjectURL(file), // This is a placeholder - in real implementation, upload file first
-    };
-    return this.createArtifact('model', artifactData);
+  // Model file download (ZIP)
+  async downloadModel(id: string, aspect: 'full' | 'weights' | 'datasets' | 'code' = 'full'): Promise<Blob> {
+    const response = await apiClient.get(`/models/${id}/download`, {
+      params: { aspect },
+      responseType: 'blob',
+    });
+    return response.data as Blob;
   },
 
-  async listModels(page = 1, pageSize = 10) {
-    // Convert to new artifact-based approach
-    const queries: ArtifactQuery[] = [{ name: '*', types: ['model'] }];
-    return this.listArtifacts(queries);
-  },
-
-  async downloadModel(modelId: string) {
-    // Convert to new artifact-based approach
-    return this.getArtifact('model', modelId);
-  },
-
-  async deleteModel(modelId: string) {
-    // Convert to new artifact-based approach
-    return this.deleteArtifact('model', modelId);
+  // Model ZIP upload
+  async uploadModelZip(file: File, name?: string): Promise<Artifact> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (name) {
+      formData.append('name', name);
+    }
+    const response = await apiClient.post('/models/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data as Artifact;
   },
 
   // Model ingestion (Milestone 2)
   async ingestHuggingFaceModel(modelName: string): Promise<Artifact> {
-    // Milestone 2: POST /models/ingest?model_name=<huggingface_id>
     const response = await apiClient.post('/models/ingest', null, {
       params: { model_name: modelName },
     });
@@ -286,13 +319,18 @@ export const apiService = {
 
   // Model enumeration (Milestone 2)
   async enumerateModels(cursor?: string | null, limit: number = 25): Promise<ModelsEnumerateResponse> {
-    // Milestone 2: GET /models with cursor-based pagination
     const params: Record<string, string | number> = { limit };
     if (cursor) {
       params.cursor = cursor;
     }
     const response = await apiClient.get('/models', { params });
     return response.data as ModelsEnumerateResponse;
+  },
+
+  // Tracks
+  async getTracks() {
+    const response = await apiClient.get('/tracks');
+    return response.data;
   },
 };
 

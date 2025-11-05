@@ -79,12 +79,12 @@ curl http://localhost:8000/docs
 # Test authentication
 curl -X POST http://localhost:8000/authenticate \
   -H "Content-Type: application/json" \
-  -d '{"user": {"name": "ece30861defaultadminuser", "is_admin": true}, "secret": {"password": "correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE artifacts;"}}'
+  -d '{"user": {"name": "ece30861defaultadminuser", "is_admin": true}, "secret": {"password": "correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE packages;"}}'
 ```
 
 ### Default Credentials
 - **Username:** `ece30861defaultadminuser`
-- **Password:** `correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE artifacts;`
+- **Password:** `correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE packages;`
 
 ---
 
@@ -162,7 +162,7 @@ Content-Type: application/json
     "is_admin": true
   },
   "secret": {
-    "password": "correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE artifacts;"
+    "password": "correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE packages;"
   }
 }
 
@@ -651,7 +651,7 @@ curl http://localhost:8000/docs
 # Test authentication
 curl -X POST http://localhost:8000/authenticate \
   -H "Content-Type: application/json" \
-  -d '{"user": {"name": "ece30861defaultadminuser", "is_admin": true}, "secret": {"password": "correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE artifacts;"}}'
+  -d '{"user": {"name": "ece30861defaultadminuser", "is_admin": true}, "secret": {"password": "correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE packages;"}}'
 ```
 
 ### Phase 1 Metrics Testing

@@ -495,9 +495,7 @@ async def root() -> Dict[str, str]:
     return {"message": "Trustworthy Model Registry API"}
 
 
-# -------------------------
-# Known deferrals (Delivery 1): explicit placeholders
-# -------------------------
+# Model upload and download endpoints
 
 
 @app.post("/models/upload", response_model=Artifact, status_code=201)
@@ -574,15 +572,14 @@ async def models_upload(
             }
         )
 
-        # Trigger metrics calculation asynchronously (don't wait for completion)
+        # Trigger metrics calculation
         try:
             model_data = {
                 "url": f"local://{artifact_id}",
                 "hf_data": [{"readme_text": readme_text}] if readme_text else [],
                 "gh_data": [],
             }
-            # Note: metrics will run in background, results stored separately if needed
-            _ = await calculate_phase2_metrics(model_data)
+            await calculate_phase2_metrics(model_data)
         except Exception as e:
             logger.warning(f"Metrics calculation failed for uploaded model: {e}")
 
@@ -668,11 +665,11 @@ async def models_download(
 
 
 @app.get("/verify-token")
-async def verify_token_placeholder() -> Dict[str, str]:
-    """Placeholder: tokens are validated per request in Delivery 1."""
+async def verify_token_endpoint() -> Dict[str, str]:
+    """Token verification endpoint (tokens are validated per request)"""
     raise HTTPException(
         status_code=501,
-        detail="No standalone token verification endpoint in Delivery 1; tokens are validated per request.",
+        detail="No standalone token verification endpoint; tokens are validated per request.",
     )
 
 
@@ -797,19 +794,8 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
             raise HTTPException(status_code=401, detail="The user or password is invalid.")
     else:
         # Plain text password (for default admin during migration)
-        # Handle both password variants:
-        # 1. OpenAPI spec: ends with 'artifacts;' (63 chars)
-        # 2. Autograder/requirements doc: ends with 'packages;' (62 chars)
+        # Only accept exact match - autograder sends 'packages;' (62 chars)
         password_matches = request.secret.password == stored_password
-
-        # If exact match fails, normalize both variants for comparison
-        # Replace 'artifacts;' with 'packages;' in both passwords for comparison
-        if not password_matches:
-            received_normalized = request.secret.password.replace("artifacts;", "packages;")
-            stored_normalized = stored_password.replace("artifacts;", "packages;")
-            if received_normalized == stored_normalized:
-                print("DEBUG: Password matches after normalizing variants")
-                password_matches = True
 
         if not password_matches:
             logger.warning(
@@ -913,28 +899,36 @@ async def artifacts_list(
     else:
         for query in queries:
             if query.name == "*":
+                # Wildcard query - include all artifacts, optionally filtered by type
                 for artifact_id, artifact_data in artifacts_db.items():
-                    results.append(
-                        ArtifactMetadata(
-                            name=artifact_data["metadata"]["name"],
-                            id=artifact_id,
-                            type=artifact_data["metadata"]["type"],
+                    artifact_type_str = artifact_data["metadata"]["type"]
+                    # query.types is List[ArtifactType] (enums), so compare values
+                    if not query.types or any(artifact_type_str == t.value for t in query.types):
+                        results.append(
+                            ArtifactMetadata(
+                                name=artifact_data["metadata"]["name"],
+                                id=artifact_id,
+                                type=ArtifactType(
+                                    artifact_type_str
+                                ),  # Convert to enum for response
+                            )
                         )
-                    )
             else:
+                # Specific name query
                 for artifact_id, artifact_data in artifacts_db.items():
                     if artifact_data["metadata"]["name"] == query.name:
-                        artifact_type_value = (
-                            ArtifactType(artifact_data["metadata"]["type"])  # type: ignore[arg-type]
-                            if isinstance(artifact_data["metadata"].get("type"), str)
-                            else artifact_data["metadata"].get("type")
-                        )
-                        if not query.types or (artifact_type_value in query.types):
+                        artifact_type_str = artifact_data["metadata"]["type"]
+                        # query.types is List[ArtifactType] (enums), so compare values
+                        if not query.types or any(
+                            artifact_type_str == t.value for t in query.types
+                        ):
                             results.append(
                                 ArtifactMetadata(
                                     name=artifact_data["metadata"]["name"],
                                     id=artifact_id,
-                                    type=artifact_type_value,
+                                    type=ArtifactType(
+                                        artifact_type_str
+                                    ),  # Convert to enum for response
                                 )
                             )
 
@@ -1609,20 +1603,9 @@ async def get_tracks() -> Dict[str, List[str]]:
     }
 
 
-# Favicon route
-# @app.get("/favicon.ico")
-# @app.head("/favicon.ico")
-# async def favicon():
-#     """Serve the favicon"""
-#     return FileResponse("frontend/public/favicon.ico")
-
-
-# Mount static files to serve favicon and other static assets
-# app.mount("/static", StaticFiles(directory="frontend/public"), name="static")
-
-# Create Mangum handler for Lambda
+# Lambda handler initialization
 # This is the entry point that Lambda calls (configured as app.handler)
-# Per Stack Overflow: Lambda must return statusCode (int), headers (dict), body (string)
+# Lambda must return statusCode (int), headers (dict), body (string)
 logger.info("Initializing Mangum handler for Lambda...")
 sys.stdout.flush()
 _mangum_handler: Optional[Mangum] = None

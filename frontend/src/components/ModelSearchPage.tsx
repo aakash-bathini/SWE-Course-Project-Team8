@@ -56,8 +56,7 @@ const ModelSearchPage: React.FC<ModelSearchPageProps> = ({ user }) => {
   // Auto-run a wildcard search on initial load to show existing artifacts
   useEffect(() => {
     runSearch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // Empty deps array is intentional - only run on mount
 
   return (
     <Container maxWidth="lg">
