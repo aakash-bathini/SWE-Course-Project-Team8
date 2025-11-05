@@ -33,18 +33,14 @@ async def metric(ctx: EvalContext) -> float:
         likes = hf.get("likes", 0)
 
         # High-engagement models typically have good bus factor
-        if downloads > 1000000 or likes > 1000:
-            return 0.90
-        elif downloads < 10000 and likes < 10:  # Very low engagement models
-            return 0.33
-
-        # Well-known models with high engagement typically have good bus factor
         if downloads > 1000000 or likes > 1000:  # Very popular models
             return 0.95
         elif downloads > 100000 or likes > 100:  # Popular models
             return 0.85
         elif downloads > 10000 or likes > 10:  # Moderately popular
             return 0.70
+        elif downloads < 10000 and likes < 10:  # Very low engagement models
+            return 0.33
         else:
             return 0.50  # Default for unknown models
 
@@ -60,7 +56,7 @@ async def metric(ctx: EvalContext) -> float:
         downloads = hf.get("downloads", 0)
         likes = hf.get("likes", 0)
         if downloads > 1000000 or likes > 1000:
-            return 0.90
+            return 0.95
         elif downloads < 10000 and likes < 10:  # Very low engagement models
             return 0.33
 

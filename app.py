@@ -697,6 +697,168 @@ async def artifacts_list(
     return paged_results
 
 
+@app.post("/models/ingest", response_model=Artifact, status_code=201)
+async def models_ingest(
+    model_name: str = Query(..., description="HuggingFace model name (e.g., 'google/gemma-2-2b')"),
+    user: Dict[str, Any] = Depends(verify_token),
+) -> Artifact:
+    """Ingest a HuggingFace model after validating it meets 0.5 threshold on all non-latency metrics (BASELINE)"""
+    if not check_permission(user, "upload"):
+        raise HTTPException(status_code=401, detail="You do not have permission to ingest models.")
+    
+    # Construct HuggingFace URL
+    hf_url = f"https://huggingface.co/{model_name}"
+    
+    try:
+        # Scrape HuggingFace data
+        hf_data, repo_type = scrape_hf_url(hf_url)
+        model_data = {"url": hf_url, "hf_data": [hf_data], "gh_data": []}
+        
+        # Calculate all metrics
+        metrics = await calculate_phase2_metrics(model_data)
+        
+        # Filter out latency metrics - only check non-latency metrics for threshold
+        # Latency metrics have "_latency" suffix or are "net_score_latency", "size_score_latency", etc.
+        non_latency_metrics = {
+            k: v for k, v in metrics.items() 
+            if not k.endswith("_latency") and k != "net_score_latency"
+        }
+        
+        # Check threshold: all non-latency metrics must be >= 0.5
+        failing_metrics = [
+            k for k, v in non_latency_metrics.items() 
+            if isinstance(v, (int, float)) and float(v) < 0.5
+        ]
+        
+        if failing_metrics:
+            raise HTTPException(
+                status_code=424,
+                detail=f"Model does not meet 0.5 threshold requirement. Failing metrics: {', '.join(failing_metrics)}",
+            )
+        
+        # Model passed threshold - proceed with ingest (create artifact)
+        artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
+        model_display_name = model_name.split("/")[-1] if "/" in model_name else model_name
+        
+        artifact_entry = {
+            "metadata": {
+                "name": model_display_name,
+                "id": artifact_id,
+                "type": "model",
+            },
+            "data": {"url": hf_url},
+            "created_at": datetime.now().isoformat(),
+            "created_by": user["username"],
+            "hf_model_name": model_name,
+        }
+        
+        artifacts_db[artifact_id] = artifact_entry
+        
+        if USE_SQLITE:
+            with next(get_db()) as _db:  # type: ignore[misc]
+                db_crud.create_artifact(
+                    _db,
+                    artifact_id=artifact_id,
+                    name=model_display_name,
+                    type_="model",
+                    url=hf_url,
+                )
+        
+        # Log audit entry
+        audit_log.append(
+            {
+                "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
+                "date": datetime.now().isoformat(),
+                "artifact": artifact_entry["metadata"],
+                "action": "INGEST",
+            }
+        )
+        
+        if USE_SQLITE:
+            with next(get_db()) as _db:  # type: ignore[misc]
+                art_row = db_crud.get_artifact(_db, artifact_id)
+                if art_row:
+                    db_crud.log_audit(
+                        _db,
+                        artifact=art_row,
+                        user_name=user["username"],
+                        user_is_admin=user.get("is_admin", False),
+                        action="INGEST",
+                    )
+        
+        return Artifact(
+            metadata=ArtifactMetadata(**artifact_entry["metadata"]),
+            data=ArtifactData(url=artifact_entry["data"]["url"]),
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ingest failed for {model_name}: {e}")
+        raise HTTPException(status_code=500, detail=f"Ingest failed: {str(e)}")
+
+
+@app.get("/models")
+async def models_enumerate(
+    cursor: Optional[str] = Query(None, description="Cursor for pagination"),
+    limit: int = Query(25, ge=1, le=100, description="Number of results per page"),
+    user: Dict[str, Any] = Depends(verify_token),
+) -> Dict[str, Any]:
+    """Enumerate models with cursor-based pagination (BASELINE)"""
+    if not check_permission(user, "search"):
+        raise HTTPException(status_code=401, detail="You do not have permission to search models.")
+    
+    # Get all model artifacts
+    all_models: List[ArtifactMetadata] = []
+    
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            # Query only models from database
+            db_items = db_crud.list_by_queries(_db, [{"name": "*", "types": ["model"]}])
+            for art in db_items:
+                if art.type == "model":
+                    all_models.append(
+                        ArtifactMetadata(name=art.name, id=art.id, type=ArtifactType(art.type))
+                    )
+    else:
+        # Filter to only models
+        for artifact_id, artifact_data in artifacts_db.items():
+            if artifact_data["metadata"]["type"] == "model":
+                all_models.append(
+                    ArtifactMetadata(
+                        name=artifact_data["metadata"]["name"],
+                        id=artifact_id,
+                        type=ArtifactType(artifact_data["metadata"]["type"]),
+                    )
+                )
+    
+    # Sort by ID for stable pagination
+    all_models.sort(key=lambda x: x.id)
+    
+    # Cursor-based pagination
+    start_idx = 0
+    if cursor:
+        # Find the index of the cursor (artifact ID)
+        for idx, model in enumerate(all_models):
+            if model.id == cursor:
+                start_idx = idx + 1
+                break
+    
+    # Get the page of results
+    end_idx = min(start_idx + limit, len(all_models))
+    page_models = all_models[start_idx:end_idx]
+    
+    # Determine next cursor
+    next_cursor = None
+    if end_idx < len(all_models):
+        next_cursor = page_models[-1].id if page_models else None
+    
+    return {
+        "items": [model.model_dump() for model in page_models],
+        "next_cursor": next_cursor,
+    }
+
+
 @app.post("/artifact/{artifact_type}", response_model=Artifact, status_code=201)
 async def artifact_create(
     artifact_type: ArtifactType,
@@ -712,11 +874,20 @@ async def artifact_create(
                 hf_data, repo_type = scrape_hf_url(artifact_data.url)
                 model_data = {"url": artifact_data.url, "hf_data": [hf_data], "gh_data": []}
                 metrics = await calculate_phase2_metrics(model_data)
+                # Filter out latency metrics - only check non-latency metrics for threshold
+                non_latency_metrics = {
+                    k: v for k, v in metrics.items() 
+                    if not k.endswith("_latency") and k != "net_score_latency"
+                }
                 # Require all available non-latency metrics to be at least 0.5
-                if any((isinstance(v, (int, float)) and float(v) < 0.5) for v in metrics.values()):
+                failing_metrics = [
+                    k for k, v in non_latency_metrics.items() 
+                    if isinstance(v, (int, float)) and float(v) < 0.5
+                ]
+                if failing_metrics:
                     raise HTTPException(
                         status_code=424,
-                        detail="Artifact is not registered due to the disqualified rating.",
+                        detail=f"Artifact is not registered due to the disqualified rating. Failing metrics: {', '.join(failing_metrics)}",
                     )
         except HTTPException:
             raise

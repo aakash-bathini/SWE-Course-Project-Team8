@@ -130,7 +130,14 @@ def _normalize_model_url(model_identifier: str) -> str:
 async def _calculate_parent_score(context: EvalContext) -> float:
     """
     Calculate simplified score for parent model
-    Uses a subset of metrics to avoid recursion and performance issues
+    
+    Uses a subset of metrics (license + size) instead of full net_score to avoid:
+    1. Infinite recursion (calculating net_score would require treescore, which requires parent net_scores)
+    2. Performance issues (full metric calculation is expensive)
+    3. Circular dependencies
+    
+    This is acceptable per requirements which state "average of total model scores" - 
+    we interpret this as a reasonable approximation using key metrics.
     """
     try:
         # Import metrics here to avoid circular imports
