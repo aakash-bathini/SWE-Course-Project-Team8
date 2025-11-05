@@ -1591,15 +1591,30 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     - headers: dict (required)
     - body: string (required)
     """
-    # Log handler invocation for debugging
-    logger.info(f"Handler invoked. Event keys: {list(event.keys()) if isinstance(event, dict) else 'not a dict'}")
-    logger.info(f"Event path: {event.get('path', 'N/A') if isinstance(event, dict) else 'N/A'}")
-    logger.info(f"Event httpMethod: {event.get('httpMethod', 'N/A') if isinstance(event, dict) else 'N/A'}")
+    # Force log flushing immediately
+    print("=== LAMBDA HANDLER CALLED ===")
     sys.stdout.flush()
+    
+    # Log handler invocation for debugging
+    try:
+        event_keys = list(event.keys()) if isinstance(event, dict) else 'not a dict'
+        event_path = event.get('path', 'N/A') if isinstance(event, dict) else 'N/A'
+        event_method = event.get('httpMethod', 'N/A') if isinstance(event, dict) else 'N/A'
+        
+        logger.info(f"Handler invoked. Event keys: {event_keys}")
+        logger.info(f"Event path: {event_path}")
+        logger.info(f"Event httpMethod: {event_method}")
+        print(f"DEBUG: Event keys={event_keys}, path={event_path}, method={event_method}")
+        sys.stdout.flush()
+    except Exception as log_err:
+        print(f"ERROR logging event: {log_err}")
+        sys.stdout.flush()
     
     try:
         if _mangum_handler is None:
-            logger.error("Mangum handler not initialized")
+            error_msg = "Mangum handler not initialized"
+            logger.error(error_msg)
+            print(f"ERROR: {error_msg}")
             sys.stdout.flush()
             return {
                 "statusCode": 500,
@@ -1609,9 +1624,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         # Call Mangum handler
         logger.info("Calling Mangum handler...")
+        print("DEBUG: Calling Mangum handler...")
         sys.stdout.flush()
+        
         response = _mangum_handler(event, context)
+        
         logger.info(f"Mangum handler returned. Response type: {type(response)}")
+        print(f"DEBUG: Mangum returned type={type(response)}")
         sys.stdout.flush()
 
         # Ensure response has correct format (per Stack Overflow requirements)
