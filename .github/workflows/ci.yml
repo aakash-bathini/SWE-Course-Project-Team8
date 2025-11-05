@@ -37,7 +37,7 @@ jobs:
           python -m pip install -U pip
           pip install -r requirements.txt -r requirements-dev.txt
       - name: mypy
-        run: python -m mypy .
+        run: python -m mypy . --exclude uploads
 
   backend-test:
     runs-on: ubuntu-latest
