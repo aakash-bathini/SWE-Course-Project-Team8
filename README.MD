@@ -79,12 +79,12 @@ curl http://localhost:8000/docs
 # Test authentication
 curl -X POST http://localhost:8000/authenticate \
   -H "Content-Type: application/json" \
-  -d '{"username": "ece30861defaultadminuser", "password": "correcthorsebatterystaple123(!__+@**(A;DROP TABLE packages"}'
+  -d '{"user": {"name": "ece30861defaultadminuser", "is_admin": true}, "secret": {"password": "correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE artifacts;"}}'
 ```
 
 ### Default Credentials
 - **Username:** `ece30861defaultadminuser`
-- **Password:** `correcthorsebatterystaple123(!__+@**(A;DROP TABLE packages`
+- **Password:** `correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE artifacts;`
 
 ---
 
@@ -153,12 +153,17 @@ curl -X POST http://localhost:8000/authenticate \
 
 ### Authentication Endpoints
 ```http
-POST /authenticate
+PUT /authenticate
 Content-Type: application/json
 
 {
-  "username": "ece30861defaultadminuser",
-  "password": "correcthorsebatterystaple123(!__+@**(A;DROP TABLE packages"
+  "user": {
+    "name": "ece30861defaultadminuser",
+    "is_admin": true
+  },
+  "secret": {
+    "password": "correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE artifacts;"
+  }
 }
 
 Response:
@@ -335,12 +340,42 @@ npm run lint
 
 ## ☁️ AWS Deployment
 
-### Backend Deployment (Lambda + API Gateway)
+### Environment Variables
+
+#### Backend (Lambda) Environment Variables
+The following environment variables are configured automatically via CI/CD when deploying to AWS Lambda:
+
+- `USE_SQLITE=0` - Disable SQLite for Lambda (use in-memory storage)
+- `ENVIRONMENT=production` - Set environment to production
+- `LOG_LEVEL=INFO` - Set logging level
+
+#### Frontend (AWS Amplify) Environment Variables
+Configure these in AWS Amplify Console → App Settings → Environment Variables:
+
+- `REACT_APP_API_URL` - Your API Gateway URL (e.g., `https://han6e7iv6e.execute-api.us-east-1.amazonaws.com`)
+
+**Note:** For local development, frontend defaults to `http://localhost:8000` if `REACT_APP_API_URL` is not set.
+
+### Automated Deployment (CI/CD)
+
+The project uses GitHub Actions for automated deployment to AWS. When code is merged to `main` branch:
+
+1. **Backend Deployment:**
+   - Packages Lambda function with Python 3.11 runtime
+   - Uploads deployment package to S3
+   - Updates Lambda function code and configuration
+   - Sets environment variables automatically
+
+2. **Frontend Deployment:**
+   - Built via AWS Amplify (configured separately)
+   - Uses environment variable `REACT_APP_API_URL` for API endpoint
+
+### Manual Backend Deployment (Lambda + API Gateway)
 
 #### 1. Prepare Deployment Package
 ```bash
-# Install dependencies
-pip install -r requirements.txt -t ./lambda_package
+# Install production dependencies
+pip install -r requirements-prod.txt -t ./lambda_package
 
 # Copy application code
 cp app.py lambda_package/
@@ -348,11 +383,11 @@ cp -r src/ lambda_package/
 
 # Create deployment zip
 cd lambda_package
-zip -r ../deployment.zip .
+zip -r9 ../lambda_deployment.zip .
 cd ..
 ```
 
-#### 2. Create IAM Role
+#### 2. Create IAM Role (if not exists)
 ```bash
 # Create trust policy
 cat > trust-policy.json << EOF
@@ -375,7 +410,7 @@ aws iam create-role \
   --role-name trustworthy-model-registry-lambda-role \
   --assume-role-policy-document file://trust-policy.json
 
-# Attach policies
+# Attach execution policy
 aws iam attach-role-policy \
   --role-name trustworthy-model-registry-lambda-role \
   --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
@@ -386,20 +421,27 @@ aws iam attach-role-policy \
 # Get account ID
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
-# Create Lambda function
-aws lambda create-function \
-  --function-name trustworthy-model-registry-team8 \
-  --runtime python3.11 \
-  --role arn:aws:iam::${ACCOUNT_ID}:role/trustworthy-model-registry-lambda-role \
-  --handler app.handler \
-  --zip-file fileb://deployment.zip \
-  --timeout 30 \
-  --memory-size 512
+# Upload to S3 (required for packages > 50MB)
+aws s3 mb s3://trustworthy-registry-lambda-deployment-us-east-1 2>/dev/null || true
+aws s3 cp lambda_deployment.zip s3://trustworthy-registry-lambda-deployment-us-east-1/
+
+# Update Lambda function code
+aws lambda update-function-code \
+  --function-name trustworthy-model-registry \
+  --s3-bucket trustworthy-registry-lambda-deployment-us-east-1 \
+  --s3-key lambda_deployment.zip
+
+# Update Lambda configuration (timeout, memory, environment)
+aws lambda update-function-configuration \
+  --function-name trustworthy-model-registry \
+  --timeout 60 \
+  --memory-size 1024 \
+  --environment "Variables={USE_SQLITE=0,ENVIRONMENT=production,LOG_LEVEL=INFO}"
 ```
 
-#### 4. Create API Gateway
+#### 4. Create/Update API Gateway
 ```bash
-# Create REST API
+# Create REST API (if not exists)
 API_ID=$(aws apigateway create-rest-api \
   --name trustworthy-model-registry-team8-api \
   --query 'id' --output text)
@@ -430,7 +472,7 @@ aws apigateway put-integration \
   --http-method ANY \
   --type AWS_PROXY \
   --integration-http-method POST \
-  --uri arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:${ACCOUNT_ID}:function:trustworthy-model-registry-team8/invocations
+  --uri arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:${ACCOUNT_ID}:function:trustworthy-model-registry/invocations
 
 # Deploy API
 aws apigateway create-deployment \
@@ -442,60 +484,46 @@ API_URL="https://${API_ID}.execute-api.us-east-1.amazonaws.com/prod"
 echo "Backend URL: $API_URL"
 ```
 
-### Frontend Deployment (S3 + CloudFront)
+### Frontend Deployment (AWS Amplify)
 
-#### 1. Build React Application
-```bash
-cd frontend
+The frontend is deployed via AWS Amplify. Configure the following:
 
-# Install dependencies
-npm install
+1. **Connect Repository:** Connect GitHub repository to Amplify
+2. **Build Settings:** Use default React build settings
+3. **Environment Variables:** Add `REACT_APP_API_URL` pointing to your API Gateway URL
+4. **Deploy:** Amplify automatically builds and deploys on push to `main` branch
 
-# Update API URL
-echo "REACT_APP_API_URL=$API_URL" > .env
+**Current Production URLs:**
+- Frontend: `https://main.d1vmhndnokays2.amplifyapp.com/dashboard`
+- Backend: `https://han6e7iv6e.execute-api.us-east-1.amazonaws.com`
 
-# Build for production
-npm run build
-```
+### Lambda Configuration
 
-#### 2. Deploy to S3
-```bash
-# Create S3 bucket
-aws s3 mb s3://trustworthy-model-registry-team8-frontend
+- **Runtime:** Python 3.11
+- **Handler:** `app.handler` (Mangum adapter for FastAPI)
+- **Timeout:** 60 seconds (increased for metric calculations)
+- **Memory:** 1024 MB (increased for HuggingFace API calls)
+- **Environment Variables:** Set automatically via CI/CD
 
-# Configure bucket for static website hosting
-aws s3 website s3://trustworthy-model-registry-team8-frontend \
-  --index-document index.html \
-  --error-document index.html
+### Monitoring & Logging
 
-# Upload build files
-aws s3 sync build/ s3://trustworthy-model-registry-team8-frontend \
-  --delete
+- **CloudWatch Logs:** Automatically created at `/aws/lambda/trustworthy-model-registry`
+- **Retention:** 14 days (free tier limit)
+- **Access:** View logs in AWS Console → CloudWatch → Log Groups
 
-# Set bucket policy for public access
-cat > bucket-policy.json << EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "PublicReadGetObject",
-      "Effect": "Allow",
-      "Principal": "*",
-      "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::trustworthy-model-registry-team8-frontend/*"
-    }
-  ]
-}
-EOF
+### Troubleshooting AWS Deployment
 
-aws s3api put-bucket-policy \
-  --bucket trustworthy-model-registry-team8-frontend \
-  --policy file://bucket-policy.json
+#### Lambda Timeout Errors
+- Increase timeout to 60+ seconds for metric calculations
+- Increase memory to 1024+ MB for HuggingFace API calls
 
-# Get website URL
-FRONTEND_URL="http://trustworthy-model-registry-team8-frontend.s3-website-us-east-1.amazonaws.com"
-echo "Frontend URL: $FRONTEND_URL"
-```
+#### CORS Errors
+- Ensure frontend URL is in CORS allow_origins in `app.py`
+- Verify API Gateway has CORS enabled
+
+#### Environment Variable Issues
+- Verify environment variables are set in Lambda function configuration
+- Check CloudWatch logs for environment variable errors
 
 ---
 
@@ -623,7 +651,7 @@ curl http://localhost:8000/docs
 # Test authentication
 curl -X POST http://localhost:8000/authenticate \
   -H "Content-Type: application/json" \
-  -d '{"username": "ece30861defaultadminuser", "password": "correcthorsebatterystaple123(!__+@**(A;DROP TABLE packages"}'
+  -d '{"user": {"name": "ece30861defaultadminuser", "is_admin": true}, "secret": {"password": "correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE artifacts;"}}'
 ```
 
 ### Phase 1 Metrics Testing
