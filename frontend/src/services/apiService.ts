@@ -144,6 +144,8 @@ export interface ArtifactCost {
   total_cost: number;
   standalone_cost?: number;
 }
+
+export interface AuthenticationRequest {
   user: {
     name: string;
     is_admin: boolean;
@@ -307,34 +309,8 @@ export const apiService = {
     return response.data as Artifact;
   },
 
-  // Legacy methods for backward compatibility (will be removed in future)
-  async uploadModel(file: File, metadata: any) {
-    // Convert to new artifact-based approach
-    const artifactData = {
-      url: URL.createObjectURL(file), // This is a placeholder - in real implementation, upload file first
-    };
-    return this.createArtifact('model', artifactData);
-  },
-
-  async listModels(page = 1, pageSize = 10) {
-    // Convert to new artifact-based approach
-    const queries: ArtifactQuery[] = [{ name: '*', types: ['model'] }];
-    return this.listArtifacts(queries);
-  },
-
-  async downloadModel(modelId: string) {
-    // Convert to new artifact-based approach
-    return this.getArtifact('model', modelId);
-  },
-
-  async deleteModel(modelId: string) {
-    // Convert to new artifact-based approach
-    return this.deleteArtifact('model', modelId);
-  },
-
   // Model ingestion (Milestone 2)
   async ingestHuggingFaceModel(modelName: string): Promise<Artifact> {
-    // Milestone 2: POST /models/ingest?model_name=<huggingface_id>
     const response = await apiClient.post('/models/ingest', null, {
       params: { model_name: modelName },
     });
@@ -343,13 +319,18 @@ export const apiService = {
 
   // Model enumeration (Milestone 2)
   async enumerateModels(cursor?: string | null, limit: number = 25): Promise<ModelsEnumerateResponse> {
-    // Milestone 2: GET /models with cursor-based pagination
     const params: Record<string, string | number> = { limit };
     if (cursor) {
       params.cursor = cursor;
     }
     const response = await apiClient.get('/models', { params });
     return response.data as ModelsEnumerateResponse;
+  },
+
+  // Tracks
+  async getTracks() {
+    const response = await apiClient.get('/tracks');
+    return response.data;
   },
 };
 
