@@ -45,7 +45,7 @@ class JWTAuth:
         try:
             result = pwd_context.hash(password)
             return str(result)
-        except (ValueError, AttributeError) as e:
+        except (ValueError, AttributeError):
             # Fallback: if bcrypt fails, truncate more aggressively
             if len(password_bytes) > 72:
                 password = password_bytes[:72].decode("utf-8", errors="replace")
