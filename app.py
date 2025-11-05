@@ -1511,7 +1511,26 @@ async def get_tracks() -> Dict[str, List[str]]:
 # Mount static files to serve favicon and other static assets
 # app.mount("/static", StaticFiles(directory="frontend/public"), name="static")
 
+# Create Mangum handler for Lambda
 handler = Mangum(app, lifespan="off")
+
+
+# Lambda handler wrapper with error handling
+def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Lambda handler wrapper with error handling"""
+    try:
+        return handler(event, context)
+    except Exception as e:
+        logger.error(f"Lambda handler error: {str(e)}", exc_info=True)
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+            "body": '{"message":"Internal Server Error"}',
+        }
+
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True, log_level="info")
