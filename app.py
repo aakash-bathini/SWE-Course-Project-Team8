@@ -3,24 +3,51 @@ Phase 2 FastAPI Application - Trustworthy Model Registry
 Main application entry point with REST API endpoints matching OpenAPI spec v3.4.2
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Query, Header, Response, File, Form, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
-from src.auth.jwt_auth import auth as jwt_auth
-import os
-import uvicorn
 import logging
-import hashlib
-from datetime import datetime
-from enum import Enum
-from mangum import Mangum
+import os
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging first
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 logger = logging.getLogger(__name__)
+
+# Set environment defaults for Lambda
+os.environ.setdefault("USE_SQLITE", "0")
+
+try:
+    from fastapi import (
+        FastAPI,
+        HTTPException,
+        Depends,
+        Query,
+        Header,
+        Response,
+        File,
+        Form,
+        UploadFile,
+    )
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.security import HTTPBearer
+    from fastapi.responses import FileResponse
+    from pydantic import BaseModel
+    from typing import List, Optional, Dict, Any
+    from datetime import datetime
+    from enum import Enum
+    from mangum import Mangum
+    import uvicorn
+    import hashlib
+except ImportError as e:
+    logger.error(f"Critical import failed: {e}", exc_info=True)
+    raise
+
+# Import auth module
+try:
+    from src.auth.jwt_auth import auth as jwt_auth
+except ImportError as e:
+    logger.error(f"Failed to import jwt_auth: {e}", exc_info=True)
+    raise
 
 # Initialize FastAPI app
 app = FastAPI(
