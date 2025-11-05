@@ -100,6 +100,13 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
         href: '/search',
         color: 'secondary',
       });
+      actions.push({
+        title: 'Enumerate Models',
+        description: 'Browse all models with pagination',
+        icon: <Search />,
+        href: '/models',
+        color: 'secondary',
+      });
     }
 
     if (user.permissions.includes('download')) {
@@ -109,6 +116,16 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
         icon: <Download />,
         href: '/download',
         color: 'success',
+      });
+    }
+
+    if (user.permissions.includes('admin')) {
+      actions.push({
+        title: 'User Management',
+        description: 'Register and manage users',
+        icon: <People />,
+        href: '/users',
+        color: 'warning',
       });
     }
 
