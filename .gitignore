@@ -36,3 +36,6 @@ test-model/
 test-model.zip
 downloaded-model.zip
 search.json
+
+#autograder yaml file
+ece461_fall_2025_openapi_spec.yaml

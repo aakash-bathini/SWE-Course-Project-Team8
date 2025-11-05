@@ -127,6 +127,19 @@ export interface AuthenticationRequest {
 // AuthenticationToken is a string per spec; backend returns a raw string token
 export type AuthenticationToken = string;
 
+// User registration request (Milestone 3)
+export interface UserRegistrationRequest {
+  username: string;
+  password: string;
+  permissions: string[];
+}
+
+// Models enumeration response (Milestone 2)
+export interface ModelsEnumerateResponse {
+  items: ArtifactMetadata[];
+  next_cursor: string | null;
+}
+
 export const apiService = {
   // Health check
   async getHealth() {
@@ -140,14 +153,16 @@ export const apiService = {
     return response.data as AuthenticationToken;
   },
 
-  async registerUser(userData: {
-    username: string;
-    password: string;
-    permissions: string[];
-  }) {
-    // For Milestone 1, user registration is not implemented in the backend
-    // This is a placeholder that would make an API call in a real implementation
-    throw new Error('User registration not implemented in Milestone 1');
+  async registerUser(userData: UserRegistrationRequest) {
+    // Milestone 3: Admin-only user registration endpoint
+    const response = await apiClient.post('/register', userData);
+    return response.data;
+  },
+
+  // User management (Milestone 3)
+  async deleteUser(username: string) {
+    const response = await apiClient.delete(`/user/${encodeURIComponent(username)}`);
+    return response.data;
   },
 
   // Registry operations
@@ -257,12 +272,24 @@ export const apiService = {
     return this.deleteArtifact('model', modelId);
   },
 
-  async ingestHuggingFaceModel(modelName: string) {
-    // Convert to new artifact-based approach
-    const artifactData = {
-      url: `https://huggingface.co/${modelName}`,
-    };
-    return this.createArtifact('model', artifactData);
+  // Model ingestion (Milestone 2)
+  async ingestHuggingFaceModel(modelName: string): Promise<Artifact> {
+    // Milestone 2: POST /models/ingest?model_name=<huggingface_id>
+    const response = await apiClient.post('/models/ingest', null, {
+      params: { model_name: modelName },
+    });
+    return response.data as Artifact;
+  },
+
+  // Model enumeration (Milestone 2)
+  async enumerateModels(cursor?: string | null, limit: number = 25): Promise<ModelsEnumerateResponse> {
+    // Milestone 2: GET /models with cursor-based pagination
+    const params: Record<string, string | number> = { limit };
+    if (cursor) {
+      params.cursor = cursor;
+    }
+    const response = await apiClient.get('/models', { params });
+    return response.data as ModelsEnumerateResponse;
   },
 };
 
