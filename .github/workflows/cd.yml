@@ -29,12 +29,29 @@ jobs:
       - name: Package backend for Lambda
         run: |
           # Install production dependencies (built on Linux)
+          # Use --platform to ensure we get Linux x86_64 wheels for Lambda
           mkdir -p lambda_package
-          pip install -r requirements-prod.txt -t lambda_package/
+          pip install --platform manylinux2014_x86_64 --only-binary=:all: --upgrade pip setuptools wheel
+          pip install --platform manylinux2014_x86_64 --only-binary=:all: -r requirements-prod.txt -t lambda_package/ --no-cache-dir
+          
+          # If --platform doesn't work, fall back to regular install (works on Linux runners)
+          if [ ! -d "lambda_package/pydantic_core" ]; then
+            echo "Warning: pydantic_core not found, trying regular install..."
+            pip install -r requirements-prod.txt -t lambda_package/ --no-cache-dir
+          fi
           
           # Copy application code
           cp app.py lambda_package/
           cp -r src lambda_package/
+          
+          # Verify pydantic_core is installed
+          if [ -d "lambda_package/pydantic_core" ]; then
+            echo "✅ pydantic_core found"
+            ls -la lambda_package/pydantic_core/ | head -10
+          else
+            echo "❌ ERROR: pydantic_core not found!"
+            exit 1
+          fi
           
           # Create deployment zip
           cd lambda_package
@@ -80,9 +97,10 @@ jobs:
             sleep 2
           done
           
-          # Update Lambda function configuration (environment variables, timeout, memory, handler)
+          # Update Lambda function configuration (runtime, handler, timeout, memory, environment)
           aws lambda update-function-configuration \
             --function-name trustworthy-model-registry \
+            --runtime python3.11 \
             --handler app.handler \
             --timeout 60 \
             --memory-size 1024 \
