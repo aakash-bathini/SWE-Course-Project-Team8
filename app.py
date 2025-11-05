@@ -902,15 +902,24 @@ async def artifacts_list(
     else:
         for query in queries:
             if query.name == "*":
+                # Wildcard query - include all artifacts, optionally filtered by type
                 for artifact_id, artifact_data in artifacts_db.items():
-                    results.append(
-                        ArtifactMetadata(
-                            name=artifact_data["metadata"]["name"],
-                            id=artifact_id,
-                            type=artifact_data["metadata"]["type"],
-                        )
+                    artifact_type_value = (
+                        ArtifactType(artifact_data["metadata"]["type"])  # type: ignore[arg-type]
+                        if isinstance(artifact_data["metadata"].get("type"), str)
+                        else artifact_data["metadata"].get("type")
                     )
+                    # If types filter is provided, only include matching types
+                    if not query.types or (artifact_type_value in query.types):
+                        results.append(
+                            ArtifactMetadata(
+                                name=artifact_data["metadata"]["name"],
+                                id=artifact_id,
+                                type=artifact_type_value,
+                            )
+                        )
             else:
+                # Specific name query
                 for artifact_id, artifact_data in artifacts_db.items():
                     if artifact_data["metadata"]["name"] == query.name:
                         artifact_type_value = (
