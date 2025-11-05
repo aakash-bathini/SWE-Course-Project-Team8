@@ -18,9 +18,9 @@ def upsert_default_admin(db: Session, username: str, password: str, permissions:
     user = db.get(models.User, username)
     if user:
         # Update existing user
-        user.password = password
-        user.is_admin = True
-        user.permissions = ",".join(permissions)
+        user.password = password  # type: ignore[assignment]
+        user.is_admin = True  # type: ignore[assignment]
+        user.permissions = ",".join(permissions)  # type: ignore[assignment]
     else:
         # Create new user
         user = models.User(
