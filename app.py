@@ -1657,7 +1657,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         response = _mangum_handler(event, context)
 
         logger.info(f"Mangum handler returned. Response type: {type(response)}")
-        print(f"DEBUG: Mangum returned type={type(response)}")
+        if isinstance(response, dict):
+            status_code = response.get("statusCode", "N/A")
+            body_preview = str(response.get("body", ""))[:200] if response.get("body") else "N/A"
+            print(f"DEBUG: Mangum returned statusCode={status_code}, body preview={body_preview}")
+        else:
+            print(f"DEBUG: Mangum returned type={type(response)}")
         sys.stdout.flush()
 
         # Ensure response has correct format (per Stack Overflow requirements)
