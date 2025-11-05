@@ -80,9 +80,10 @@ jobs:
             sleep 2
           done
           
-          # Update Lambda function configuration (environment variables, timeout, memory)
+          # Update Lambda function configuration (environment variables, timeout, memory, handler)
           aws lambda update-function-configuration \
             --function-name trustworthy-model-registry \
+            --handler app.handler \
             --timeout 60 \
             --memory-size 1024 \
             --environment "Variables={USE_SQLITE=0,ENVIRONMENT=production,LOG_LEVEL=INFO}"
