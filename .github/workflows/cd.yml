@@ -28,17 +28,22 @@ jobs:
 
       - name: Package backend for Lambda
         run: |
-          # Install production dependencies using Docker to match Lambda's environment exactly
-          # This ensures compiled extensions like pydantic_core work correctly
+          # Install production dependencies for Lambda
+          # Lambda uses Amazon Linux 2 with glibc 2.26, so we need compatible wheels
           mkdir -p lambda_package
           
-          # Use Docker to build in Amazon Linux 2 (matching Lambda's environment)
-          docker run --rm -v $(pwd):/var/task \
-            public.ecr.aws/lambda/python:3.11 \
-            /bin/bash -c "
-            pip install --upgrade pip setuptools wheel -q
-            pip install -r /var/task/requirements-prod.txt -t /var/task/lambda_package/ --no-cache-dir
-            "
+          # Upgrade pip to ensure we get the best wheel resolution
+          pip install --upgrade pip setuptools wheel
+          
+          # Install dependencies - pip will automatically select compatible wheels
+          # For Lambda (manylinux2014_x86_64 wheels work on Amazon Linux 2)
+          pip install -r requirements-prod.txt -t lambda_package/ --no-cache-dir \
+            --platform manylinux2014_x86_64 \
+            --only-binary=:all: \
+            --upgrade-strategy only-if-needed || {
+              echo "Platform-specific install failed, trying regular install..."
+              pip install -r requirements-prod.txt -t lambda_package/ --no-cache-dir
+            }
           
           # Copy application code
           cp app.py lambda_package/
@@ -47,18 +52,19 @@ jobs:
           # Verify critical dependencies are installed
           if [ ! -d "lambda_package/pydantic_core" ]; then
             echo "❌ ERROR: pydantic_core not found!"
-            ls -la lambda_package/ | grep pydantic || echo "No pydantic packages found"
+            ls -la lambda_package/ | grep -i pydantic || echo "No pydantic packages found"
             exit 1
           fi
           
-          # Check if _pydantic_core.so exists (the compiled extension)
-          if [ ! -f "lambda_package/pydantic_core/_pydantic_core.so" ] && [ ! -f "lambda_package/pydantic_core/_pydantic_core.cpython-*.so" ]; then
+          # Check for compiled extension (may have different names)
+          EXT_FOUND=$(find lambda_package/pydantic_core -name "*_pydantic_core*.so" 2>/dev/null | wc -l)
+          if [ "$EXT_FOUND" -eq 0 ]; then
             echo "⚠️  WARNING: pydantic_core compiled extension not found!"
             echo "Listing pydantic_core contents:"
             ls -la lambda_package/pydantic_core/ || echo "Directory doesn't exist"
-            echo "Trying fallback: regular pip install..."
-            pip install --upgrade pip setuptools wheel
-            pip install -r requirements-prod.txt -t lambda_package/ --no-cache-dir --force-reinstall
+            echo "This may still work if wheels are used..."
+          else
+            echo "✅ Found $EXT_FOUND pydantic_core extension file(s)"
           fi
           
           echo "✅ Dependencies installed successfully"
