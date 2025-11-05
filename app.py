@@ -119,7 +119,8 @@ DEFAULT_ADMIN = {
 
 # Add default admin to users database and DB (if enabled)
 admin_username: str = str(DEFAULT_ADMIN["username"])
-users_db[admin_username] = DEFAULT_ADMIN
+# Use copy() to ensure we have an independent dict that won't be affected by mutations
+users_db[admin_username] = DEFAULT_ADMIN.copy()
 if USE_SQLITE:
     try:
         with next(get_db()) as _db:  # type: ignore[misc]
@@ -132,6 +133,9 @@ if USE_SQLITE:
             )
     except Exception as e:
         logger.warning(f"Failed to initialize default admin in database: {e}")
+        # Ensure default admin is still in in-memory users_db even if SQLite fails
+        if admin_username not in users_db:
+            users_db[admin_username] = DEFAULT_ADMIN.copy()
 
 
 # Pydantic models matching OpenAPI spec v3.3.1
@@ -751,6 +755,12 @@ async def delete_user(username: str, user: Dict[str, Any] = Depends(verify_token
 async def create_auth_token(request: AuthenticationRequest) -> str:
     """Create an access token (Milestone 3 - with proper validation)"""
     # Validate user credentials against in-memory/SQLite user store
+    # Ensure default admin exists (in case of Lambda cold start or reset)
+    admin_username = str(DEFAULT_ADMIN["username"])
+    if admin_username not in users_db:
+        users_db[admin_username] = DEFAULT_ADMIN.copy()
+        logger.info(f"Recreated default admin user: {admin_username}")
+    
     user_data = users_db.get(request.user.name)
     if not user_data:
         raise HTTPException(status_code=401, detail="The user or password is invalid.")
