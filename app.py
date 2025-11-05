@@ -344,8 +344,13 @@ class UserRegistrationRequest(BaseModel):
 
 
 @app.get("/health", response_model=HealthResponse)
-async def health_check() -> HealthResponse:
+async def health_check(response: Response) -> HealthResponse:
     """System health endpoint - lightweight liveness probe (BASELINE)"""
+    # Explicitly set CORS headers for API Gateway compatibility
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+
     try:
         # Safely get counts - handle case where databases might not be initialized
         models_count = len(artifacts_db) if artifacts_db is not None else 0
