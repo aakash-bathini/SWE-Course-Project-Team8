@@ -67,10 +67,18 @@ jobs:
           
           # Wait for function code update to complete before updating configuration
           echo "Waiting for Lambda function code update to complete..."
-          aws lambda wait function-updated \
-            --function-name trustworthy-model-registry \
-            --max-attempts 30 \
-            --delay 2
+          for i in {1..30}; do
+            STATUS=$(aws lambda get-function --function-name trustworthy-model-registry --query 'Configuration.LastUpdateStatus' --output text)
+            if [ "$STATUS" = "Successful" ]; then
+              echo "Function code update completed successfully"
+              break
+            elif [ "$STATUS" = "Failed" ]; then
+              echo "Function code update failed"
+              exit 1
+            fi
+            echo "Waiting... ($i/30) Status: $STATUS"
+            sleep 2
+          done
           
           # Update Lambda function configuration (environment variables, timeout, memory)
           aws lambda update-function-configuration \
@@ -81,10 +89,18 @@ jobs:
           
           # Wait for configuration update to complete
           echo "Waiting for Lambda function configuration update to complete..."
-          aws lambda wait function-updated \
-            --function-name trustworthy-model-registry \
-            --max-attempts 30 \
-            --delay 2
+          for i in {1..30}; do
+            STATUS=$(aws lambda get-function --function-name trustworthy-model-registry --query 'Configuration.LastUpdateStatus' --output text)
+            if [ "$STATUS" = "Successful" ]; then
+              echo "Function configuration update completed successfully"
+              break
+            elif [ "$STATUS" = "Failed" ]; then
+              echo "Function configuration update failed"
+              exit 1
+            fi
+            echo "Waiting... ($i/30) Status: $STATUS"
+            sleep 2
+          done
           
           echo "✅ Lambda function updated successfully!"
 
