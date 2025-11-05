@@ -130,12 +130,20 @@ export interface HealthComponentsResponse {
   window_minutes: number;
 }
 
+export interface ArtifactAuditEntry {
+  user: {
+    name: string;
+    is_admin: boolean;
+  };
+  date: string;
+  artifact: ArtifactMetadata;
+  action: string;
+}
+
 export interface ArtifactCost {
   total_cost: number;
   standalone_cost?: number;
 }
-
-export interface AuthenticationRequest {
   user: {
     name: string;
     is_admin: boolean;
