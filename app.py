@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Callable, Coroutine, Union
 from src.auth.jwt_auth import auth as jwt_auth
 import os
 import uvicorn
@@ -56,12 +56,12 @@ try:
     from src.metrics import size as size_metric  # noqa: E402
 except ImportError as e:
     logger.warning(f"Optional imports failed (may not be available in Lambda): {e}")
-    # Set to None to prevent errors
-    scrape_hf_url = None
-    create_eval_context_from_model_data = None
-    calculate_phase2_metrics = None
-    calculate_phase2_net_score = None
-    size_metric = None
+    # Set to None to prevent errors - use type: ignore for mypy compatibility
+    scrape_hf_url = None  # type: ignore[assignment]
+    create_eval_context_from_model_data = None  # type: ignore[assignment]
+    calculate_phase2_metrics = None  # type: ignore[assignment]
+    calculate_phase2_net_score = None  # type: ignore[assignment]
+    size_metric = None  # type: ignore[assignment]
 
 # Storage layer selection: in-memory (default) or SQLite (Milestone 2)
 USE_SQLITE: bool = os.environ.get("USE_SQLITE", "0") == "1"
