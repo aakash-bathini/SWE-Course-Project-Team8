@@ -1624,17 +1624,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     # Log handler invocation for debugging
     try:
-        event_keys = list(event.keys()) if isinstance(event, dict) else "not a dict"
-        event_path = event.get("path", "N/A") if isinstance(event, dict) else "N/A"
-        event_method = event.get("httpMethod", "N/A") if isinstance(event, dict) else "N/A"
+        if isinstance(event, dict):
+            event_keys = list(event.keys())
+            # Support both API Gateway REST API and HTTP API v2 formats
+            event_path = event.get("path") or event.get("rawPath", "N/A")
+            event_method = event.get("httpMethod") or event.get("requestContext", {}).get(
+                "http", {}
+            ).get("method", "N/A")
+            route_key = event.get("routeKey", "N/A")
+        else:
+            event_keys = "not a dict"
+            event_path = "N/A"
+            event_method = "N/A"
+            route_key = "N/A"
 
         logger.info(f"Handler invoked. Event keys: {event_keys}")
-        logger.info(f"Event path: {event_path}")
-        logger.info(f"Event httpMethod: {event_method}")
-        print(f"DEBUG: Event keys={event_keys}, path={event_path}, method={event_method}")
+        logger.info(f"Event path: {event_path}, method: {event_method}, routeKey: {route_key}")
+        print(
+            f"DEBUG: Event keys={event_keys}, path={event_path}, method={event_method}, routeKey={route_key}"
+        )
         sys.stdout.flush()
     except Exception as log_err:
         print(f"ERROR logging event: {log_err}")
+        import traceback
+
+        print(f"Traceback: {traceback.format_exc()}")
         sys.stdout.flush()
 
     try:
