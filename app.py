@@ -1036,12 +1036,12 @@ async def artifact_create(
                     hf_data, repo_type = scrape_hf_url(artifact_data.url)
                     model_data = {"url": artifact_data.url, "hf_data": [hf_data], "gh_data": []}
                     metrics = await calculate_phase2_metrics(model_data)
-                # Filter out latency metrics - only check non-latency metrics for threshold
-                non_latency_metrics = {
-                    k: v
-                    for k, v in metrics.items()
-                    if not k.endswith("_latency") and k != "net_score_latency"
-                }
+                    # Filter out latency metrics - only check non-latency metrics for threshold
+                    non_latency_metrics = {
+                        k: v
+                        for k, v in metrics.items()
+                        if not k.endswith("_latency") and k != "net_score_latency"
+                    }
                 # Require all available non-latency metrics to be at least 0.5
                 failing_metrics = [
                     k
