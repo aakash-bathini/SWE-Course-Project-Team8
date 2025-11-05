@@ -572,16 +572,16 @@ async def models_upload(
             }
         )
 
-            # Trigger metrics calculation
-            try:
-                model_data = {
-                    "url": f"local://{artifact_id}",
-                    "hf_data": [{"readme_text": readme_text}] if readme_text else [],
-                    "gh_data": [],
-                }
-                await calculate_phase2_metrics(model_data)
-            except Exception as e:
-                logger.warning(f"Metrics calculation failed for uploaded model: {e}")
+        # Trigger metrics calculation
+        try:
+            model_data = {
+                "url": f"local://{artifact_id}",
+                "hf_data": [{"readme_text": readme_text}] if readme_text else [],
+                "gh_data": [],
+            }
+            await calculate_phase2_metrics(model_data)
+        except Exception as e:
+            logger.warning(f"Metrics calculation failed for uploaded model: {e}")
 
         return Artifact(
             metadata=ArtifactMetadata(**artifact_entry["metadata"]),
