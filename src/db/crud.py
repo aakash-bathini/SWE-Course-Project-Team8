@@ -77,10 +77,20 @@ def list_by_queries(db: Session, queries: List[Dict]) -> List[models.Artifact]:
             query = query.filter(models.Artifact.name == name)
         if types:
             query = query.filter(models.Artifact.type.in_(types))
-        results.extend(query.all())
+        # If name is "*" and no types filter, get all artifacts
+        # Otherwise, use the filtered query
         if name == "*" and not types:
-            results = db.query(models.Artifact).all()
-    return results
+            results.extend(db.query(models.Artifact).all())
+        else:
+            results.extend(query.all())
+    # Remove duplicates (in case multiple queries overlap)
+    seen_ids = set()
+    unique_results = []
+    for art in results:
+        if art.id not in seen_ids:
+            seen_ids.add(art.id)
+            unique_results.append(art)
+    return unique_results
 
 
 def list_by_name(db: Session, name: str) -> List[models.Artifact]:
