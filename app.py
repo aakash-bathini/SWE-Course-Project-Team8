@@ -5,6 +5,7 @@ Main application entry point with REST API endpoints matching OpenAPI spec v3.4.
 
 import logging
 import os
+import sys
 
 # Configure logging first
 logging.basicConfig(
@@ -1586,9 +1587,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     - headers: dict (required)
     - body: string (required)
     """
+    # Log handler invocation for debugging
+    logger.info(f"Handler invoked. Event keys: {list(event.keys()) if isinstance(event, dict) else 'not a dict'}")
+    logger.info(f"Event path: {event.get('path', 'N/A') if isinstance(event, dict) else 'N/A'}")
+    logger.info(f"Event httpMethod: {event.get('httpMethod', 'N/A') if isinstance(event, dict) else 'N/A'}")
+    sys.stdout.flush()
+    
     try:
         if _mangum_handler is None:
             logger.error("Mangum handler not initialized")
+            sys.stdout.flush()
             return {
                 "statusCode": 500,
                 "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
@@ -1596,7 +1604,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
 
         # Call Mangum handler
+        logger.info("Calling Mangum handler...")
+        sys.stdout.flush()
         response = _mangum_handler(event, context)
+        logger.info(f"Mangum handler returned. Response type: {type(response)}")
+        sys.stdout.flush()
 
         # Ensure response has correct format (per Stack Overflow requirements)
         if not isinstance(response, dict):
@@ -1626,13 +1638,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             logger.warning(f"Converting body to string from {type(response['body'])}")
             response["body"] = str(response["body"])
 
+        logger.info(f"Returning response with statusCode: {response.get('statusCode', 'N/A')}")
+        sys.stdout.flush()
         return response
 
     except Exception as e:
-        logger.error(f"Lambda handler error: {e}", exc_info=True)
         import traceback
-
+        logger.error(f"Lambda handler error: {e}", exc_info=True)
         logger.error(f"Traceback: {traceback.format_exc()}")
+        sys.stdout.flush()
+        sys.stderr.flush()
         return {
             "statusCode": 500,
             "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
