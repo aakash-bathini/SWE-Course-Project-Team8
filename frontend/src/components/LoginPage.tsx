@@ -126,7 +126,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                   Username: ece30861defaultadminuser
                 </Typography>
                 <Typography variant="body2" color="text.secondary" align="center">
-                  Password: correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE artifacts;
+                  Password: correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE packages;
                 </Typography>
               </Box>
             </Box>
