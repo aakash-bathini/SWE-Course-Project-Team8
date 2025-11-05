@@ -797,19 +797,8 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
             raise HTTPException(status_code=401, detail="The user or password is invalid.")
     else:
         # Plain text password (for default admin during migration)
-        # Handle both password variants:
-        # 1. OpenAPI spec: ends with 'artifacts;' (63 chars)
-        # 2. Autograder/requirements doc: ends with 'packages;' (62 chars)
+        # Only accept exact match - autograder sends 'packages;' (62 chars)
         password_matches = request.secret.password == stored_password
-
-        # If exact match fails, normalize both variants for comparison
-        # Replace 'artifacts;' with 'packages;' in both passwords for comparison
-        if not password_matches:
-            received_normalized = request.secret.password.replace("artifacts;", "packages;")
-            stored_normalized = stored_password.replace("artifacts;", "packages;")
-            if received_normalized == stored_normalized:
-                print("DEBUG: Password matches after normalizing variants")
-                password_matches = True
 
         if not password_matches:
             logger.warning(
@@ -1604,6 +1593,7 @@ async def get_tracks() -> Dict[str, List[str]]:
     return {
         "plannedTracks": [
             "Other Security track",
+            "Access control track",
         ]
     }
 
