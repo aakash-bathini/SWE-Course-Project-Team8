@@ -350,7 +350,7 @@ async def health_check() -> HealthResponse:
         # Safely get counts - handle case where databases might not be initialized
         models_count = len(artifacts_db) if artifacts_db is not None else 0
         users_count = len(users_db) if users_db is not None else 0
-        
+
         return HealthResponse(
             status="healthy",
             timestamp=datetime.now().isoformat(),
