@@ -761,7 +761,7 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
     if admin_username not in users_db:
         users_db[admin_username] = DEFAULT_ADMIN.copy()
         logger.info(f"Recreated default admin user: {admin_username}")
-    
+
     user_data = users_db.get(request.user.name)
     if not user_data:
         raise HTTPException(status_code=401, detail="The user or password is invalid.")
@@ -1594,13 +1594,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     # Force log flushing immediately
     print("=== LAMBDA HANDLER CALLED ===")
     sys.stdout.flush()
-    
+
     # Log handler invocation for debugging
     try:
-        event_keys = list(event.keys()) if isinstance(event, dict) else 'not a dict'
-        event_path = event.get('path', 'N/A') if isinstance(event, dict) else 'N/A'
-        event_method = event.get('httpMethod', 'N/A') if isinstance(event, dict) else 'N/A'
-        
+        event_keys = list(event.keys()) if isinstance(event, dict) else "not a dict"
+        event_path = event.get("path", "N/A") if isinstance(event, dict) else "N/A"
+        event_method = event.get("httpMethod", "N/A") if isinstance(event, dict) else "N/A"
+
         logger.info(f"Handler invoked. Event keys: {event_keys}")
         logger.info(f"Event path: {event_path}")
         logger.info(f"Event httpMethod: {event_method}")
@@ -1609,7 +1609,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     except Exception as log_err:
         print(f"ERROR logging event: {log_err}")
         sys.stdout.flush()
-    
+
     try:
         if _mangum_handler is None:
             error_msg = "Mangum handler not initialized"
@@ -1626,9 +1626,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.info("Calling Mangum handler...")
         print("DEBUG: Calling Mangum handler...")
         sys.stdout.flush()
-        
+
         response = _mangum_handler(event, context)
-        
+
         logger.info(f"Mangum handler returned. Response type: {type(response)}")
         print(f"DEBUG: Mangum returned type={type(response)}")
         sys.stdout.flush()
@@ -1667,6 +1667,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     except Exception as e:
         import traceback
+
         logger.error(f"Lambda handler error: {e}", exc_info=True)
         logger.error(f"Traceback: {traceback.format_exc()}")
         sys.stdout.flush()
