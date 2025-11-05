@@ -802,27 +802,13 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
         # 2. Autograder/requirements doc: ends with 'packages;' (62 chars)
         password_matches = request.secret.password == stored_password
 
-        # If exact match fails, check if it's the 62-char variant (likely 'packages' vs 'artifacts')
-        if (
-            not password_matches
-            and len(request.secret.password) == 62
-            and len(stored_password) == 63
-        ):
-            # Check if received password matches stored password with backtick removed
-            backtick_pos = 40
-            if stored_password[backtick_pos] == "`":
-                stored_without_backtick = (
-                    stored_password[:backtick_pos] + stored_password[backtick_pos + 1 :]
-                )
-                if request.secret.password == stored_without_backtick:
-                    print("DEBUG: Password matches 62-char variant (missing backtick)")
-                    password_matches = True
-
-        # Also check if received password matches stored with 'artifacts' replaced by 'packages'
-        if not password_matches and len(request.secret.password) == 62:
-            stored_with_packages = stored_password.replace("artifacts;", "packages;")
-            if request.secret.password == stored_with_packages:
-                print("DEBUG: Password matches variant with 'packages' instead of 'artifacts'")
+        # If exact match fails, normalize both variants for comparison
+        # Replace 'artifacts;' with 'packages;' in both passwords for comparison
+        if not password_matches:
+            received_normalized = request.secret.password.replace("artifacts;", "packages;")
+            stored_normalized = stored_password.replace("artifacts;", "packages;")
+            if received_normalized == stored_normalized:
+                print("DEBUG: Password matches after normalizing variants")
                 password_matches = True
 
         if not password_matches:
