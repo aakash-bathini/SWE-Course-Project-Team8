@@ -1029,10 +1029,7 @@ async def artifact_create(
         try:
             # Only enforce gating for HuggingFace URLs per spec language
             if "huggingface.co" in artifact_data.url.lower():
-                if scrape_hf_url is None or calculate_phase2_metrics is None:
-                    # Skip threshold check if imports not available
-                    pass
-                else:
+                if scrape_hf_url is not None and calculate_phase2_metrics is not None:
                     hf_data, repo_type = scrape_hf_url(artifact_data.url)
                     model_data = {"url": artifact_data.url, "hf_data": [hf_data], "gh_data": []}
                     metrics = await calculate_phase2_metrics(model_data)
@@ -1042,17 +1039,17 @@ async def artifact_create(
                         for k, v in metrics.items()
                         if not k.endswith("_latency") and k != "net_score_latency"
                     }
-                # Require all available non-latency metrics to be at least 0.5
-                failing_metrics = [
-                    k
-                    for k, v in non_latency_metrics.items()
-                    if isinstance(v, (int, float)) and float(v) < 0.5
-                ]
-                if failing_metrics:
-                    raise HTTPException(
-                        status_code=424,
-                        detail=f"Artifact is not registered due to the disqualified rating. Failing metrics: {', '.join(failing_metrics)}",
-                    )
+                    # Require all available non-latency metrics to be at least 0.5
+                    failing_metrics = [
+                        k
+                        for k, v in non_latency_metrics.items()
+                        if isinstance(v, (int, float)) and float(v) < 0.5
+                    ]
+                    if failing_metrics:
+                        raise HTTPException(
+                            status_code=424,
+                            detail=f"Artifact is not registered due to the disqualified rating. Failing metrics: {', '.join(failing_metrics)}",
+                        )
         except HTTPException:
             raise
         except Exception:
