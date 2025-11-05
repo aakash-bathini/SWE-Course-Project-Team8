@@ -904,35 +904,34 @@ async def artifacts_list(
             if query.name == "*":
                 # Wildcard query - include all artifacts, optionally filtered by type
                 for artifact_id, artifact_data in artifacts_db.items():
-                    artifact_type_value = (
-                        ArtifactType(artifact_data["metadata"]["type"])  # type: ignore[arg-type]
-                        if isinstance(artifact_data["metadata"].get("type"), str)
-                        else artifact_data["metadata"].get("type")
-                    )
-                    # If types filter is provided, only include matching types
-                    if not query.types or (artifact_type_value in query.types):
+                    artifact_type_str = artifact_data["metadata"]["type"]
+                    # query.types is List[ArtifactType] (enums), so compare values
+                    if not query.types or any(artifact_type_str == t.value for t in query.types):
                         results.append(
                             ArtifactMetadata(
                                 name=artifact_data["metadata"]["name"],
                                 id=artifact_id,
-                                type=artifact_type_value,
+                                type=ArtifactType(
+                                    artifact_type_str
+                                ),  # Convert to enum for response
                             )
                         )
             else:
                 # Specific name query
                 for artifact_id, artifact_data in artifacts_db.items():
                     if artifact_data["metadata"]["name"] == query.name:
-                        artifact_type_value = (
-                            ArtifactType(artifact_data["metadata"]["type"])  # type: ignore[arg-type]
-                            if isinstance(artifact_data["metadata"].get("type"), str)
-                            else artifact_data["metadata"].get("type")
-                        )
-                        if not query.types or (artifact_type_value in query.types):
+                        artifact_type_str = artifact_data["metadata"]["type"]
+                        # query.types is List[ArtifactType] (enums), so compare values
+                        if not query.types or any(
+                            artifact_type_str == t.value for t in query.types
+                        ):
                             results.append(
                                 ArtifactMetadata(
                                     name=artifact_data["metadata"]["name"],
                                     id=artifact_id,
-                                    type=artifact_type_value,
+                                    type=ArtifactType(
+                                        artifact_type_str
+                                    ),  # Convert to enum for response
                                 )
                             )
 
