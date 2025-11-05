@@ -5,6 +5,7 @@ Main application entry point with REST API endpoints matching OpenAPI spec v3.4.
 
 import logging
 import os
+import sys
 
 # Configure logging first
 logging.basicConfig(
@@ -119,7 +120,8 @@ DEFAULT_ADMIN = {
 
 # Add default admin to users database and DB (if enabled)
 admin_username: str = str(DEFAULT_ADMIN["username"])
-users_db[admin_username] = DEFAULT_ADMIN
+# Use copy() to ensure we have an independent dict that won't be affected by mutations
+users_db[admin_username] = DEFAULT_ADMIN.copy()
 if USE_SQLITE:
     try:
         with next(get_db()) as _db:  # type: ignore[misc]
@@ -132,6 +134,9 @@ if USE_SQLITE:
             )
     except Exception as e:
         logger.warning(f"Failed to initialize default admin in database: {e}")
+        # Ensure default admin is still in in-memory users_db even if SQLite fails
+        if admin_username not in users_db:
+            users_db[admin_username] = DEFAULT_ADMIN.copy()
 
 
 # Pydantic models matching OpenAPI spec v3.3.1
@@ -750,9 +755,20 @@ async def delete_user(username: str, user: Dict[str, Any] = Depends(verify_token
 @app.put("/authenticate", response_model=str)
 async def create_auth_token(request: AuthenticationRequest) -> str:
     """Create an access token (Milestone 3 - with proper validation)"""
+    # CRITICAL: Ensure default admin exists on EVERY request (Lambda cold start protection)
+    admin_username = str(DEFAULT_ADMIN["username"])
+    if admin_username not in users_db:
+        users_db[admin_username] = DEFAULT_ADMIN.copy()
+        logger.info(f"Recreated default admin user: {admin_username}")
+        print(f"DEBUG: Recreated default admin user: {admin_username}")
+        sys.stdout.flush()
+
     # Validate user credentials against in-memory/SQLite user store
     user_data = users_db.get(request.user.name)
     if not user_data:
+        logger.warning(f"User not found: {request.user.name}")
+        print(f"DEBUG: User not found: {request.user.name}, users_db keys: {list(users_db.keys())}")
+        sys.stdout.flush()
         raise HTTPException(status_code=401, detail="The user or password is invalid.")
 
     # Use bcrypt for password verification (Milestone 3 requirement)
@@ -760,10 +776,22 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
     if isinstance(stored_password, str) and stored_password.startswith("$2b$"):
         # Password is hashed, use bcrypt verification
         if not jwt_auth.verify_password(request.secret.password, stored_password):
+            logger.warning(f"Password verification failed for user: {request.user.name}")
+            print(f"DEBUG: Bcrypt password verification failed for user: {request.user.name}")
+            sys.stdout.flush()
             raise HTTPException(status_code=401, detail="The user or password is invalid.")
     else:
         # Plain text password (for default admin during migration)
         if request.secret.password != stored_password:
+            logger.warning(
+                f"Plain text password mismatch for user: {request.user.name}. "
+                f"Expected length: {len(stored_password)}, Got length: {len(request.secret.password)}"
+            )
+            print(
+                f"DEBUG: Password mismatch for user: {request.user.name}. "
+                f"Expected: {repr(stored_password[:20])}..., Got: {repr(request.secret.password[:20])}..."
+            )
+            sys.stdout.flush()
             raise HTTPException(status_code=401, detail="The user or password is invalid.")
 
     # Issue JWT containing subject and permissions
@@ -787,6 +815,7 @@ async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
             status_code=401, detail="You do not have permission to reset the registry."
         )
 
+    # Clear all artifacts (CRITICAL: ensure this is complete)
     artifacts_db.clear()
     audit_log.clear()
 
@@ -796,20 +825,34 @@ async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
     # Clear users but preserve default admin (per spec requirement)
     users_db.clear()
 
-    # Recreate default admin user
+    # CRITICAL: Recreate default admin user immediately after clear
     admin_username: str = str(DEFAULT_ADMIN["username"])
     users_db[admin_username] = DEFAULT_ADMIN.copy()
 
+    # Log reset completion
+    logger.info(
+        f"Registry reset completed. Artifacts cleared: {len(artifacts_db) == 0}, Default admin recreated: {admin_username in users_db}"
+    )
+    print(
+        f"DEBUG: Reset completed. artifacts_db size: {len(artifacts_db)}, users_db keys: {list(users_db.keys())}"
+    )
+    sys.stdout.flush()
+
     if USE_SQLITE:
-        with next(get_db()) as _db:  # type: ignore[misc]
-            db_crud.reset_registry(_db)
-            # Recreate default admin in database
-            db_crud.upsert_default_admin(
-                _db,
-                username=str(DEFAULT_ADMIN["username"]),
-                password=str(DEFAULT_ADMIN["password"]),
-                permissions=list(DEFAULT_ADMIN["permissions"]),  # type: ignore[arg-type]
-            )
+        try:
+            with next(get_db()) as _db:  # type: ignore[misc]
+                db_crud.reset_registry(_db)
+                # Recreate default admin in database
+                db_crud.upsert_default_admin(
+                    _db,
+                    username=str(DEFAULT_ADMIN["username"]),
+                    password=str(DEFAULT_ADMIN["password"]),
+                    permissions=list(DEFAULT_ADMIN["permissions"]),  # type: ignore[arg-type]
+                )
+        except Exception as e:
+            logger.error(f"Failed to reset SQLite database: {e}")
+            print(f"DEBUG: SQLite reset failed: {e}")
+            sys.stdout.flush()
 
     return {"message": "Registry is reset."}
 
@@ -1550,15 +1593,19 @@ async def get_tracks() -> Dict[str, List[str]]:
 # This is the entry point that Lambda calls (configured as app.handler)
 # Per Stack Overflow: Lambda must return statusCode (int), headers (dict), body (string)
 logger.info("Initializing Mangum handler for Lambda...")
+sys.stdout.flush()
 _mangum_handler: Optional[Mangum] = None
 try:
     _mangum_handler = Mangum(app, lifespan="off")
     logger.info("✅ Mangum handler initialized successfully")
+    sys.stdout.flush()
 except Exception as e:
     logger.error(f"❌ Failed to initialize Mangum handler: {e}", exc_info=True)
     import traceback
 
     logger.error(f"Full traceback: {traceback.format_exc()}")
+    sys.stdout.flush()
+    sys.stderr.flush()
     _mangum_handler = None
 
 
@@ -1571,9 +1618,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     - headers: dict (required)
     - body: string (required)
     """
+    # Force log flushing immediately
+    print("=== LAMBDA HANDLER CALLED ===")
+    sys.stdout.flush()
+
+    # Log handler invocation for debugging
+    try:
+        event_keys = list(event.keys()) if isinstance(event, dict) else "not a dict"
+        event_path = event.get("path", "N/A") if isinstance(event, dict) else "N/A"
+        event_method = event.get("httpMethod", "N/A") if isinstance(event, dict) else "N/A"
+
+        logger.info(f"Handler invoked. Event keys: {event_keys}")
+        logger.info(f"Event path: {event_path}")
+        logger.info(f"Event httpMethod: {event_method}")
+        print(f"DEBUG: Event keys={event_keys}, path={event_path}, method={event_method}")
+        sys.stdout.flush()
+    except Exception as log_err:
+        print(f"ERROR logging event: {log_err}")
+        sys.stdout.flush()
+
     try:
         if _mangum_handler is None:
-            logger.error("Mangum handler not initialized")
+            error_msg = "Mangum handler not initialized"
+            logger.error(error_msg)
+            print(f"ERROR: {error_msg}")
+            sys.stdout.flush()
             return {
                 "statusCode": 500,
                 "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
@@ -1581,7 +1650,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
 
         # Call Mangum handler
+        logger.info("Calling Mangum handler...")
+        print("DEBUG: Calling Mangum handler...")
+        sys.stdout.flush()
+
         response = _mangum_handler(event, context)
+
+        logger.info(f"Mangum handler returned. Response type: {type(response)}")
+        print(f"DEBUG: Mangum returned type={type(response)}")
+        sys.stdout.flush()
 
         # Ensure response has correct format (per Stack Overflow requirements)
         if not isinstance(response, dict):
@@ -1611,13 +1688,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             logger.warning(f"Converting body to string from {type(response['body'])}")
             response["body"] = str(response["body"])
 
+        logger.info(f"Returning response with statusCode: {response.get('statusCode', 'N/A')}")
+        sys.stdout.flush()
         return response
 
     except Exception as e:
-        logger.error(f"Lambda handler error: {e}", exc_info=True)
         import traceback
 
+        logger.error(f"Lambda handler error: {e}", exc_info=True)
         logger.error(f"Traceback: {traceback.format_exc()}")
+        sys.stdout.flush()
+        sys.stderr.flush()
         return {
             "statusCode": 500,
             "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
