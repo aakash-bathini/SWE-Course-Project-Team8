@@ -1548,19 +1548,75 @@ async def get_tracks() -> Dict[str, List[str]]:
 
 # Create Mangum handler for Lambda
 # This is the entry point that Lambda calls (configured as app.handler)
+# Per Stack Overflow: Lambda must return statusCode (int), headers (dict), body (string)
 logger.info("Initializing Mangum handler for Lambda...")
 try:
-    handler = Mangum(app, lifespan="off")
+    _mangum_handler = Mangum(app, lifespan="off")
     logger.info("✅ Mangum handler initialized successfully")
 except Exception as e:
     logger.error(f"❌ Failed to initialize Mangum handler: {e}", exc_info=True)
     import traceback
 
     logger.error(f"Full traceback: {traceback.format_exc()}")
+    _mangum_handler = None
 
-    # Create a fallback handler that returns 500 and logs the error
-    def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # type: ignore[assignment]
-        logger.error(f"Handler initialization failed. Event received: {event}")
+
+# Lambda handler wrapper - ensures proper response format per Stack Overflow article
+def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """
+    Lambda handler entry point.
+    Ensures response format matches API Gateway requirements:
+    - statusCode: int (required)
+    - headers: dict (required)
+    - body: string (required)
+    """
+    try:
+        if _mangum_handler is None:
+            logger.error("Mangum handler not initialized")
+            return {
+                "statusCode": 500,
+                "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+                "body": '{"message":"Internal Server Error"}',
+            }
+
+        # Call Mangum handler
+        response = _mangum_handler(event, context)
+
+        # Ensure response has correct format (per Stack Overflow requirements)
+        if not isinstance(response, dict):
+            logger.error(f"Handler returned non-dict: {type(response)}")
+            return {
+                "statusCode": 500,
+                "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+                "body": '{"message":"Internal Server Error"}',
+            }
+
+        # Ensure statusCode is an int (not string)
+        if "statusCode" not in response:
+            logger.error("Response missing statusCode")
+            return {
+                "statusCode": 500,
+                "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+                "body": '{"message":"Internal Server Error"}',
+            }
+
+        # Ensure statusCode is an integer
+        if not isinstance(response["statusCode"], int):
+            logger.error(f"statusCode is not int: {type(response['statusCode'])}")
+            response["statusCode"] = int(response["statusCode"])
+
+        # Ensure body is a string
+        if "body" in response and not isinstance(response["body"], str):
+            logger.warning(f"Converting body to string from {type(response['body'])}")
+            response["body"] = str(response["body"])
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Lambda handler error: {e}", exc_info=True)
+        import traceback
+
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return {
             "statusCode": 500,
             "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
