@@ -1402,12 +1402,20 @@ async def artifact_retrieve(
     artifact_type: ArtifactType, id: str, user: Dict[str, Any] = Depends(verify_token)
 ) -> Artifact:
     """Interact with the artifact with this id (BASELINE)"""
+    # Debug logging for autograder troubleshooting
+    logger.debug(f"Retrieving artifact: type={artifact_type.value}, id={id}")
+    logger.debug(f"artifacts_db size: {len(artifacts_db)}, keys: {list(artifacts_db.keys())[:5]}")
+
     if USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
             if not art:
+                logger.warning(f"Artifact not found in SQLite: id={id}")
                 raise HTTPException(status_code=404, detail="Artifact does not exist.")
             if art.type != artifact_type.value:
+                logger.warning(
+                    f"Artifact type mismatch: stored={art.type}, requested={artifact_type.value}"
+                )
                 raise HTTPException(status_code=400, detail="Artifact type mismatch.")
             return Artifact(
                 metadata=ArtifactMetadata(name=art.name, id=art.id, type=ArtifactType(art.type)),
@@ -1415,10 +1423,18 @@ async def artifact_retrieve(
             )
     else:
         if id not in artifacts_db:
+            logger.warning(
+                f"Artifact not found in artifacts_db: id={id}, available keys: {list(artifacts_db.keys())[:10]}"
+            )
             raise HTTPException(status_code=404, detail="Artifact does not exist.")
         artifact_data = artifacts_db[id]
-        if artifact_data["metadata"]["type"] != artifact_type.value:
+        stored_type = artifact_data["metadata"]["type"]
+        if stored_type != artifact_type.value:
+            logger.warning(
+                f"Artifact type mismatch: stored={stored_type}, requested={artifact_type.value}"
+            )
             raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+        logger.debug(f"Successfully retrieved artifact: id={id}, type={stored_type}")
         return Artifact(
             metadata=ArtifactMetadata(**artifact_data["metadata"]),
             data=ArtifactData(url=artifact_data["data"]["url"]),
