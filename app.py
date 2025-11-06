@@ -1360,7 +1360,19 @@ async def artifact_by_regex(
     except _re.error as e:
         raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
 
-    if USE_SQLITE:
+    # Priority: S3 (production) > SQLite (local) > in-memory
+    if USE_S3 and s3_storage:
+        s3_artifacts = s3_storage.list_artifacts_by_regex(regex.regex)
+        for art_data in s3_artifacts:
+            metadata = art_data.get("metadata", {})
+            matches.append(
+                ArtifactMetadata(
+                    name=metadata.get("name", ""),
+                    id=metadata.get("id", ""),
+                    type=ArtifactType(metadata.get("type", "")),
+                )
+            )
+    elif USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             items = db_crud.list_by_regex(_db, regex.regex)
             for a in items:
@@ -1530,13 +1542,22 @@ async def artifact_create(
         artifact_entry["data"]["hf_data"] = hf_data
 
     # Store artifact in appropriate storage layer
-    artifacts_db[artifact_id] = artifact_entry  # Keep in-memory for compatibility
-
-    # Store in S3 if enabled
+    # Priority: S3 (production) > SQLite (local) > in-memory
+    # In production, always store in S3 for persistence
     if USE_S3 and s3_storage:
-        s3_storage.save_artifact_metadata(artifact_id, artifact_entry)
+        success = s3_storage.save_artifact_metadata(artifact_id, artifact_entry)
+        if not success:
+            logger.error(f"Failed to save artifact {artifact_id} to S3, but continuing...")
+        # Still keep in-memory for current request compatibility
+        artifacts_db[artifact_id] = artifact_entry
+    elif USE_SQLITE:
+        # Store in SQLite for local development
+        artifacts_db[artifact_id] = artifact_entry
+    else:
+        # In-memory fallback
+        artifacts_db[artifact_id] = artifact_entry
 
-    # Store in SQLite if enabled
+    # Store in SQLite if enabled (for local development)
     if USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             db_crud.create_artifact(
