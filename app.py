@@ -106,9 +106,24 @@ if USE_SQLITE:
 
         # Ensure schema exists
         Base.metadata.create_all(bind=engine)
+        logger.info(
+            f"SQLite initialized successfully. Database path: {os.environ.get('SQLALCHEMY_DATABASE_URL', 'default')}"
+        )
+        print(
+            f"DEBUG: SQLite initialized. Database path: {os.environ.get('SQLALCHEMY_DATABASE_URL', 'default')}"
+        )
+        sys.stdout.flush()
     except Exception as e:
-        logger.warning(f"SQLite initialization failed: {e}, falling back to in-memory storage")
+        logger.error(
+            f"SQLite initialization failed: {e}, falling back to in-memory storage", exc_info=True
+        )
+        print(f"DEBUG: SQLite initialization failed: {e}")
+        sys.stdout.flush()
         USE_SQLITE = False
+else:
+    logger.info("SQLite disabled - using in-memory storage")
+    print("DEBUG: SQLite disabled - using in-memory storage")
+    sys.stdout.flush()
 
 # Default admin user - password matches what autograder sends (requirements doc says 'packages', not 'artifacts')
 DEFAULT_ADMIN = {
