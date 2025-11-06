@@ -100,7 +100,8 @@ USE_SQLITE: bool = (
     and not os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
 )
 USE_S3: bool = os.environ.get("USE_S3", "0") == "1" or (
-    os.environ.get("ENVIRONMENT") == "production" or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+    os.environ.get("ENVIRONMENT") == "production"
+    or os.environ.get("AWS_LAMBDA_FUNCTION_NAME") is not None
 )
 
 artifacts_db: Dict[str, Dict[str, Any]] = {}  # artifact_id -> artifact_data (in-memory)
