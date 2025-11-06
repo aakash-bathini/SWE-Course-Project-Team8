@@ -160,14 +160,22 @@ jobs:
           echo "🔍 Verifying Lambda environment variables..."
           ENV_VARS=$(aws lambda get-function-configuration --function-name trustworthy-model-registry --query 'Environment.Variables' --output json)
           echo "Environment variables:"
-          echo "$ENV_VARS" | jq '.'
+          echo "$ENV_VARS"
           
-          S3_BUCKET_SET=$(echo "$ENV_VARS" | jq -r '.S3_BUCKET_NAME // "NOT SET"')
-          USE_S3_SET=$(echo "$ENV_VARS" | jq -r '.USE_S3 // "NOT SET"')
+          # Check if jq is available, otherwise use grep
+          if command -v jq &> /dev/null; then
+            S3_BUCKET_SET=$(echo "$ENV_VARS" | jq -r '.S3_BUCKET_NAME // "NOT SET"')
+            USE_S3_SET=$(echo "$ENV_VARS" | jq -r '.USE_S3 // "NOT SET"')
+          else
+            # Fallback: extract values using grep/sed if jq not available
+            S3_BUCKET_SET=$(echo "$ENV_VARS" | grep -o '"S3_BUCKET_NAME": "[^"]*"' | sed 's/.*"\([^"]*\)".*/\1/' || echo "NOT SET")
+            USE_S3_SET=$(echo "$ENV_VARS" | grep -o '"USE_S3": "[^"]*"' | sed 's/.*"\([^"]*\)".*/\1/' || echo "NOT SET")
+          fi
           
           if [ "$S3_BUCKET_SET" = "NOT SET" ] || [ -z "$S3_BUCKET_SET" ]; then
             echo "⚠️  WARNING: S3_BUCKET_NAME environment variable is not set in Lambda!"
             echo "This may cause S3 storage to fail initialization."
+            echo "Please verify GitHub secret S3_BUCKET_NAME is configured correctly."
           else
             echo "✅ S3_BUCKET_NAME is set: $S3_BUCKET_SET"
           fi
