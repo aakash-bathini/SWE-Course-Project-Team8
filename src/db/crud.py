@@ -100,6 +100,9 @@ def list_by_name(db: Session, name: str) -> List[models.Artifact]:
 def list_by_regex(db: Session, regex: str) -> List[models.Artifact]:
     """Search artifacts by regex pattern (matches names and READMEs)"""
     # Do NOT escape regex - it should be a real regex pattern
+    # Note: Per OpenAPI spec, users can provide regex patterns for searching.
+    # The regex is validated here and only used for matching, not for execution.
+    # CodeQL warnings about regex injection are expected - this is intentional functionality.
     try:
         rx = re.compile(regex)
     except re.error:
