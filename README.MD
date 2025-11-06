@@ -7,7 +7,7 @@
 **Team:** Aakash Bathini (@aakash-bathini), Neal Singh (@NSingh1227), Vishal Madhudi (@vishalm3416), Rishi Mantri (@rishimantri795)  
 **Group:** 8  
 **Track:** Security Extended Track  
-**Status:** Milestone 1 Complete ✅ | Testing CI/CD Pipeline 🚀
+**Status:** Milestone 2 Complete ✅ | Milestone 3 Complete ✅ | Testing & Refinement 🚀
 
 ---
 
@@ -1047,6 +1047,41 @@ curl -X GET "http://localhost:8000/models?cursor=model-2-1234567890&limit=25" \
 
 #### Enumerate Features
 - ✅ Cursor-based pagination (not offset-based)
+- ✅ Stable sorting by artifact ID
+- ✅ Permission-based access control
+
+#### Artifact Search & Retrieval Features ✅
+**Endpoint**: `GET /artifact/byName/{name}` (NON-BASELINE)
+- **Location**: `app.py` lines 1158-1194
+- **Features**:
+  - Exact name matching for stored artifact names
+  - Support for full HuggingFace model names (e.g., `org/model-name`)
+  - Returns all artifacts matching the name (multiple artifacts can share a name)
+  - Works with both ingested models and uploaded artifacts
+
+**Endpoint**: `POST /artifact/byRegEx` (BASELINE)
+- **Location**: `app.py` lines 1197-1284
+- **Features**:
+  - Case-insensitive regex matching
+  - Searches artifact names individually (for exact matches)
+  - Searches both stored name and full HuggingFace model name (`hf_model_name`)
+  - Searches README content from HuggingFace models
+  - Supports exact match patterns like `^model-name$`
+  - Supports partial match patterns like `.*model.*`
+  - Maximum regex length of 500 characters to prevent ReDoS attacks
+- **Behavior**:
+  - Checks `name`, `hf_model_name`, and `readme_text` individually for exact matches
+  - Also checks concatenated text for partial matches
+  - Returns empty list if pattern is too long (500+ chars) or invalid
+
+**Endpoint**: `GET /artifacts/{artifact_type}/{id}` (BASELINE)
+- **Location**: `app.py` lines 1400-1435
+- **Features**:
+  - Retrieves artifact by ID and type
+  - Type validation (returns 400 if type mismatch)
+  - 404 if artifact doesn't exist
+  - Debug logging for troubleshooting (CloudWatch logs)
+  - Works with both SQLite and in-memory storage
 - ✅ Efficient for large datasets (millions of models)
 - ✅ Stable sorting for consistent pagination
 - ✅ Configurable page size (1-100, default 25)
@@ -1110,6 +1145,19 @@ Rating endpoint now includes:
 7. **Integration Testing**: ✅ Comprehensive test suite with 40%+ coverage
 8. **Local File Storage**: ✅ uploads/ directory with SHA256 integrity checks
 9. **OpenAPI Compliance**: ✅ `/docs` available; responses align with schema
+
+### Recent Improvements (Latest Updates)
+
+#### Artifact Search Enhancements ✅
+- **Improved Regex Matching**: Exact match patterns (e.g., `^model-name$`) now work correctly by checking name, HuggingFace model name, and README content individually
+- **Case-Insensitive Search**: All regex searches are now case-insensitive for better user experience
+- **Enhanced Name Matching**: `/artifact/byName/{name}` now supports both display names and full HuggingFace model names (e.g., `google/gemma-2-2b`)
+- **Debug Logging**: Added comprehensive logging to artifact retrieval endpoint for troubleshooting autograder issues
+
+#### Performance & Reliability
+- **Better Error Handling**: Improved error messages for artifact retrieval failures
+- **Type Safety**: Enhanced type validation for artifact type matching
+- **Storage Consistency**: Ensured artifacts created via different endpoints (ingest, upload, create) are all retrievable consistently
 
 ### Remaining for Deployment
 - **AWS Deployment**: Lambda + API Gateway configuration (handled separately)
