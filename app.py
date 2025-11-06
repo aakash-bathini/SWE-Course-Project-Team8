@@ -1579,9 +1579,16 @@ async def artifact_create(
     # Priority: S3 (production) > SQLite (local) > in-memory
     # In production, always store in S3 for persistence
     if USE_S3 and s3_storage:
+        logger.info(
+            f"💾 Saving artifact to S3: id={artifact_id}, name={artifact_entry['metadata']['name']}"
+        )
         success = s3_storage.save_artifact_metadata(artifact_id, artifact_entry)
         if not success:
-            logger.error(f"Failed to save artifact {artifact_id} to S3, but continuing...")
+            logger.error(
+                f"❌ CRITICAL: Failed to save artifact {artifact_id} to S3 - artifact will not persist!"
+            )
+        else:
+            logger.info(f"✅ Successfully saved artifact {artifact_id} to S3")
         # Still keep in-memory for current request compatibility
         artifacts_db[artifact_id] = artifact_entry
     elif USE_SQLITE:
@@ -1639,11 +1646,14 @@ async def artifact_retrieve(
     # Priority: S3 (production) > SQLite (local) > in-memory
     # In production, S3 is primary source; fallback to in-memory only for same-request compatibility
     if USE_S3 and s3_storage:
+        logger.info(f"🔍 Retrieving artifact from S3: type={artifact_type.value}, id={id}")
         artifact_data = s3_storage.get_artifact_metadata(id)
         if not artifact_data:
             # Fallback to in-memory for same-request compatibility (Lambda cold start protection)
             if id in artifacts_db:
-                logger.debug(f"Artifact {id} not in S3 but found in-memory (same request)")
+                logger.warning(
+                    f"⚠️ Artifact {id} not in S3 but found in-memory (same request) - may not persist across Lambda invocations"
+                )
                 artifact_data = artifacts_db[id]
                 stored_type = artifact_data["metadata"]["type"]
                 if stored_type != artifact_type.value:
@@ -1652,7 +1662,9 @@ async def artifact_retrieve(
                     metadata=ArtifactMetadata(**artifact_data["metadata"]),
                     data=ArtifactData(url=artifact_data["data"]["url"]),
                 )
-            logger.warning(f"Artifact not found in S3: id={id}")
+            logger.error(
+                f"❌ Artifact not found in S3 or in-memory: id={id}, type={artifact_type.value}"
+            )
             raise HTTPException(status_code=404, detail="Artifact does not exist.")
         stored_type = artifact_data.get("metadata", {}).get("type")
         if stored_type != artifact_type.value:
