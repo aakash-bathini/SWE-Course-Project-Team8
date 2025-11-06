@@ -570,9 +570,7 @@ async def models_upload(
         # Priority: in-memory (for consistency within Lambda invocation) > SQLite > S3
         # Use in-memory count first to avoid S3 eventual consistency issues
         model_count = sum(
-            1
-            for art in artifacts_db.values()
-            if art.get("metadata", {}).get("type") == "model"
+            1 for art in artifacts_db.values() if art.get("metadata", {}).get("type") == "model"
         )
         if USE_SQLITE:
             try:
@@ -1140,9 +1138,7 @@ async def models_ingest(
         # Priority: in-memory (for consistency within Lambda invocation) > SQLite > S3
         # Use in-memory count first to avoid S3 eventual consistency issues
         model_count = sum(
-            1
-            for art in artifacts_db.values()
-            if art.get("metadata", {}).get("type") == "model"
+            1 for art in artifacts_db.values() if art.get("metadata", {}).get("type") == "model"
         )
         if USE_SQLITE:
             try:
@@ -1571,9 +1567,7 @@ async def artifact_create(
             type_count = max(type_count, s3_count)
         except Exception:
             pass  # Use in-memory count if S3 fails
-    artifact_id = (
-        f"{artifact_type.value}-{type_count + 1}-{int(datetime.now().timestamp())}"
-    )
+    artifact_id = f"{artifact_type.value}-{type_count + 1}-{int(datetime.now().timestamp())}"
 
     # Extract name from URL (handle trailing slashes)
     artifact_name = artifact_data.url.rstrip("/").split("/")[-1] if artifact_data.url else "unknown"
