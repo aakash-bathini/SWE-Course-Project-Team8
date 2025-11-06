@@ -110,21 +110,35 @@ audit_log: List[Dict[str, Any]] = []
 
 # Initialize S3 storage if enabled (production only)
 s3_storage = None
+print(
+    f"DEBUG: USE_S3={USE_S3}, AWS_LAMBDA_FUNCTION_NAME={os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'not set')}, ENVIRONMENT={os.environ.get('ENVIRONMENT', 'not set')}"
+)
+sys.stdout.flush()
 if USE_S3:
     try:
         from src.storage.s3_storage import get_s3_storage
 
+        print("DEBUG: Attempting to initialize S3 storage...")
+        sys.stdout.flush()
         s3_storage = get_s3_storage()
         if s3_storage:
-            logger.info(
-                f"S3 storage initialized: bucket={os.environ.get('S3_BUCKET_NAME', 'not set')}"
-            )
+            bucket_name = os.environ.get("S3_BUCKET_NAME", "not set")
+            logger.info(f"S3 storage initialized: bucket={bucket_name}")
+            print(f"DEBUG: ✅ S3 storage initialized: bucket={bucket_name}")
+            sys.stdout.flush()
         else:
             logger.warning("S3 storage requested but bucket not configured or unavailable")
+            print("DEBUG: ⚠️ S3 storage NOT initialized - bucket not configured or unavailable")
+            sys.stdout.flush()
             USE_S3 = False
     except Exception as e:
         logger.error(f"S3 initialization failed: {e}, falling back to other storage", exc_info=True)
+        print(f"DEBUG: ❌ S3 initialization failed: {e}")
+        sys.stdout.flush()
         USE_S3 = False
+else:
+    print("DEBUG: S3 storage disabled (USE_S3=False)")
+    sys.stdout.flush()
 
 # Initialize SQLite if enabled (local development only)
 if USE_SQLITE:
