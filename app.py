@@ -606,14 +606,40 @@ async def models_download(
     import tempfile
 
     try:
-        # Check if artifact exists
-        if id not in artifacts_db:
+        # Check if artifact exists (check both SQLite and in-memory)
+        artifact_exists = False
+        artifact_type = None
+        artifact_url = None
+        artifact_metadata = None
+
+        if USE_SQLITE:
+            with next(get_db()) as _db:  # type: ignore[misc]
+                art = db_crud.get_artifact(_db, id)
+                if art:
+                    artifact_exists = True
+                    artifact_type = art.type
+                    artifact_url = art.url
+                    artifact_metadata = {"name": art.name, "id": art.id, "type": art.type}
+        else:
+            if id in artifacts_db:
+                artifact_exists = True
+                artifact_data = artifacts_db[id]
+                artifact_type = artifact_data["metadata"]["type"]
+                artifact_url = artifact_data["data"].get("url", "")
+                artifact_metadata = artifact_data["metadata"]
+
+        if not artifact_exists:
             raise HTTPException(status_code=404, detail="Artifact does not exist.")
 
-        artifact_data = artifacts_db[id]
-
-        if artifact_data["metadata"]["type"] != "model":
+        if artifact_type != "model":
             raise HTTPException(status_code=400, detail="Not a model artifact.")
+
+        # Check if this is a URL-only model (no local files)
+        if artifact_url and not artifact_url.startswith("local://"):
+            raise HTTPException(
+                status_code=404,
+                detail="Model files not found. This model may only have URL metadata (downloaded from HuggingFace).",
+            )
 
         # Get artifact directory
         artifact_dir = file_storage.get_artifact_directory(id)
@@ -640,20 +666,22 @@ async def models_download(
         checksum = file_storage.calculate_checksum(zip_path)
 
         # Log download audit
-        audit_log.append(
-            {
-                "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
-                "date": datetime.now().isoformat(),
-                "artifact": artifact_data["metadata"],
-                "action": f"DOWNLOAD_{aspect.upper()}",
-            }
-        )
+        if artifact_metadata:
+            audit_log.append(
+                {
+                    "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
+                    "date": datetime.now().isoformat(),
+                    "artifact": artifact_metadata,
+                    "action": f"DOWNLOAD_{aspect.upper()}",
+                }
+            )
 
         # Return file with checksum in headers
+        artifact_name = artifact_metadata.get("name", "model") if artifact_metadata else "model"
         return FileResponse(
             path=zip_path,
             media_type="application/zip",
-            filename=f"{artifact_data['metadata']['name']}_{aspect}.zip",
+            filename=f"{artifact_name}_{aspect}.zip",
             headers={"X-File-Checksum": checksum, "X-File-Aspect": aspect},
         )
 
@@ -1140,6 +1168,7 @@ async def artifact_by_name(
                 matches.append(ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type)))
     else:
         for artifact_id, artifact_data in artifacts_db.items():
+            # Case-sensitive exact match
             if artifact_data["metadata"]["name"] == name:
                 matches.append(
                     ArtifactMetadata(
