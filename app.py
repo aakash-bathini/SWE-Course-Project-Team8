@@ -1891,8 +1891,18 @@ async def artifact_license_check(
 @app.get("/artifact/model/{id}/rate", response_model=ModelRating)
 async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_token)) -> ModelRating:
     """Get ratings for this model artifact (BASELINE)"""
-    # Check if artifact exists
-    if USE_SQLITE:
+    # Check if artifact exists - Priority: S3 (production) > SQLite (local) > in-memory
+    url = None
+    artifact_name = None
+    if USE_S3 and s3_storage:
+        existing_data = s3_storage.get_artifact_metadata(id)
+        if not existing_data:
+            raise HTTPException(status_code=404, detail="Artifact does not exist.")
+        if existing_data.get("metadata", {}).get("type") != "model":
+            raise HTTPException(status_code=400, detail="Not a model artifact.")
+        url = existing_data.get("data", {}).get("url", "")
+        artifact_name = existing_data.get("metadata", {}).get("name", "")
+    elif USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
             if not art:
@@ -1930,7 +1940,13 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
         else:
             hf_data = None
             # For ingested models, try to get hf_data from stored artifact data
-            if not USE_SQLITE:
+            if USE_S3 and s3_storage:
+                existing_data = s3_storage.get_artifact_metadata(id)
+                if existing_data and "hf_data" in existing_data.get("data", {}):
+                    hf_data_list = existing_data["data"].get("hf_data", [])
+                    if isinstance(hf_data_list, list) and len(hf_data_list) > 0:
+                        hf_data = hf_data_list[0] if isinstance(hf_data_list[0], dict) else None
+            elif not USE_SQLITE:
                 if id in artifacts_db:
                     artifact_data = artifacts_db[id]
                     if "hf_data" in artifact_data.get("data", {}):
@@ -2013,8 +2029,16 @@ async def artifact_cost(
     user: Dict[str, Any] = Depends(verify_token),
 ) -> Dict[str, ArtifactCost]:
     """Get the cost of an artifact (BASELINE)"""
-    # Check if artifact exists
-    if USE_SQLITE:
+    # Check if artifact exists - Priority: S3 (production) > SQLite (local) > in-memory
+    url = None
+    if USE_S3 and s3_storage:
+        existing_data = s3_storage.get_artifact_metadata(id)
+        if not existing_data:
+            raise HTTPException(status_code=404, detail="Artifact does not exist.")
+        if existing_data.get("metadata", {}).get("type") != artifact_type.value:
+            raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+        url = existing_data.get("data", {}).get("url", "")
+    elif USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
             if not art:
@@ -2138,8 +2162,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         logger.info(f"Mangum handler returned. Response type: {type(response)}")
         if isinstance(response, dict):
-            status_code = response.get("statusCode", "N/A")
-            body_preview = str(response.get("body", ""))[:200] if response.get("body") else "N/A"
+            logger.debug(
+                f"Response statusCode={response.get('statusCode', 'N/A')}, "
+                f"body preview={str(response.get('body', ''))[:200] if response.get('body') else 'N/A'}"
+            )
 
         # Ensure response has correct format (per Stack Overflow requirements)
         if not isinstance(response, dict):
