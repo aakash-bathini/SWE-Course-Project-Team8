@@ -1403,29 +1403,42 @@ async def artifact_retrieve(
 ) -> Artifact:
     """Interact with the artifact with this id (BASELINE)"""
     # Debug logging for autograder troubleshooting
-    logger.debug(f"Retrieving artifact: type={artifact_type.value}, id={id}")
-    logger.debug(f"artifacts_db size: {len(artifacts_db)}, keys: {list(artifacts_db.keys())[:5]}")
+    logger.info(f"Retrieving artifact: type={artifact_type.value}, id={id}")
+    logger.info(f"artifacts_db size: {len(artifacts_db)}, keys: {list(artifacts_db.keys())[:10]}")
+    print(f"DEBUG: Retrieving artifact: type={artifact_type.value}, id={id}")
+    print(f"DEBUG: artifacts_db size: {len(artifacts_db)}, USE_SQLITE={USE_SQLITE}")
+    sys.stdout.flush()
 
     if USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
             if not art:
                 logger.warning(f"Artifact not found in SQLite: id={id}")
+                print(f"DEBUG: Artifact not found in SQLite: id={id}")
+                sys.stdout.flush()
                 raise HTTPException(status_code=404, detail="Artifact does not exist.")
             if art.type != artifact_type.value:
                 logger.warning(
                     f"Artifact type mismatch: stored={art.type}, requested={artifact_type.value}"
                 )
+                print(
+                    f"DEBUG: Artifact type mismatch: stored={art.type}, requested={artifact_type.value}"
+                )
+                sys.stdout.flush()
                 raise HTTPException(status_code=400, detail="Artifact type mismatch.")
             return Artifact(
                 metadata=ArtifactMetadata(name=art.name, id=art.id, type=ArtifactType(art.type)),
                 data=ArtifactData(url=art.url),
             )
     else:
+        # In-memory storage: check if artifact exists
         if id not in artifacts_db:
             logger.warning(
                 f"Artifact not found in artifacts_db: id={id}, available keys: {list(artifacts_db.keys())[:10]}"
             )
+            print(f"DEBUG: Artifact not found in artifacts_db: id={id}")
+            print(f"DEBUG: Available keys (first 10): {list(artifacts_db.keys())[:10]}")
+            sys.stdout.flush()
             raise HTTPException(status_code=404, detail="Artifact does not exist.")
         artifact_data = artifacts_db[id]
         stored_type = artifact_data["metadata"]["type"]
@@ -1433,8 +1446,14 @@ async def artifact_retrieve(
             logger.warning(
                 f"Artifact type mismatch: stored={stored_type}, requested={artifact_type.value}"
             )
+            print(
+                f"DEBUG: Artifact type mismatch: stored={stored_type}, requested={artifact_type.value}"
+            )
+            sys.stdout.flush()
             raise HTTPException(status_code=400, detail="Artifact type mismatch.")
-        logger.debug(f"Successfully retrieved artifact: id={id}, type={stored_type}")
+        logger.info(f"Successfully retrieved artifact: id={id}, type={stored_type}")
+        print(f"DEBUG: Successfully retrieved artifact: id={id}, type={stored_type}")
+        sys.stdout.flush()
         return Artifact(
             metadata=ArtifactMetadata(**artifact_data["metadata"]),
             data=ArtifactData(url=artifact_data["data"]["url"]),
