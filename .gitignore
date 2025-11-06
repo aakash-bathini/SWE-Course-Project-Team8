@@ -6,6 +6,8 @@ env/
 # Python caches
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 .mypy_cache/
 .pytest_cache/
 
@@ -17,11 +19,17 @@ coverage.xml
 *.log
 
 # SQLite local database
+*.db
+*.sqlite
+*.sqlite3
 registry.db
+test_id_gen.db
 
 # Node / frontend
 frontend/node_modules/
 frontend/build/
+frontend/.env
+frontend/.env.local
 
 # Dist/build
 build/
