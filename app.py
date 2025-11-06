@@ -2269,6 +2269,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         print(
             f"DEBUG: Event keys={event_keys}, path={event_path}, method={event_method}, routeKey={route_key}"
         )
+        
+        # Log S3 initialization status (runs on every request for visibility)
+        print(f"DEBUG: [S3 Status] USE_S3={USE_S3}, S3_BUCKET_NAME={os.environ.get('S3_BUCKET_NAME', 'NOT SET')}, ENVIRONMENT={os.environ.get('ENVIRONMENT', 'NOT SET')}, AWS_LAMBDA_FUNCTION_NAME={os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'NOT SET')}")
+        if USE_S3:
+            if s3_storage:
+                print(f"DEBUG: [S3 Status] ✅ S3 storage initialized and ready")
+            else:
+                print(f"DEBUG: [S3 Status] ⚠️ USE_S3=True but s3_storage is None - initialization may have failed")
+        else:
+            print(f"DEBUG: [S3 Status] S3 storage disabled")
+        sys.stdout.flush()
     except Exception as log_err:
         print(f"ERROR logging event: {log_err}")
         import traceback
