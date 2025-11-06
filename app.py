@@ -675,13 +675,20 @@ async def models_download(
     import tempfile
 
     try:
-        # Check if artifact exists (check both SQLite and in-memory)
+        # Check if artifact exists - Priority: S3 (production) > SQLite (local) > in-memory
         artifact_exists = False
         artifact_type = None
         artifact_url = None
         artifact_metadata = None
 
-        if USE_SQLITE:
+        if USE_S3 and s3_storage:
+            existing_data = s3_storage.get_artifact_metadata(id)
+            if existing_data:
+                artifact_exists = True
+                artifact_type = existing_data.get("metadata", {}).get("type")
+                artifact_url = existing_data.get("data", {}).get("url", "")
+                artifact_metadata = existing_data.get("metadata", {})
+        elif USE_SQLITE:
             with next(get_db()) as _db:  # type: ignore[misc]
                 art = db_crud.get_artifact(_db, id)
                 if art:
@@ -744,6 +751,17 @@ async def models_download(
                     "action": f"DOWNLOAD_{aspect.upper()}",
                 }
             )
+            if USE_SQLITE:
+                with next(get_db()) as _db:  # type: ignore[misc]
+                    art = db_crud.get_artifact(_db, id)
+                    if art:
+                        db_crud.log_audit(
+                            _db,
+                            artifact=art,
+                            user_name=user["username"],
+                            user_is_admin=user.get("is_admin", False),
+                            action=f"DOWNLOAD_{aspect.upper()}",
+                        )
 
         # Return file with checksum in headers
         artifact_name = artifact_metadata.get("name", "model") if artifact_metadata else "model"
