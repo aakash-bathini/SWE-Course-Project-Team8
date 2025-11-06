@@ -12,8 +12,6 @@ from typing import Dict, Any, Optional, List
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 
-from datetime import datetime
-
 logger = None
 try:
     import logging

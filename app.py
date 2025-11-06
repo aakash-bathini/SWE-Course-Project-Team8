@@ -110,7 +110,7 @@ if USE_S3:
             logger.info(
                 f"S3 storage initialized: bucket={os.environ.get('S3_BUCKET_NAME', 'not set')}"
             )
-            print(f"DEBUG: S3 storage initialized")
+            print("DEBUG: S3 storage initialized")
             sys.stdout.flush()
         else:
             logger.warning("S3 storage requested but bucket not configured or unavailable")
@@ -1106,15 +1106,32 @@ async def models_ingest(
 
         # Model passed threshold - proceed with ingest (create artifact)
         # Generate artifact ID
-        # When SQLite is enabled, query database for accurate count
-        # Otherwise use in-memory artifacts_db count
-        if USE_SQLITE:
+        # Priority: S3 > SQLite > in-memory
+        if USE_S3 and s3_storage:
+            try:
+                model_count = s3_storage.count_artifacts_by_type("model")
+                artifact_id = f"model-{model_count + 1}-{int(datetime.now().timestamp())}"
+            except Exception:
+                # Fallback to SQLite or in-memory count
+                if USE_SQLITE:
+                    try:
+                        with next(get_db()) as _db:  # type: ignore[misc]
+                            model_count = db_crud.count_artifacts_by_type(_db, "model")
+                            artifact_id = (
+                                f"model-{model_count + 1}-{int(datetime.now().timestamp())}"
+                            )
+                    except Exception:
+                        artifact_id = (
+                            f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
+                        )
+                else:
+                    artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
+        elif USE_SQLITE:
             try:
                 with next(get_db()) as _db:  # type: ignore[misc]
                     model_count = db_crud.count_artifacts_by_type(_db, "model")
                     artifact_id = f"model-{model_count + 1}-{int(datetime.now().timestamp())}"
             except Exception:
-                # Fallback to in-memory count if SQLite query fails
                 artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
         else:
             artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
@@ -1133,6 +1150,10 @@ async def models_ingest(
         }
 
         artifacts_db[artifact_id] = artifact_entry
+
+        # Store in S3 if enabled
+        if USE_S3 and s3_storage:
+            s3_storage.save_artifact_metadata(artifact_id, artifact_entry)
 
         if USE_SQLITE:
             with next(get_db()) as _db:  # type: ignore[misc]
