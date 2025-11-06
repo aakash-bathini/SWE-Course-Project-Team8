@@ -1071,7 +1071,19 @@ async def models_ingest(
             )
 
         # Model passed threshold - proceed with ingest (create artifact)
-        artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
+        # Generate artifact ID
+        # When SQLite is enabled, query database for accurate count
+        # Otherwise use in-memory artifacts_db count
+        if USE_SQLITE:
+            try:
+                with next(get_db()) as _db:  # type: ignore[misc]
+                    model_count = db_crud.count_artifacts_by_type(_db, "model")
+                    artifact_id = f"model-{model_count + 1}-{int(datetime.now().timestamp())}"
+            except Exception:
+                # Fallback to in-memory count if SQLite query fails
+                artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
+        else:
+            artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
         model_display_name = model_name.split("/")[-1] if "/" in model_name else model_name
 
         artifact_entry = {
@@ -1370,7 +1382,24 @@ async def artifact_create(
             # If metrics fail, allow ingest for Delivery 1
             pass
     # Generate unique artifact ID
-    artifact_id = f"{artifact_type.value}-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
+    # When SQLite is enabled, query database for accurate count
+    # Otherwise use in-memory artifacts_db count
+    if USE_SQLITE:
+        try:
+            with next(get_db()) as _db:  # type: ignore[misc]
+                type_count = db_crud.count_artifacts_by_type(_db, artifact_type.value)
+                artifact_id = (
+                    f"{artifact_type.value}-{type_count + 1}-{int(datetime.now().timestamp())}"
+                )
+        except Exception:
+            # Fallback to in-memory count if SQLite query fails
+            artifact_id = (
+                f"{artifact_type.value}-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
+            )
+    else:
+        artifact_id = (
+            f"{artifact_type.value}-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
+        )
 
     # Extract name from URL (handle trailing slashes)
     artifact_name = artifact_data.url.rstrip("/").split("/")[-1] if artifact_data.url else "unknown"
