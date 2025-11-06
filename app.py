@@ -1168,15 +1168,27 @@ async def artifact_by_name(
                 matches.append(ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type)))
     else:
         for artifact_id, artifact_data in artifacts_db.items():
-            # Case-sensitive exact match
-            if artifact_data["metadata"]["name"] == name:
+            stored_name = artifact_data["metadata"]["name"]
+            # Check exact match with stored name
+            if stored_name == name:
                 matches.append(
                     ArtifactMetadata(
-                        name=artifact_data["metadata"]["name"],
+                        name=stored_name,
                         id=artifact_id,
                         type=ArtifactType(artifact_data["metadata"]["type"]),
                     )
                 )
+            # Also check if searching for full HuggingFace model name (for ingested models)
+            elif "hf_model_name" in artifact_data:
+                hf_model_name = artifact_data["hf_model_name"]
+                if hf_model_name == name:
+                    matches.append(
+                        ArtifactMetadata(
+                            name=stored_name,  # Return stored display name
+                            id=artifact_id,
+                            type=ArtifactType(artifact_data["metadata"]["type"]),
+                        )
+                    )
     if not matches:
         raise HTTPException(status_code=404, detail="No such artifact.")
     return matches
@@ -1242,8 +1254,10 @@ async def artifact_by_regex(
                 except Exception:
                     pass  # If we can't get README, just search name
 
-            # Search in both name and README
-            search_text = f"{name} {readme_text}"
+            # Search in both name and README, and also include hf_model_name for exact matches
+            # Include hf_model_name to allow searching by full HuggingFace model name
+            hf_model_name = artifact_data.get("hf_model_name", "")
+            search_text = f"{name} {hf_model_name} {readme_text}"
             if pattern.search(search_text):
                 matches.append(
                     ArtifactMetadata(
