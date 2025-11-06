@@ -91,12 +91,35 @@ except ImportError as e:
     calculate_phase2_net_score = None  # type: ignore[assignment]
     size_metric = None  # type: ignore[assignment]
 
-# Storage layer selection: in-memory (default) or SQLite (Milestone 2)
+# Storage layer selection: in-memory (default), SQLite (Milestone 2), or S3 (production)
 USE_SQLITE: bool = os.environ.get("USE_SQLITE", "0") == "1"
+USE_S3: bool = os.environ.get("USE_S3", "0") == "1"
 
 artifacts_db: Dict[str, Dict[str, Any]] = {}  # artifact_id -> artifact_data (in-memory)
 users_db: Dict[str, Dict[str, Any]] = {}
 audit_log: List[Dict[str, Any]] = []
+
+# Initialize S3 storage if enabled
+s3_storage = None
+if USE_S3:
+    try:
+        from src.storage.s3_storage import get_s3_storage
+
+        s3_storage = get_s3_storage()
+        if s3_storage:
+            logger.info(
+                f"S3 storage initialized: bucket={os.environ.get('S3_BUCKET_NAME', 'not set')}"
+            )
+            print(f"DEBUG: S3 storage initialized")
+            sys.stdout.flush()
+        else:
+            logger.warning("S3 storage requested but bucket not configured or unavailable")
+            USE_S3 = False
+    except Exception as e:
+        logger.error(f"S3 initialization failed: {e}, falling back to other storage", exc_info=True)
+        print(f"DEBUG: S3 initialization failed: {e}")
+        sys.stdout.flush()
+        USE_S3 = False
 
 # Initialize SQLite if enabled (wrap in try/except for Lambda compatibility)
 if USE_SQLITE:
@@ -1393,9 +1416,25 @@ async def artifact_create(
             # If metrics fail, allow ingest for Delivery 1
             pass
     # Generate unique artifact ID
-    # When SQLite is enabled, query database for accurate count
-    # Otherwise use in-memory artifacts_db count
-    if USE_SQLITE:
+    # Priority: S3 > SQLite > in-memory
+    if USE_S3 and s3_storage:
+        try:
+            type_count = s3_storage.count_artifacts_by_type(artifact_type.value)
+            artifact_id = (
+                f"{artifact_type.value}-{type_count + 1}-{int(datetime.now().timestamp())}"
+            )
+        except Exception:
+            # Fallback to SQLite or in-memory count
+            if USE_SQLITE:
+                try:
+                    with next(get_db()) as _db:  # type: ignore[misc]
+                        type_count = db_crud.count_artifacts_by_type(_db, artifact_type.value)
+                        artifact_id = f"{artifact_type.value}-{type_count + 1}-{int(datetime.now().timestamp())}"
+                except Exception:
+                    artifact_id = f"{artifact_type.value}-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
+            else:
+                artifact_id = f"{artifact_type.value}-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
+    elif USE_SQLITE:
         try:
             with next(get_db()) as _db:  # type: ignore[misc]
                 type_count = db_crud.count_artifacts_by_type(_db, artifact_type.value)
@@ -1442,7 +1481,14 @@ async def artifact_create(
     if hf_data:
         artifact_entry["data"]["hf_data"] = hf_data
 
-    artifacts_db[artifact_id] = artifact_entry
+    # Store artifact in appropriate storage layer
+    artifacts_db[artifact_id] = artifact_entry  # Keep in-memory for compatibility
+
+    # Store in S3 if enabled
+    if USE_S3 and s3_storage:
+        s3_storage.save_artifact_metadata(artifact_id, artifact_entry)
+
+    # Store in SQLite if enabled
     if USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             db_crud.create_artifact(
@@ -1513,6 +1559,31 @@ async def artifact_retrieve(
                 metadata=ArtifactMetadata(name=art.name, id=art.id, type=ArtifactType(art.type)),
                 data=ArtifactData(url=art.url),
             )
+    elif USE_S3 and s3_storage:
+        # Try S3 storage
+        artifact_data = s3_storage.get_artifact_metadata(id)
+        if not artifact_data:
+            logger.warning(f"Artifact not found in S3: id={id}")
+            print(f"DEBUG: Artifact not found in S3: id={id}")
+            sys.stdout.flush()
+            raise HTTPException(status_code=404, detail="Artifact does not exist.")
+        stored_type = artifact_data.get("metadata", {}).get("type")
+        if stored_type != artifact_type.value:
+            logger.warning(
+                f"Artifact type mismatch: stored={stored_type}, requested={artifact_type.value}"
+            )
+            print(
+                f"DEBUG: Artifact type mismatch: stored={stored_type}, requested={artifact_type.value}"
+            )
+            sys.stdout.flush()
+            raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+        logger.info(f"Successfully retrieved artifact from S3: id={id}, type={stored_type}")
+        print(f"DEBUG: Successfully retrieved artifact from S3: id={id}, type={stored_type}")
+        sys.stdout.flush()
+        return Artifact(
+            metadata=ArtifactMetadata(**artifact_data["metadata"]),
+            data=ArtifactData(url=artifact_data["data"]["url"]),
+        )
     else:
         # In-memory storage: check if artifact exists
         if id not in artifacts_db:
