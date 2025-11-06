@@ -1009,7 +1009,7 @@ async def models_ingest(
                 "id": artifact_id,
                 "type": "model",
             },
-            "data": {"url": hf_url},
+            "data": {"url": hf_url, "hf_data": [hf_data]},  # Store HF data for regex search
             "created_at": datetime.now().isoformat(),
             "created_by": user["username"],
             "hf_model_name": model_name,
@@ -1122,6 +1122,113 @@ async def models_enumerate(
     }
 
 
+# -------------------------
+# Search endpoints (must be defined BEFORE /artifact/{artifact_type} to avoid route conflicts)
+# -------------------------
+
+
+@app.get("/artifact/byName/{name}")
+async def artifact_by_name(
+    name: str, user: Dict[str, Any] = Depends(verify_token)
+) -> List[ArtifactMetadata]:
+    """List artifact metadata for this name (NON-BASELINE)"""
+    matches: List[ArtifactMetadata] = []
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            items = db_crud.list_by_name(_db, name)
+            for a in items:
+                matches.append(ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type)))
+    else:
+        for artifact_id, artifact_data in artifacts_db.items():
+            if artifact_data["metadata"]["name"] == name:
+                matches.append(
+                    ArtifactMetadata(
+                        name=artifact_data["metadata"]["name"],
+                        id=artifact_id,
+                        type=ArtifactType(artifact_data["metadata"]["type"]),
+                    )
+                )
+    if not matches:
+        raise HTTPException(status_code=404, detail="No such artifact.")
+    return matches
+
+
+@app.post("/artifact/byRegEx")
+async def artifact_by_regex(
+    regex: ArtifactRegEx, user: Dict[str, Any] = Depends(verify_token)
+) -> List[ArtifactMetadata]:
+    """Search for an artifact using regular expression over artifact names and READMEs (BASELINE)"""
+    import re as _re
+
+    matches: List[ArtifactMetadata] = []
+
+    # Security: Limit regex pattern length to prevent ReDoS attacks
+    # Per OpenAPI spec, users can provide regex patterns for searching.
+    # We mitigate ReDoS risk by limiting pattern length and complexity.
+    MAX_REGEX_LENGTH = 500
+    if len(regex.regex) > MAX_REGEX_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Regex pattern too long. Maximum length is {MAX_REGEX_LENGTH} characters.",
+        )
+
+    try:
+        # Compile regex pattern (do NOT escape - it should be a real regex)
+        # Note: Per OpenAPI spec, users can provide regex patterns for searching.
+        # The regex is validated here and only used for matching, not for execution.
+        # CodeQL warnings about regex injection are expected - this is intentional functionality.
+        # ReDoS risk is mitigated through length limits above.
+        pattern = _re.compile(regex.regex)
+    except _re.error as e:
+        raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
+
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            items = db_crud.list_by_regex(_db, regex.regex)
+            for a in items:
+                matches.append(ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type)))
+    else:
+        # Search in-memory artifacts: check both name and README content
+        for artifact_id, artifact_data in artifacts_db.items():
+            name = artifact_data["metadata"]["name"]
+            readme_text = ""
+
+            # Extract README text from hf_data if available
+            if "hf_data" in artifact_data.get("data", {}):
+                hf_data = artifact_data["data"].get("hf_data", [])
+                if isinstance(hf_data, list) and len(hf_data) > 0:
+                    readme_text = (
+                        hf_data[0].get("readme_text", "") if isinstance(hf_data[0], dict) else ""
+                    )
+            elif "hf_model_name" in artifact_data:
+                # For ingested models, try to get README from HuggingFace
+                try:
+                    if scrape_hf_url is not None:
+                        url = artifact_data["data"]["url"]
+                        if isinstance(url, str) and "huggingface.co" in url.lower():
+                            hf_data, _ = scrape_hf_url(url)
+                            readme_text = (
+                                hf_data.get("readme_text", "") if isinstance(hf_data, dict) else ""
+                            )
+                except Exception:
+                    pass  # If we can't get README, just search name
+
+            # Search in both name and README
+            search_text = f"{name} {readme_text}"
+            if pattern.search(search_text):
+                matches.append(
+                    ArtifactMetadata(
+                        name=name,
+                        id=artifact_id,
+                        type=ArtifactType(artifact_data["metadata"]["type"]),
+                    )
+                )
+
+    if not matches:
+        raise HTTPException(status_code=404, detail="No artifact found under this regex.")
+    return matches
+
+
 @app.post("/artifact/{artifact_type}", response_model=Artifact, status_code=201)
 async def artifact_create(
     artifact_type: ArtifactType,
@@ -1135,8 +1242,12 @@ async def artifact_create(
             # Only enforce gating for HuggingFace URLs per spec language
             if "huggingface.co" in artifact_data.url.lower():
                 if scrape_hf_url is not None and calculate_phase2_metrics is not None:
-                    hf_data, repo_type = scrape_hf_url(artifact_data.url)
-                    model_data = {"url": artifact_data.url, "hf_data": [hf_data], "gh_data": []}
+                    hf_data_threshold, repo_type = scrape_hf_url(artifact_data.url)
+                    model_data = {
+                        "url": artifact_data.url,
+                        "hf_data": [hf_data_threshold],
+                        "gh_data": [],
+                    }
                     metrics = await calculate_phase2_metrics(model_data)
                     # Filter out latency metrics - only check non-latency metrics for threshold
                     non_latency_metrics = {
@@ -1163,10 +1274,24 @@ async def artifact_create(
     # Generate unique artifact ID
     artifact_id = f"{artifact_type.value}-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
 
+    # Extract name from URL (handle trailing slashes)
+    artifact_name = artifact_data.url.rstrip("/").split("/")[-1] if artifact_data.url else "unknown"
+
+    # For HuggingFace URLs, try to scrape and store hf_data for regex search
+    hf_data: Optional[List[Dict[str, Any]]] = None
+    if "huggingface.co" in artifact_data.url.lower():
+        try:
+            if scrape_hf_url is not None:
+                hf_data_result, _ = scrape_hf_url(artifact_data.url)
+                hf_data = [hf_data_result] if hf_data_result else []
+        except Exception:
+            # If scraping fails, continue without hf_data
+            hf_data = None
+
     # Create artifact entry
     artifact_entry = {
         "metadata": {
-            "name": artifact_data.url.split("/")[-1],  # Extract name from URL
+            "name": artifact_name,
             "id": artifact_id,
             "type": artifact_type.value,
         },
@@ -1174,6 +1299,10 @@ async def artifact_create(
         "created_at": datetime.now().isoformat(),
         "created_by": user["username"],
     }
+
+    # Store hf_data if available (for regex search of README content)
+    if hf_data:
+        artifact_entry["data"]["hf_data"] = hf_data
 
     artifacts_db[artifact_id] = artifact_entry
     if USE_SQLITE:
@@ -1257,12 +1386,13 @@ async def artifact_update(
         raise HTTPException(status_code=400, detail="Artifact type mismatch.")
 
     # Update artifact
-    artifacts_db[id] = {
-        "metadata": artifact.metadata.model_dump(),
-        "data": artifact.data.model_dump(),
-        "updated_at": datetime.now().isoformat(),
-        "updated_by": user["username"],
-    }
+    if not USE_SQLITE:
+        artifacts_db[id] = {
+            "metadata": artifact.metadata.model_dump(),
+            "data": artifact.data.model_dump(),
+            "updated_at": datetime.now().isoformat(),
+            "updated_by": user["username"],
+        }
     if USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             db_crud.update_artifact(
@@ -1302,98 +1432,73 @@ async def artifact_delete(
     artifact_type: ArtifactType, id: str, user: Dict[str, Any] = Depends(verify_token)
 ):
     """Delete this artifact (NON-BASELINE)"""
-    if id not in artifacts_db:
-        raise HTTPException(status_code=404, detail="Artifact does not exist.")
-
-    artifact_data = artifacts_db[id]
-    if artifact_data["metadata"]["type"] != artifact_type.value:
-        raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+    # Check if artifact exists
+    artifact_metadata = None
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            art = db_crud.get_artifact(_db, id)
+            if not art:
+                raise HTTPException(status_code=404, detail="Artifact does not exist.")
+            if art.type != artifact_type.value:
+                raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+            artifact_metadata = {"name": art.name, "id": art.id, "type": art.type}
+    else:
+        if id not in artifacts_db:
+            raise HTTPException(status_code=404, detail="Artifact does not exist.")
+        artifact_data = artifacts_db[id]
+        if artifact_data["metadata"]["type"] != artifact_type.value:
+            raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+        artifact_metadata = artifact_data["metadata"]
 
     # Log audit entry before deletion
-    audit_log.append(
-        {
-            "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
-            "date": datetime.now().isoformat(),
-            "artifact": artifact_data["metadata"],
-            "action": "DELETE",
-        }
-    )
+    if not USE_SQLITE:
+        audit_log.append(
+            {
+                "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
+                "date": datetime.now().isoformat(),
+                "artifact": artifact_metadata,
+                "action": "DELETE",
+            }
+        )
+    else:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            art = db_crud.get_artifact(_db, id)
+            if art:
+                db_crud.log_audit(
+                    _db,
+                    artifact=art,
+                    user_name=user["username"],
+                    user_is_admin=user.get("is_admin", False),
+                    action="DELETE",
+                )
 
-    del artifacts_db[id]
+    if not USE_SQLITE:
+        del artifacts_db[id]
     if USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             db_crud.delete_artifact(_db, id)
     return {"message": "Artifact is deleted."}
 
 
-# -------------------------
-# Additional endpoints per spec
-# -------------------------
-
-
-@app.get("/artifact/byName/{name}")
-async def artifact_by_name(
-    name: str, user: Dict[str, Any] = Depends(verify_token)
-) -> List[ArtifactMetadata]:
-    matches: List[ArtifactMetadata] = []
-    if USE_SQLITE:
-        with next(get_db()) as _db:  # type: ignore[misc]
-            items = db_crud.list_by_name(_db, name)
-            for a in items:
-                matches.append(ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type)))
-    else:
-        for artifact_id, artifact_data in artifacts_db.items():
-            if artifact_data["metadata"]["name"] == name:
-                matches.append(
-                    ArtifactMetadata(
-                        name=artifact_data["metadata"]["name"],
-                        id=artifact_id,
-                        type=ArtifactType(artifact_data["metadata"]["type"]),
-                    )
-                )
-    if not matches:
-        raise HTTPException(status_code=404, detail="No such artifact.")
-    return matches
-
-
-@app.post("/artifact/byRegEx")
-async def artifact_by_regex(
-    regex: ArtifactRegEx, user: Dict[str, Any] = Depends(verify_token)
-) -> List[ArtifactMetadata]:
-    import re as _re
-
-    matches: List[ArtifactMetadata] = []
-    if USE_SQLITE:
-        with next(get_db()) as _db:  # type: ignore[misc]
-            items = db_crud.list_by_regex(_db, regex.regex)
-            for a in items:
-                matches.append(ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type)))
-    else:
-        pattern = _re.compile(_re.escape(regex.regex))
-        for artifact_id, artifact_data in artifacts_db.items():
-            name = artifact_data["metadata"]["name"]
-            if pattern.search(name):
-                matches.append(
-                    ArtifactMetadata(
-                        name=name,
-                        id=artifact_id,
-                        type=ArtifactType(artifact_data["metadata"]["type"]),
-                    )
-                )
-    if not matches:
-        raise HTTPException(status_code=404, detail="No artifact found under this regex.")
-    return matches
-
-
 @app.get("/artifact/{artifact_type}/{id}/audit")
 async def artifact_audit(
     artifact_type: ArtifactType, id: str, user: Dict[str, Any] = Depends(verify_token)
 ) -> List[ArtifactAuditEntry]:
-    if id not in artifacts_db:
-        raise HTTPException(status_code=404, detail="Artifact does not exist.")
-    artifact_data = artifacts_db[id]
-    if artifact_data["metadata"]["type"] != artifact_type.value:
-        raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+    """Get audit trail for an artifact (BASELINE)"""
+    # Check if artifact exists
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            art = db_crud.get_artifact(_db, id)
+            if not art:
+                raise HTTPException(status_code=404, detail="Artifact does not exist.")
+            if art.type != artifact_type.value:
+                raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+    else:
+        if id not in artifacts_db:
+            raise HTTPException(status_code=404, detail="Artifact does not exist.")
+        artifact_data = artifacts_db[id]
+        if artifact_data["metadata"]["type"] != artifact_type.value:
+            raise HTTPException(status_code=400, detail="Artifact type mismatch.")
 
     entries: List[ArtifactAuditEntry] = []
     if USE_SQLITE:
@@ -1426,35 +1531,49 @@ async def artifact_audit(
 async def artifact_lineage(
     id: str, user: Dict[str, Any] = Depends(verify_token)
 ) -> ArtifactLineageGraph:
-    if id not in artifacts_db:
-        raise HTTPException(status_code=404, detail="Artifact does not exist.")
-    artifact_data = artifacts_db[id]
-    if artifact_data["metadata"]["type"] != "model":
-        raise HTTPException(status_code=400, detail="Not a model artifact.")
+    """Get lineage graph for a model artifact (BASELINE)"""
+    # Check if artifact exists and get URL
+    url = None
+    artifact_name = None
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            art = db_crud.get_artifact(_db, id)
+            if not art:
+                raise HTTPException(status_code=404, detail="Artifact does not exist.")
+            if art.type != "model":
+                raise HTTPException(status_code=400, detail="Not a model artifact.")
+            url = art.url
+            artifact_name = art.name
+    else:
+        if id not in artifacts_db:
+            raise HTTPException(status_code=404, detail="Artifact does not exist.")
+        artifact_data = artifacts_db[id]
+        if artifact_data["metadata"]["type"] != "model":
+            raise HTTPException(status_code=400, detail="Not a model artifact.")
+        url = artifact_data["data"]["url"]
+        artifact_name = artifact_data["metadata"]["name"]
 
     # Build lineage using available HF metadata when possible
     nodes: List[ArtifactLineageNode] = [
-        ArtifactLineageNode(
-            artifact_id=id, name=artifact_data["metadata"]["name"], source="config_json"
-        )
+        ArtifactLineageNode(artifact_id=id, name=artifact_name or id, source="config_json")
     ]
     edges: List[ArtifactLineageEdge] = []
     try:
-        url = artifact_data["data"]["url"]
-        if isinstance(url, str) and "huggingface.co" in url.lower():
-            hf_data, _ = scrape_hf_url(url)
-            for ds in (hf_data.get("datasets") or [])[:5]:
-                ds_id = f"dataset:{ds}"
-                nodes.append(
-                    ArtifactLineageNode(artifact_id=ds_id, name=str(ds), source="config_json")
-                )
-                edges.append(
-                    ArtifactLineageEdge(
-                        from_node_artifact_id=ds_id,
-                        to_node_artifact_id=id,
-                        relationship="fine_tuning_dataset",
+        if url and isinstance(url, str) and "huggingface.co" in url.lower():
+            if scrape_hf_url is not None:
+                hf_data, _ = scrape_hf_url(url)
+                for ds in (hf_data.get("datasets") or [])[:5]:
+                    ds_id = f"dataset:{ds}"
+                    nodes.append(
+                        ArtifactLineageNode(artifact_id=ds_id, name=str(ds), source="config_json")
                     )
-                )
+                    edges.append(
+                        ArtifactLineageEdge(
+                            from_node_artifact_id=ds_id,
+                            to_node_artifact_id=id,
+                            relationship="fine_tuning_dataset",
+                        )
+                    )
     except Exception:
         # Fall back to single-node graph
         pass
@@ -1465,11 +1584,21 @@ async def artifact_lineage(
 async def artifact_license_check(
     id: str, request: SimpleLicenseCheckRequest, user: Dict[str, Any] = Depends(verify_token)
 ) -> bool:
-    if id not in artifacts_db:
-        raise HTTPException(status_code=404, detail="Artifact does not exist.")
-    artifact_data = artifacts_db[id]
-    if artifact_data["metadata"]["type"] != "model":
-        raise HTTPException(status_code=400, detail="Not a model artifact.")
+    """Check license compatibility between model and GitHub repo (BASELINE)"""
+    # Check if artifact exists
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            art = db_crud.get_artifact(_db, id)
+            if not art:
+                raise HTTPException(status_code=404, detail="Artifact does not exist.")
+            if art.type != "model":
+                raise HTTPException(status_code=400, detail="Not a model artifact.")
+    else:
+        if id not in artifacts_db:
+            raise HTTPException(status_code=404, detail="Artifact does not exist.")
+        artifact_data = artifacts_db[id]
+        if artifact_data["metadata"]["type"] != "model":
+            raise HTTPException(status_code=400, detail="Not a model artifact.")
 
     # Use license metric score where 0.5+ means compatible enough
     model_data = {"url": request.github_url, "hf_data": [], "gh_data": []}
@@ -1483,14 +1612,24 @@ async def artifact_license_check(
 @app.get("/artifact/model/{id}/rate", response_model=ModelRating)
 async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_token)) -> ModelRating:
     """Get ratings for this model artifact (BASELINE)"""
-    if id not in artifacts_db:
-        raise HTTPException(status_code=404, detail="Artifact does not exist.")
-
-    artifact_data = artifacts_db[id]
-    if artifact_data["metadata"]["type"] != "model":
-        raise HTTPException(status_code=400, detail="Not a model artifact.")
-
-    url = artifact_data["data"]["url"]
+    # Check if artifact exists
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            art = db_crud.get_artifact(_db, id)
+            if not art:
+                raise HTTPException(status_code=404, detail="Artifact does not exist.")
+            if art.type != "model":
+                raise HTTPException(status_code=400, detail="Not a model artifact.")
+            url = art.url
+            artifact_name = art.name
+    else:
+        if id not in artifacts_db:
+            raise HTTPException(status_code=404, detail="Artifact does not exist.")
+        artifact_data = artifacts_db[id]
+        if artifact_data["metadata"]["type"] != "model":
+            raise HTTPException(status_code=400, detail="Not a model artifact.")
+        url = artifact_data["data"]["url"]
+        artifact_name = artifact_data["metadata"]["name"]
     category = "classification"
     size_scores: Dict[str, float] = {
         "raspberry_pi": 1.0,
@@ -1501,20 +1640,37 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
 
     metrics: Dict[str, float] = {}
     try:
-        hf_data = None
-        if isinstance(url, str) and "huggingface.co" in url.lower():
-            hf_data, _ = scrape_hf_url(url)
-            if isinstance(hf_data.get("pipeline_tag"), str):
-                category = str(hf_data.get("pipeline_tag"))
-        model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
-        metrics = await calculate_phase2_metrics(model_data)
-        # Compute size_score dict explicitly
-        ctx = create_eval_context_from_model_data(model_data)
-        size_scores = await size_metric.metric(ctx)
-    except Exception:
+        # Check if metrics calculation is available
+        if (
+            calculate_phase2_metrics is None
+            or create_eval_context_from_model_data is None
+            or size_metric is None
+        ):
+            # Metrics calculation not available, use defaults
+            logger.warning("Metrics calculation not available, using default values")
+        else:
+            hf_data = None
+            if isinstance(url, str) and "huggingface.co" in url.lower():
+                if scrape_hf_url is not None:
+                    hf_data, _ = scrape_hf_url(url)
+                    if isinstance(hf_data.get("pipeline_tag"), str):
+                        category = str(hf_data.get("pipeline_tag"))
+            model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
+            metrics = await calculate_phase2_metrics(model_data)
+            # Compute size_score dict explicitly
+            ctx = create_eval_context_from_model_data(model_data)
+            size_scores = await size_metric.metric(ctx)
+            if isinstance(size_scores, dict):
+                size_scores = size_scores
+    except Exception as e:
+        logger.warning(f"Metrics calculation failed: {e}")
         metrics = {}
 
-    net_score = calculate_phase2_net_score(metrics) if metrics else 0.0
+    net_score = (
+        calculate_phase2_net_score(metrics)
+        if (metrics and calculate_phase2_net_score is not None)
+        else 0.0
+    )
 
     def get_m(name: str) -> float:
         v = metrics.get(name)
@@ -1524,7 +1680,7 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
             return 0.0
 
     return ModelRating(
-        name=artifact_data["metadata"]["name"],
+        name=artifact_name,
         category=category or "unknown",
         net_score=net_score,
         net_score_latency=0.0,
@@ -1561,28 +1717,38 @@ async def artifact_cost(
     user: Dict[str, Any] = Depends(verify_token),
 ) -> Dict[str, ArtifactCost]:
     """Get the cost of an artifact (BASELINE)"""
-    if id not in artifacts_db:
-        raise HTTPException(status_code=404, detail="Artifact does not exist.")
-
-    artifact_data = artifacts_db[id]
-    if artifact_data["metadata"]["type"] != artifact_type.value:
-        raise HTTPException(status_code=400, detail="Artifact type mismatch.")
-
-    # Compute approximate cost from size metric (MB)
-    url = artifact_data["data"]["url"]
+    # Check if artifact exists
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            art = db_crud.get_artifact(_db, id)
+            if not art:
+                raise HTTPException(status_code=404, detail="Artifact does not exist.")
+            if art.type != artifact_type.value:
+                raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+            url = art.url
+    else:
+        if id not in artifacts_db:
+            raise HTTPException(status_code=404, detail="Artifact does not exist.")
+        artifact_data = artifacts_db[id]
+        if artifact_data["metadata"]["type"] != artifact_type.value:
+            raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+        url = artifact_data["data"]["url"]
     hf_data = None
     if isinstance(url, str) and "huggingface.co" in url.lower():
         try:
-            hf_data, _ = scrape_hf_url(url)
+            if scrape_hf_url is not None:
+                hf_data, _ = scrape_hf_url(url)
         except Exception:
             hf_data = None
     model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
-    ctx = create_eval_context_from_model_data(model_data)
-    try:
-        await size_metric.metric(ctx)
-        required_bytes = int(getattr(ctx, "size_required_bytes", 0))
-    except Exception:
-        required_bytes = 0
+    required_bytes = 0
+    if create_eval_context_from_model_data is not None and size_metric is not None:
+        try:
+            ctx = create_eval_context_from_model_data(model_data)
+            await size_metric.metric(ctx)
+            required_bytes = int(getattr(ctx, "size_required_bytes", 0))
+        except Exception:
+            required_bytes = 0
     mb = float(required_bytes) / (1024.0 * 1024.0)
     standalone_cost = round(mb, 1)
     total_cost = standalone_cost  # no dependency graph persisted yet
