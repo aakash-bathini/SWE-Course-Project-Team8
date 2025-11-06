@@ -528,7 +528,18 @@ async def models_upload(
             raise HTTPException(status_code=400, detail="File must be a ZIP archive")
 
         # Generate artifact ID
-        artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
+        # When SQLite is enabled, query database for accurate count
+        # Otherwise use in-memory artifacts_db count
+        if USE_SQLITE:
+            try:
+                with next(get_db()) as _db:  # type: ignore[misc]
+                    model_count = db_crud.count_artifacts_by_type(_db, "model")
+                    artifact_id = f"model-{model_count + 1}-{int(datetime.now().timestamp())}"
+            except Exception:
+                # Fallback to in-memory count if SQLite query fails
+                artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
+        else:
+            artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
 
         # Read file content
         content = await file.read()
