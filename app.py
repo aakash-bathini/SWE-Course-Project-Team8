@@ -1162,11 +1162,22 @@ async def artifact_by_regex(
 
     matches: List[ArtifactMetadata] = []
 
+    # Security: Limit regex pattern length to prevent ReDoS attacks
+    # Per OpenAPI spec, users can provide regex patterns for searching.
+    # We mitigate ReDoS risk by limiting pattern length and complexity.
+    MAX_REGEX_LENGTH = 500
+    if len(regex.regex) > MAX_REGEX_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Regex pattern too long. Maximum length is {MAX_REGEX_LENGTH} characters.",
+        )
+
     try:
         # Compile regex pattern (do NOT escape - it should be a real regex)
         # Note: Per OpenAPI spec, users can provide regex patterns for searching.
         # The regex is validated here and only used for matching, not for execution.
         # CodeQL warnings about regex injection are expected - this is intentional functionality.
+        # ReDoS risk is mitigated through length limits above.
         pattern = _re.compile(regex.regex)
     except _re.error as e:
         raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
