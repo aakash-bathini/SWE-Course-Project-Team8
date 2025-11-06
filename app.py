@@ -1219,7 +1219,7 @@ async def artifact_by_regex(
         # The regex is validated here and only used for matching, not for execution.
         # CodeQL warnings about regex injection are expected - this is intentional functionality.
         # ReDoS risk is mitigated through length limits above.
-        pattern = _re.compile(regex.regex)
+        pattern = _re.compile(regex.regex, _re.IGNORECASE)
     except _re.error as e:
         raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
 
