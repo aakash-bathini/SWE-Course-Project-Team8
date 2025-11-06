@@ -86,6 +86,16 @@ jobs:
 
       - name: Deploy Lambda via S3
         run: |
+          # Validate required secrets
+          if [ -z "${{ secrets.S3_BUCKET_NAME }}" ]; then
+            echo "❌ ERROR: S3_BUCKET_NAME secret is not set in GitHub repository secrets!"
+            echo "Please go to Settings > Secrets and variables > Actions and add S3_BUCKET_NAME secret"
+            exit 1
+          fi
+          
+          echo "✅ S3_BUCKET_NAME secret is configured"
+          echo "Bucket name: ${{ secrets.S3_BUCKET_NAME }}"
+          
           # Create S3 bucket if it doesn't exist (ignore error if exists)
           aws s3 mb s3://trustworthy-registry-lambda-deployment-us-east-1 2>/dev/null || true
           
@@ -115,6 +125,13 @@ jobs:
           
           # Update Lambda function configuration (runtime, handler, timeout, memory, environment)
           # Note: AWS_REGION is automatically set by Lambda and cannot be modified
+          echo "Setting Lambda environment variables..."
+          echo "USE_S3=1"
+          echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }}"
+          echo "USE_SQLITE=0"
+          echo "ENVIRONMENT=production"
+          echo "LOG_LEVEL=INFO"
+          
           aws lambda update-function-configuration \
             --function-name trustworthy-model-registry \
             --runtime python3.11 \
@@ -138,6 +155,31 @@ jobs:
             sleep 2
           done
           
+          # Verify environment variables were set correctly
+          echo ""
+          echo "🔍 Verifying Lambda environment variables..."
+          ENV_VARS=$(aws lambda get-function-configuration --function-name trustworthy-model-registry --query 'Environment.Variables' --output json)
+          echo "Environment variables:"
+          echo "$ENV_VARS" | jq '.'
+          
+          S3_BUCKET_SET=$(echo "$ENV_VARS" | jq -r '.S3_BUCKET_NAME // "NOT SET"')
+          USE_S3_SET=$(echo "$ENV_VARS" | jq -r '.USE_S3 // "NOT SET"')
+          
+          if [ "$S3_BUCKET_SET" = "NOT SET" ] || [ -z "$S3_BUCKET_SET" ]; then
+            echo "⚠️  WARNING: S3_BUCKET_NAME environment variable is not set in Lambda!"
+            echo "This may cause S3 storage to fail initialization."
+          else
+            echo "✅ S3_BUCKET_NAME is set: $S3_BUCKET_SET"
+          fi
+          
+          if [ "$USE_S3_SET" != "1" ]; then
+            echo "⚠️  WARNING: USE_S3 is not set to '1' in Lambda!"
+            echo "Current value: $USE_S3_SET"
+          else
+            echo "✅ USE_S3 is set to: $USE_S3_SET"
+          fi
+          
+          echo ""
           echo "✅ Lambda function updated successfully!"
 
       - name: Setup Node
