@@ -1232,7 +1232,11 @@ async def artifact_create(
             if "huggingface.co" in artifact_data.url.lower():
                 if scrape_hf_url is not None and calculate_phase2_metrics is not None:
                     hf_data_threshold, repo_type = scrape_hf_url(artifact_data.url)
-                    model_data = {"url": artifact_data.url, "hf_data": [hf_data_threshold], "gh_data": []}
+                    model_data = {
+                        "url": artifact_data.url,
+                        "hf_data": [hf_data_threshold],
+                        "gh_data": [],
+                    }
                     metrics = await calculate_phase2_metrics(model_data)
                     # Filter out latency metrics - only check non-latency metrics for threshold
                     non_latency_metrics = {
