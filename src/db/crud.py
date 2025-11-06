@@ -47,6 +47,11 @@ def get_artifact(db: Session, artifact_id: str) -> Optional[models.Artifact]:
     return db.get(models.Artifact, artifact_id)
 
 
+def count_artifacts_by_type(db: Session, artifact_type: str) -> int:
+    """Get the count of artifacts of a specific type"""
+    return db.query(models.Artifact).filter(models.Artifact.type == artifact_type).count()
+
+
 def update_artifact(db: Session, artifact_id: str, name: str, type_: str, url: str) -> bool:
     art = get_artifact(db, artifact_id)
     if not art:
