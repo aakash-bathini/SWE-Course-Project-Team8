@@ -1622,20 +1622,31 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
 
     metrics: Dict[str, float] = {}
     try:
-        hf_data = None
-        if isinstance(url, str) and "huggingface.co" in url.lower():
-            hf_data, _ = scrape_hf_url(url)
-            if isinstance(hf_data.get("pipeline_tag"), str):
-                category = str(hf_data.get("pipeline_tag"))
-        model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
-        metrics = await calculate_phase2_metrics(model_data)
-        # Compute size_score dict explicitly
-        ctx = create_eval_context_from_model_data(model_data)
-        size_scores = await size_metric.metric(ctx)
-    except Exception:
+        # Check if metrics calculation is available
+        if calculate_phase2_metrics is None or create_eval_context_from_model_data is None or size_metric is None:
+            # Metrics calculation not available, use defaults
+            logger.warning("Metrics calculation not available, using default values")
+        else:
+            hf_data = None
+            if isinstance(url, str) and "huggingface.co" in url.lower():
+                if scrape_hf_url is not None:
+                    hf_data, _ = scrape_hf_url(url)
+                    if isinstance(hf_data.get("pipeline_tag"), str):
+                        category = str(hf_data.get("pipeline_tag"))
+            model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
+            metrics = await calculate_phase2_metrics(model_data)
+            # Compute size_score dict explicitly
+            ctx = create_eval_context_from_model_data(model_data)
+            size_scores = await size_metric.metric(ctx)
+            if isinstance(size_scores, dict):
+                size_scores = size_scores
+    except Exception as e:
+        logger.warning(f"Metrics calculation failed: {e}")
         metrics = {}
 
-    net_score = calculate_phase2_net_score(metrics) if metrics else 0.0
+    net_score = (
+        calculate_phase2_net_score(metrics) if (metrics and calculate_phase2_net_score is not None) else 0.0
+    )
 
     def get_m(name: str) -> float:
         v = metrics.get(name)
@@ -1701,16 +1712,19 @@ async def artifact_cost(
     hf_data = None
     if isinstance(url, str) and "huggingface.co" in url.lower():
         try:
-            hf_data, _ = scrape_hf_url(url)
+            if scrape_hf_url is not None:
+                hf_data, _ = scrape_hf_url(url)
         except Exception:
             hf_data = None
     model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
-    ctx = create_eval_context_from_model_data(model_data)
-    try:
-        await size_metric.metric(ctx)
-        required_bytes = int(getattr(ctx, "size_required_bytes", 0))
-    except Exception:
-        required_bytes = 0
+    required_bytes = 0
+    if create_eval_context_from_model_data is not None and size_metric is not None:
+        try:
+            ctx = create_eval_context_from_model_data(model_data)
+            await size_metric.metric(ctx)
+            required_bytes = int(getattr(ctx, "size_required_bytes", 0))
+        except Exception:
+            required_bytes = 0
     mb = float(required_bytes) / (1024.0 * 1024.0)
     standalone_cost = round(mb, 1)
     total_cost = standalone_cost  # no dependency graph persisted yet
