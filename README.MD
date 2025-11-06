@@ -1,4 +1,5 @@
-# Trustworthy Model Registry - Phase 2 Complete Guide
+# Trustworthy Model Registry - Phase 2
+ Complete Guide
 
 ## 🎯 Project Overview
 

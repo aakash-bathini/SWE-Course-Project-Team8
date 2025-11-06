@@ -104,13 +104,13 @@ def list_by_regex(db: Session, regex: str) -> List[models.Artifact]:
     # The regex is validated here and only used for matching, not for execution.
     # CodeQL warnings about regex injection are expected - this is intentional functionality.
     # ReDoS risk is mitigated through length limits enforced by the endpoint.
-
+    
     # Security: Limit regex pattern length to prevent ReDoS attacks
     MAX_REGEX_LENGTH = 500
     if len(regex) > MAX_REGEX_LENGTH:
         # Return empty list if pattern is too long (endpoint will handle the error)
         return []
-
+    
     try:
         rx = re.compile(regex)
     except re.error:
