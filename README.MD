@@ -345,9 +345,12 @@ npm run lint
 #### Backend (Lambda) Environment Variables
 The following environment variables are configured automatically via CI/CD when deploying to AWS Lambda:
 
-- `USE_SQLITE=0` - Disable SQLite for Lambda (use in-memory storage)
+- `USE_SQLITE=1` - Enable SQLite for persistent storage in Lambda (database stored in `/tmp`)
 - `ENVIRONMENT=production` - Set environment to production
 - `LOG_LEVEL=INFO` - Set logging level
+- `SQLALCHEMY_DATABASE_URL=sqlite:///tmp/registry.db` - SQLite database path (uses `/tmp` which is writable in Lambda)
+
+**Note:** SQLite is enabled in production to ensure data persistence across Lambda invocations. The database file is stored in `/tmp` (Lambda's writable directory, ~512MB-10GB depending on Lambda configuration). While `/tmp` is ephemeral (cleared on container recycle), it persists across multiple invocations within the same container, which is sufficient for autograder testing.
 
 #### Frontend (AWS Amplify) Environment Variables
 Configure these in AWS Amplify Console → App Settings → Environment Variables:
@@ -504,6 +507,9 @@ The frontend is deployed via AWS Amplify. Configure the following:
 - **Timeout:** 60 seconds (increased for metric calculations)
 - **Memory:** 1024 MB (increased for HuggingFace API calls)
 - **Environment Variables:** Set automatically via CI/CD
+  - `USE_SQLITE=1` - SQLite enabled for persistent storage
+  - `SQLALCHEMY_DATABASE_URL=sqlite:///tmp/registry.db` - Database stored in `/tmp` (Lambda's writable directory)
+- **Storage:** SQLite database persists across Lambda invocations within the same container (ephemeral `/tmp` storage, sufficient for autograder testing)
 
 ### Monitoring & Logging
 
@@ -1122,12 +1128,14 @@ Rating endpoint now includes:
 
 #### Environment Variables (Optional)
 - `GITHUB_TOKEN` - For reviewedness metric (avoids rate limits)
-- `USE_SQLITE=1` - Enable SQLite storage (default: in-memory)
+- `USE_SQLITE=1` - Enable SQLite storage (default: enabled in production, disabled locally)
+- `SQLALCHEMY_DATABASE_URL` - Override database path (default: `/tmp/registry.db` in Lambda, `./registry.db` locally)
 
 #### Storage Location
-- Local: `uploads/{artifact_id}/`
-- Automatically created on first upload
-- Cleaned up on artifact deletion
+- **SQLite Database:**
+  - **Lambda:** `/tmp/registry.db` (persists across invocations within same container)
+  - **Local:** `./registry.db` (current directory)
+- **Uploaded Files:** `uploads/{artifact_id}/` (local development only - not used in Lambda)
 
 ## 🎯 Next Steps
 
