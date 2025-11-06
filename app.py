@@ -110,21 +110,37 @@ audit_log: List[Dict[str, Any]] = []
 
 # Initialize S3 storage if enabled (production only)
 s3_storage = None
+print(
+    f"DEBUG: USE_S3={USE_S3}, "
+    f"AWS_LAMBDA_FUNCTION_NAME={os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'not set')}, "
+    f"ENVIRONMENT={os.environ.get('ENVIRONMENT', 'not set')}"
+)
+sys.stdout.flush()
 if USE_S3:
     try:
         from src.storage.s3_storage import get_s3_storage
 
+        print("DEBUG: Attempting to initialize S3 storage...")
+        sys.stdout.flush()
         s3_storage = get_s3_storage()
         if s3_storage:
-            logger.info(
-                f"S3 storage initialized: bucket={os.environ.get('S3_BUCKET_NAME', 'not set')}"
-            )
+            bucket_name = os.environ.get("S3_BUCKET_NAME", "not set")
+            logger.info(f"S3 storage initialized: bucket={bucket_name}")
+            print(f"DEBUG: ✅ S3 storage initialized: bucket={bucket_name}")
+            sys.stdout.flush()
         else:
             logger.warning("S3 storage requested but bucket not configured or unavailable")
+            print("DEBUG: ⚠️ S3 storage NOT initialized - bucket not configured or unavailable")
+            sys.stdout.flush()
             USE_S3 = False
     except Exception as e:
         logger.error(f"S3 initialization failed: {e}, falling back to other storage", exc_info=True)
+        print(f"DEBUG: ❌ S3 initialization failed: {e}")
+        sys.stdout.flush()
         USE_S3 = False
+else:
+    print("DEBUG: S3 storage disabled (USE_S3=False)")
+    sys.stdout.flush()
 
 # Initialize SQLite if enabled (local development only)
 if USE_SQLITE:
@@ -620,13 +636,24 @@ async def models_upload(
         # Store in S3 if enabled - verify save success
         if USE_S3 and s3_storage:
             logger.info(f"💾 Saving artifact to S3: id={artifact_id}, name={model_name}")
+            print(
+                f"DEBUG: 💾 Saving artifact to S3 (models_upload): id={artifact_id}, name={model_name}"
+            )
+            sys.stdout.flush()
             success = s3_storage.save_artifact_metadata(artifact_id, artifact_entry)
             if not success:
                 logger.error(
-                    f"❌ CRITICAL: Failed to save artifact {artifact_id} to S3 in models_upload - artifact will not persist!"
+                    f"❌ CRITICAL: Failed to save artifact {artifact_id} to S3 in models_upload - "
+                    f"artifact will not persist!"
                 )
+                print(
+                    f"DEBUG: ❌ CRITICAL: Failed to save artifact {artifact_id} to S3 in models_upload"
+                )
+                sys.stdout.flush()
             else:
                 logger.info(f"✅ Successfully saved artifact {artifact_id} to S3")
+                print(f"DEBUG: ✅ Successfully saved artifact {artifact_id} to S3 (models_upload)")
+                sys.stdout.flush()
 
         # Store in SQLite if enabled
         if USE_SQLITE:
@@ -1164,13 +1191,24 @@ async def models_ingest(
         # Store in S3 if enabled - verify save success
         if USE_S3 and s3_storage:
             logger.info(f"💾 Saving artifact to S3: id={artifact_id}, name={model_display_name}")
+            print(
+                f"DEBUG: 💾 Saving artifact to S3 (models_ingest): id={artifact_id}, name={model_display_name}"
+            )
+            sys.stdout.flush()
             success = s3_storage.save_artifact_metadata(artifact_id, artifact_entry)
             if not success:
                 logger.error(
-                    f"❌ CRITICAL: Failed to save artifact {artifact_id} to S3 in models_ingest - artifact will not persist!"
+                    f"❌ CRITICAL: Failed to save artifact {artifact_id} to S3 in models_ingest - "
+                    f"artifact will not persist!"
                 )
+                print(
+                    f"DEBUG: ❌ CRITICAL: Failed to save artifact {artifact_id} to S3 in models_ingest"
+                )
+                sys.stdout.flush()
             else:
                 logger.info(f"✅ Successfully saved artifact {artifact_id} to S3")
+                print(f"DEBUG: ✅ Successfully saved artifact {artifact_id} to S3 (models_ingest)")
+                sys.stdout.flush()
 
         if USE_SQLITE:
             with next(get_db()) as _db:  # type: ignore[misc]
@@ -1508,7 +1546,10 @@ async def artifact_create(
                     if failing_metrics:
                         raise HTTPException(
                             status_code=424,
-                            detail=f"Artifact is not registered due to the disqualified rating. Failing metrics: {', '.join(failing_metrics)}",
+                            detail=(
+                                f"Artifact is not registered due to the disqualified rating. "
+                                f"Failing metrics: {', '.join(failing_metrics)}"
+                            ),
                         )
         except HTTPException:
             raise
@@ -1585,16 +1626,21 @@ async def artifact_create(
     # Priority: S3 (production) > SQLite (local) > in-memory
     # In production, always store in S3 for persistence
     if USE_S3 and s3_storage:
-        logger.info(
-            f"💾 Saving artifact to S3: id={artifact_id}, name={artifact_entry['metadata']['name']}"
-        )
+        artifact_name = artifact_entry["metadata"]["name"]
+        logger.info(f"💾 Saving artifact to S3: id={artifact_id}, name={artifact_name}")
+        print(f"DEBUG: 💾 Saving artifact to S3: id={artifact_id}, name={artifact_name}")
+        sys.stdout.flush()
         success = s3_storage.save_artifact_metadata(artifact_id, artifact_entry)
         if not success:
             logger.error(
                 f"❌ CRITICAL: Failed to save artifact {artifact_id} to S3 - artifact will not persist!"
             )
+            print(f"DEBUG: ❌ CRITICAL: Failed to save artifact {artifact_id} to S3")
+            sys.stdout.flush()
         else:
             logger.info(f"✅ Successfully saved artifact {artifact_id} to S3")
+            print(f"DEBUG: ✅ Successfully saved artifact {artifact_id} to S3")
+            sys.stdout.flush()
         # Still keep in-memory for current request compatibility
         artifacts_db[artifact_id] = artifact_entry
     elif USE_SQLITE:
@@ -1653,12 +1699,15 @@ async def artifact_retrieve(
     # In production, S3 is primary source; fallback to in-memory only for same-request compatibility
     if USE_S3 and s3_storage:
         logger.info(f"🔍 Retrieving artifact from S3: type={artifact_type.value}, id={id}")
+        print(f"DEBUG: 🔍 Retrieving artifact from S3: type={artifact_type.value}, id={id}")
+        sys.stdout.flush()
         artifact_data = s3_storage.get_artifact_metadata(id)
         if not artifact_data:
             # Fallback to in-memory for same-request compatibility (Lambda cold start protection)
             if id in artifacts_db:
                 logger.warning(
-                    f"⚠️ Artifact {id} not in S3 but found in-memory (same request) - may not persist across Lambda invocations"
+                    f"⚠️ Artifact {id} not in S3 but found in-memory (same request) - "
+                    f"may not persist across Lambda invocations"
                 )
                 artifact_data = artifacts_db[id]
                 stored_type = artifact_data["metadata"]["type"]
@@ -1671,6 +1720,10 @@ async def artifact_retrieve(
             logger.error(
                 f"❌ Artifact not found in S3 or in-memory: id={id}, type={artifact_type.value}"
             )
+            print(
+                f"DEBUG: ❌ Artifact not found in S3 or in-memory: id={id}, type={artifact_type.value}"
+            )
+            sys.stdout.flush()
             raise HTTPException(status_code=404, detail="Artifact does not exist.")
         stored_type = artifact_data.get("metadata", {}).get("type")
         if stored_type != artifact_type.value:
@@ -2224,6 +2277,26 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         print(
             f"DEBUG: Event keys={event_keys}, path={event_path}, method={event_method}, routeKey={route_key}"
         )
+
+        # Log S3 initialization status (runs on every request for visibility)
+        s3_bucket = os.environ.get("S3_BUCKET_NAME", "NOT SET")
+        env = os.environ.get("ENVIRONMENT", "NOT SET")
+        lambda_fn = os.environ.get("AWS_LAMBDA_FUNCTION_NAME", "NOT SET")
+        print(
+            f"DEBUG: [S3 Status] USE_S3={USE_S3}, S3_BUCKET_NAME={s3_bucket}, "
+            f"ENVIRONMENT={env}, AWS_LAMBDA_FUNCTION_NAME={lambda_fn}"
+        )
+        if USE_S3:
+            if s3_storage:
+                print("DEBUG: [S3 Status] ✅ S3 storage initialized and ready")
+            else:
+                print(
+                    "DEBUG: [S3 Status] ⚠️ USE_S3=True but s3_storage is None - "
+                    "initialization may have failed"
+                )
+        else:
+            print("DEBUG: [S3 Status] S3 storage disabled")
+        sys.stdout.flush()
     except Exception as log_err:
         print(f"ERROR logging event: {log_err}")
         import traceback
