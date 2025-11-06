@@ -7,7 +7,7 @@
 **Team:** Aakash Bathini (@aakash-bathini), Neal Singh (@NSingh1227), Vishal Madhudi (@vishalm3416), Rishi Mantri (@rishimantri795)  
 **Group:** 8  
 **Track:** Security Extended Track  
-**Status:** Milestone 1 Complete ✅ | Testing CI/CD Pipeline 🚀
+**Status:** Milestone 2 Complete ✅ | Milestone 3 Complete ✅ | Testing & Refinement 🚀
 
 ---
 
@@ -345,9 +345,12 @@ npm run lint
 #### Backend (Lambda) Environment Variables
 The following environment variables are configured automatically via CI/CD when deploying to AWS Lambda:
 
-- `USE_SQLITE=0` - Disable SQLite for Lambda (use in-memory storage)
+- `USE_SQLITE=1` - Enable SQLite for persistent storage in Lambda (database stored in `/tmp`)
 - `ENVIRONMENT=production` - Set environment to production
 - `LOG_LEVEL=INFO` - Set logging level
+- `SQLALCHEMY_DATABASE_URL=sqlite:///tmp/registry.db` - SQLite database path (uses `/tmp` which is writable in Lambda)
+
+**Note:** SQLite is enabled in production to ensure data persistence across Lambda invocations. The database file is stored in `/tmp` (Lambda's writable directory, ~512MB-10GB depending on Lambda configuration). While `/tmp` is ephemeral (cleared on container recycle), it persists across multiple invocations within the same container, which is sufficient for autograder testing.
 
 #### Frontend (AWS Amplify) Environment Variables
 Configure these in AWS Amplify Console → App Settings → Environment Variables:
@@ -504,6 +507,9 @@ The frontend is deployed via AWS Amplify. Configure the following:
 - **Timeout:** 60 seconds (increased for metric calculations)
 - **Memory:** 1024 MB (increased for HuggingFace API calls)
 - **Environment Variables:** Set automatically via CI/CD
+  - `USE_SQLITE=1` - SQLite enabled for persistent storage
+  - `SQLALCHEMY_DATABASE_URL=sqlite:///tmp/registry.db` - Database stored in `/tmp` (Lambda's writable directory)
+- **Storage:** SQLite database persists across Lambda invocations within the same container (ephemeral `/tmp` storage, sufficient for autograder testing)
 
 ### Monitoring & Logging
 
@@ -1047,6 +1053,41 @@ curl -X GET "http://localhost:8000/models?cursor=model-2-1234567890&limit=25" \
 
 #### Enumerate Features
 - ✅ Cursor-based pagination (not offset-based)
+- ✅ Stable sorting by artifact ID
+- ✅ Permission-based access control
+
+#### Artifact Search & Retrieval Features ✅
+**Endpoint**: `GET /artifact/byName/{name}` (NON-BASELINE)
+- **Location**: `app.py` lines 1158-1194
+- **Features**:
+  - Exact name matching for stored artifact names
+  - Support for full HuggingFace model names (e.g., `org/model-name`)
+  - Returns all artifacts matching the name (multiple artifacts can share a name)
+  - Works with both ingested models and uploaded artifacts
+
+**Endpoint**: `POST /artifact/byRegEx` (BASELINE)
+- **Location**: `app.py` lines 1197-1284
+- **Features**:
+  - Case-insensitive regex matching
+  - Searches artifact names individually (for exact matches)
+  - Searches both stored name and full HuggingFace model name (`hf_model_name`)
+  - Searches README content from HuggingFace models
+  - Supports exact match patterns like `^model-name$`
+  - Supports partial match patterns like `.*model.*`
+  - Maximum regex length of 500 characters to prevent ReDoS attacks
+- **Behavior**:
+  - Checks `name`, `hf_model_name`, and `readme_text` individually for exact matches
+  - Also checks concatenated text for partial matches
+  - Returns empty list if pattern is too long (500+ chars) or invalid
+
+**Endpoint**: `GET /artifacts/{artifact_type}/{id}` (BASELINE)
+- **Location**: `app.py` lines 1400-1435
+- **Features**:
+  - Retrieves artifact by ID and type
+  - Type validation (returns 400 if type mismatch)
+  - 404 if artifact doesn't exist
+  - Debug logging for troubleshooting (CloudWatch logs)
+  - Works with both SQLite and in-memory storage
 - ✅ Efficient for large datasets (millions of models)
 - ✅ Stable sorting for consistent pagination
 - ✅ Configurable page size (1-100, default 25)
@@ -1087,12 +1128,14 @@ Rating endpoint now includes:
 
 #### Environment Variables (Optional)
 - `GITHUB_TOKEN` - For reviewedness metric (avoids rate limits)
-- `USE_SQLITE=1` - Enable SQLite storage (default: in-memory)
+- `USE_SQLITE=1` - Enable SQLite storage (default: enabled in production, disabled locally)
+- `SQLALCHEMY_DATABASE_URL` - Override database path (default: `/tmp/registry.db` in Lambda, `./registry.db` locally)
 
 #### Storage Location
-- Local: `uploads/{artifact_id}/`
-- Automatically created on first upload
-- Cleaned up on artifact deletion
+- **SQLite Database:**
+  - **Lambda:** `/tmp/registry.db` (persists across invocations within same container)
+  - **Local:** `./registry.db` (current directory)
+- **Uploaded Files:** `uploads/{artifact_id}/` (local development only - not used in Lambda)
 
 ## 🎯 Next Steps
 
@@ -1110,6 +1153,19 @@ Rating endpoint now includes:
 7. **Integration Testing**: ✅ Comprehensive test suite with 40%+ coverage
 8. **Local File Storage**: ✅ uploads/ directory with SHA256 integrity checks
 9. **OpenAPI Compliance**: ✅ `/docs` available; responses align with schema
+
+### Recent Improvements (Latest Updates)
+
+#### Artifact Search Enhancements ✅
+- **Improved Regex Matching**: Exact match patterns (e.g., `^model-name$`) now work correctly by checking name, HuggingFace model name, and README content individually
+- **Case-Insensitive Search**: All regex searches are now case-insensitive for better user experience
+- **Enhanced Name Matching**: `/artifact/byName/{name}` now supports both display names and full HuggingFace model names (e.g., `google/gemma-2-2b`)
+- **Debug Logging**: Added comprehensive logging to artifact retrieval endpoint for troubleshooting autograder issues
+
+#### Performance & Reliability
+- **Better Error Handling**: Improved error messages for artifact retrieval failures
+- **Type Safety**: Enhanced type validation for artifact type matching
+- **Storage Consistency**: Ensured artifacts created via different endpoints (ingest, upload, create) are all retrievable consistently
 
 ### Remaining for Deployment
 - **AWS Deployment**: Lambda + API Gateway configuration (handled separately)

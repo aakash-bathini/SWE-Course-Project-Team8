@@ -106,9 +106,24 @@ if USE_SQLITE:
 
         # Ensure schema exists
         Base.metadata.create_all(bind=engine)
+        logger.info(
+            f"SQLite initialized successfully. Database path: {os.environ.get('SQLALCHEMY_DATABASE_URL', 'default')}"
+        )
+        print(
+            f"DEBUG: SQLite initialized. Database path: {os.environ.get('SQLALCHEMY_DATABASE_URL', 'default')}"
+        )
+        sys.stdout.flush()
     except Exception as e:
-        logger.warning(f"SQLite initialization failed: {e}, falling back to in-memory storage")
+        logger.error(
+            f"SQLite initialization failed: {e}, falling back to in-memory storage", exc_info=True
+        )
+        print(f"DEBUG: SQLite initialization failed: {e}")
+        sys.stdout.flush()
         USE_SQLITE = False
+else:
+    logger.info("SQLite disabled - using in-memory storage")
+    print("DEBUG: SQLite disabled - using in-memory storage")
+    sys.stdout.flush()
 
 # Default admin user - password matches what autograder sends (requirements doc says 'packages', not 'artifacts')
 DEFAULT_ADMIN = {
@@ -606,14 +621,40 @@ async def models_download(
     import tempfile
 
     try:
-        # Check if artifact exists
-        if id not in artifacts_db:
+        # Check if artifact exists (check both SQLite and in-memory)
+        artifact_exists = False
+        artifact_type = None
+        artifact_url = None
+        artifact_metadata = None
+
+        if USE_SQLITE:
+            with next(get_db()) as _db:  # type: ignore[misc]
+                art = db_crud.get_artifact(_db, id)
+                if art:
+                    artifact_exists = True
+                    artifact_type = art.type
+                    artifact_url = art.url
+                    artifact_metadata = {"name": art.name, "id": art.id, "type": art.type}
+        else:
+            if id in artifacts_db:
+                artifact_exists = True
+                artifact_data = artifacts_db[id]
+                artifact_type = artifact_data["metadata"]["type"]
+                artifact_url = artifact_data["data"].get("url", "")
+                artifact_metadata = artifact_data["metadata"]
+
+        if not artifact_exists:
             raise HTTPException(status_code=404, detail="Artifact does not exist.")
 
-        artifact_data = artifacts_db[id]
-
-        if artifact_data["metadata"]["type"] != "model":
+        if artifact_type != "model":
             raise HTTPException(status_code=400, detail="Not a model artifact.")
+
+        # Check if this is a URL-only model (no local files)
+        if artifact_url and not artifact_url.startswith("local://"):
+            raise HTTPException(
+                status_code=404,
+                detail="Model files not found. This model may only have URL metadata (downloaded from HuggingFace).",
+            )
 
         # Get artifact directory
         artifact_dir = file_storage.get_artifact_directory(id)
@@ -640,20 +681,22 @@ async def models_download(
         checksum = file_storage.calculate_checksum(zip_path)
 
         # Log download audit
-        audit_log.append(
-            {
-                "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
-                "date": datetime.now().isoformat(),
-                "artifact": artifact_data["metadata"],
-                "action": f"DOWNLOAD_{aspect.upper()}",
-            }
-        )
+        if artifact_metadata:
+            audit_log.append(
+                {
+                    "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
+                    "date": datetime.now().isoformat(),
+                    "artifact": artifact_metadata,
+                    "action": f"DOWNLOAD_{aspect.upper()}",
+                }
+            )
 
         # Return file with checksum in headers
+        artifact_name = artifact_metadata.get("name", "model") if artifact_metadata else "model"
         return FileResponse(
             path=zip_path,
             media_type="application/zip",
-            filename=f"{artifact_data['metadata']['name']}_{aspect}.zip",
+            filename=f"{artifact_name}_{aspect}.zip",
             headers={"X-File-Checksum": checksum, "X-File-Aspect": aspect},
         )
 
@@ -835,33 +878,57 @@ async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
         )
 
     # Clear all artifacts (CRITICAL: ensure this is complete)
-    artifacts_db.clear()
+    if USE_SQLITE:
+        # Clear SQLite database
+        try:
+            with next(get_db()) as _db:  # type: ignore[misc]
+                db_crud.reset_registry(_db)
+        except Exception as e:
+            logger.error(f"Failed to reset SQLite database: {e}")
+            print(f"DEBUG: SQLite reset failed: {e}")
+            sys.stdout.flush()
+    else:
+        # Clear in-memory storage
+        artifacts_db.clear()
+
     audit_log.clear()
 
     # Clear token call counts on reset
     token_call_counts.clear()
 
     # Clear users but preserve default admin (per spec requirement)
-    users_db.clear()
+    if USE_SQLITE:
+        # Users are stored in SQLite, will be cleared by reset_registry
+        pass
+    else:
+        users_db.clear()
 
     # CRITICAL: Recreate default admin user immediately after clear
     admin_username: str = str(DEFAULT_ADMIN["username"])
-    users_db[admin_username] = DEFAULT_ADMIN.copy()
+    if not USE_SQLITE:
+        users_db[admin_username] = DEFAULT_ADMIN.copy()
 
     # Log reset completion
+    artifact_count = 0
+    if USE_SQLITE:
+        try:
+            with next(get_db()) as _db:  # type: ignore[misc]
+                artifact_count = len(db_crud.list_by_queries(_db, [{"name": "*", "types": None}]))
+        except Exception:
+            artifact_count = 0
+    else:
+        artifact_count = len(artifacts_db)
+
     logger.info(
-        f"Registry reset completed. Artifacts cleared: {len(artifacts_db) == 0}, Default admin recreated: {admin_username in users_db}"
+        f"Registry reset completed. Artifacts cleared: {artifact_count == 0}, Default admin recreated: {admin_username in (users_db if not USE_SQLITE else [])}"
     )
-    print(
-        f"DEBUG: Reset completed. artifacts_db size: {len(artifacts_db)}, users_db keys: {list(users_db.keys())}"
-    )
+    print(f"DEBUG: Reset completed. Artifacts: {artifact_count}, USE_SQLITE: {USE_SQLITE}")
     sys.stdout.flush()
 
     if USE_SQLITE:
         try:
             with next(get_db()) as _db:  # type: ignore[misc]
-                db_crud.reset_registry(_db)
-                # Recreate default admin in database
+                # Recreate default admin in database (reset_registry already cleared users)
                 db_crud.upsert_default_admin(
                     _db,
                     username=str(DEFAULT_ADMIN["username"]),
@@ -869,9 +936,13 @@ async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
                     permissions=list(DEFAULT_ADMIN["permissions"]),  # type: ignore[arg-type]
                 )
         except Exception as e:
-            logger.error(f"Failed to reset SQLite database: {e}")
-            print(f"DEBUG: SQLite reset failed: {e}")
+            logger.error(f"Failed to recreate default admin in SQLite database: {e}")
+            print(f"DEBUG: SQLite default admin recreation failed: {e}")
             sys.stdout.flush()
+    else:
+        # Ensure default admin is in in-memory users_db
+        if admin_username not in users_db:
+            users_db[admin_username] = DEFAULT_ADMIN.copy()
 
     return {"message": "Registry is reset."}
 
@@ -1140,14 +1211,27 @@ async def artifact_by_name(
                 matches.append(ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type)))
     else:
         for artifact_id, artifact_data in artifacts_db.items():
-            if artifact_data["metadata"]["name"] == name:
+            stored_name = artifact_data["metadata"]["name"]
+            # Check exact match with stored name
+            if stored_name == name:
                 matches.append(
                     ArtifactMetadata(
-                        name=artifact_data["metadata"]["name"],
+                        name=stored_name,
                         id=artifact_id,
                         type=ArtifactType(artifact_data["metadata"]["type"]),
                     )
                 )
+            # Also check if searching for full HuggingFace model name (for ingested models)
+            elif "hf_model_name" in artifact_data:
+                hf_model_name = artifact_data["hf_model_name"]
+                if hf_model_name == name:
+                    matches.append(
+                        ArtifactMetadata(
+                            name=stored_name,  # Return stored display name
+                            id=artifact_id,
+                            type=ArtifactType(artifact_data["metadata"]["type"]),
+                        )
+                    )
     if not matches:
         raise HTTPException(status_code=404, detail="No such artifact.")
     return matches
@@ -1178,7 +1262,7 @@ async def artifact_by_regex(
         # The regex is validated here and only used for matching, not for execution.
         # CodeQL warnings about regex injection are expected - this is intentional functionality.
         # ReDoS risk is mitigated through length limits above.
-        pattern = _re.compile(regex.regex)
+        pattern = _re.compile(regex.regex, _re.IGNORECASE)
     except _re.error as e:
         raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
 
@@ -1213,9 +1297,23 @@ async def artifact_by_regex(
                 except Exception:
                     pass  # If we can't get README, just search name
 
-            # Search in both name and README
-            search_text = f"{name} {readme_text}"
-            if pattern.search(search_text):
+            # Search in both name and README, and also include hf_model_name for exact matches
+            # Include hf_model_name to allow searching by full HuggingFace model name
+            hf_model_name = artifact_data.get("hf_model_name", "")
+
+            # For exact matches (patterns like ^name$), check name and hf_model_name individually
+            # For partial matches, search in the concatenated text
+            # This ensures exact match regexes work correctly
+            name_matches = pattern.search(name)
+            hf_name_matches = pattern.search(hf_model_name) if hf_model_name else False
+            readme_matches = pattern.search(readme_text) if readme_text else False
+
+            # Also check concatenated text for partial matches
+            search_text = f"{name} {hf_model_name} {readme_text}"
+            concatenated_matches = pattern.search(search_text)
+
+            # Match if any component matches
+            if name_matches or hf_name_matches or readme_matches or concatenated_matches:
                 matches.append(
                     ArtifactMetadata(
                         name=name,
@@ -1347,23 +1445,58 @@ async def artifact_retrieve(
     artifact_type: ArtifactType, id: str, user: Dict[str, Any] = Depends(verify_token)
 ) -> Artifact:
     """Interact with the artifact with this id (BASELINE)"""
+    # Debug logging for autograder troubleshooting
+    logger.info(f"Retrieving artifact: type={artifact_type.value}, id={id}")
+    logger.info(f"artifacts_db size: {len(artifacts_db)}, keys: {list(artifacts_db.keys())[:10]}")
+    print(f"DEBUG: Retrieving artifact: type={artifact_type.value}, id={id}")
+    print(f"DEBUG: artifacts_db size: {len(artifacts_db)}, USE_SQLITE={USE_SQLITE}")
+    sys.stdout.flush()
+
     if USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
             if not art:
+                logger.warning(f"Artifact not found in SQLite: id={id}")
+                print(f"DEBUG: Artifact not found in SQLite: id={id}")
+                sys.stdout.flush()
                 raise HTTPException(status_code=404, detail="Artifact does not exist.")
             if art.type != artifact_type.value:
+                logger.warning(
+                    f"Artifact type mismatch: stored={art.type}, requested={artifact_type.value}"
+                )
+                print(
+                    f"DEBUG: Artifact type mismatch: stored={art.type}, requested={artifact_type.value}"
+                )
+                sys.stdout.flush()
                 raise HTTPException(status_code=400, detail="Artifact type mismatch.")
             return Artifact(
                 metadata=ArtifactMetadata(name=art.name, id=art.id, type=ArtifactType(art.type)),
                 data=ArtifactData(url=art.url),
             )
     else:
+        # In-memory storage: check if artifact exists
         if id not in artifacts_db:
+            logger.warning(
+                f"Artifact not found in artifacts_db: id={id}, available keys: {list(artifacts_db.keys())[:10]}"
+            )
+            print(f"DEBUG: Artifact not found in artifacts_db: id={id}")
+            print(f"DEBUG: Available keys (first 10): {list(artifacts_db.keys())[:10]}")
+            sys.stdout.flush()
             raise HTTPException(status_code=404, detail="Artifact does not exist.")
         artifact_data = artifacts_db[id]
-        if artifact_data["metadata"]["type"] != artifact_type.value:
+        stored_type = artifact_data["metadata"]["type"]
+        if stored_type != artifact_type.value:
+            logger.warning(
+                f"Artifact type mismatch: stored={stored_type}, requested={artifact_type.value}"
+            )
+            print(
+                f"DEBUG: Artifact type mismatch: stored={stored_type}, requested={artifact_type.value}"
+            )
+            sys.stdout.flush()
             raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+        logger.info(f"Successfully retrieved artifact: id={id}, type={stored_type}")
+        print(f"DEBUG: Successfully retrieved artifact: id={id}, type={stored_type}")
+        sys.stdout.flush()
         return Artifact(
             metadata=ArtifactMetadata(**artifact_data["metadata"]),
             data=ArtifactData(url=artifact_data["data"]["url"]),
@@ -1650,20 +1783,37 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
             logger.warning("Metrics calculation not available, using default values")
         else:
             hf_data = None
-            if isinstance(url, str) and "huggingface.co" in url.lower():
+            # For ingested models, try to get hf_data from stored artifact data
+            if not USE_SQLITE:
+                if id in artifacts_db:
+                    artifact_data = artifacts_db[id]
+                    if "hf_data" in artifact_data.get("data", {}):
+                        hf_data_list = artifact_data["data"].get("hf_data", [])
+                        if isinstance(hf_data_list, list) and len(hf_data_list) > 0:
+                            hf_data = hf_data_list[0] if isinstance(hf_data_list[0], dict) else None
+
+            # If hf_data not found in stored data, try scraping from URL
+            if hf_data is None and isinstance(url, str) and "huggingface.co" in url.lower():
                 if scrape_hf_url is not None:
-                    hf_data, _ = scrape_hf_url(url)
-                    if isinstance(hf_data.get("pipeline_tag"), str):
-                        category = str(hf_data.get("pipeline_tag"))
+                    try:
+                        hf_data, _ = scrape_hf_url(url)
+                        if isinstance(hf_data.get("pipeline_tag"), str):
+                            category = str(hf_data.get("pipeline_tag"))
+                    except Exception as scrape_err:
+                        logger.warning(
+                            f"Failed to scrape HuggingFace URL for metrics: {scrape_err}"
+                        )
+                        hf_data = None
+
             model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
             metrics = await calculate_phase2_metrics(model_data)
             # Compute size_score dict explicitly
             ctx = create_eval_context_from_model_data(model_data)
-            size_scores = await size_metric.metric(ctx)
-            if isinstance(size_scores, dict):
-                size_scores = size_scores
+            size_scores_result = await size_metric.metric(ctx)
+            if isinstance(size_scores_result, dict):
+                size_scores = size_scores_result
     except Exception as e:
-        logger.warning(f"Metrics calculation failed: {e}")
+        logger.warning(f"Metrics calculation failed: {e}", exc_info=True)
         metrics = {}
 
     net_score = (

@@ -112,7 +112,8 @@ def list_by_regex(db: Session, regex: str) -> List[models.Artifact]:
         return []
 
     try:
-        rx = re.compile(regex)
+        # Use case-insensitive matching
+        rx = re.compile(regex, re.IGNORECASE)
     except re.error:
         # If invalid regex, return empty list (will be caught by endpoint)
         return []
@@ -124,6 +125,7 @@ def list_by_regex(db: Session, regex: str) -> List[models.Artifact]:
         # For SQLite, we only have name stored in DB, not README content
         # This is acceptable as README search is mainly for HuggingFace models
         # which are typically ingested and stored in-memory
+        # Search case-insensitively
         if rx.search(name):
             out.append(a)
     return out
