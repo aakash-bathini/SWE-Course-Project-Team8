@@ -1288,6 +1288,7 @@ async def artifact_by_name(
     matches: List[ArtifactMetadata] = []
 
     # Priority: S3 (production) > SQLite (local) > in-memory
+    # In production, S3 is primary source; fallback to in-memory for same-request compatibility
     if USE_S3 and s3_storage:
         s3_artifacts = s3_storage.list_artifacts_by_name(name)
         for art_data in s3_artifacts:
@@ -1299,6 +1300,30 @@ async def artifact_by_name(
                     type=ArtifactType(metadata.get("type", "")),
                 )
             )
+        # Also check in-memory for same-request artifacts (Lambda cold start protection)
+        for artifact_id, artifact_data in artifacts_db.items():
+            stored_name = artifact_data["metadata"]["name"]
+            if stored_name == name:
+                # Check if already in matches
+                if not any(m.id == artifact_id for m in matches):
+                    matches.append(
+                        ArtifactMetadata(
+                            name=stored_name,
+                            id=artifact_id,
+                            type=ArtifactType(artifact_data["metadata"]["type"]),
+                        )
+                    )
+            elif "hf_model_name" in artifact_data:
+                hf_model_name = artifact_data["hf_model_name"]
+                if hf_model_name == name:
+                    if not any(m.id == artifact_id for m in matches):
+                        matches.append(
+                            ArtifactMetadata(
+                                name=stored_name,
+                                id=artifact_id,
+                                type=ArtifactType(artifact_data["metadata"]["type"]),
+                            )
+                        )
     elif USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             items = db_crud.list_by_name(_db, name)
@@ -1604,9 +1629,21 @@ async def artifact_retrieve(
     logger.info(f"Retrieving artifact: type={artifact_type.value}, id={id}")
 
     # Priority: S3 (production) > SQLite (local) > in-memory
+    # In production, S3 is primary source; fallback to in-memory only for same-request compatibility
     if USE_S3 and s3_storage:
         artifact_data = s3_storage.get_artifact_metadata(id)
         if not artifact_data:
+            # Fallback to in-memory for same-request compatibility (Lambda cold start protection)
+            if id in artifacts_db:
+                logger.debug(f"Artifact {id} not in S3 but found in-memory (same request)")
+                artifact_data = artifacts_db[id]
+                stored_type = artifact_data["metadata"]["type"]
+                if stored_type != artifact_type.value:
+                    raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+                return Artifact(
+                    metadata=ArtifactMetadata(**artifact_data["metadata"]),
+                    data=ArtifactData(url=artifact_data["data"]["url"]),
+                )
             logger.warning(f"Artifact not found in S3: id={id}")
             raise HTTPException(status_code=404, detail="Artifact does not exist.")
         stored_type = artifact_data.get("metadata", {}).get("type")
