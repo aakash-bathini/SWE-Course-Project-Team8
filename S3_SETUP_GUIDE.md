@@ -78,8 +78,8 @@ aws iam put-role-policy \
           \"s3:ListBucket\"
         ],
         \"Resource\": [
-          \"arn:aws:s3:::${BUCKET_NAME}\",
-          \"arn:aws:s3:::${BUCKET_NAME}/*\"
+          \"arn:aws:s3:::${trustworthy-registry-artifacts-47906}\",
+          \"arn:aws:s3:::${trustworthy-registry-artifacts-47906}/*\"
         ]
       }
     ]
@@ -107,8 +107,8 @@ echo "✅ S3 permissions added to Lambda role: ${ROLE_NAME}"
         "s3:ListBucket"
       ],
       "Resource": [
-        "arn:aws:s3:::YOUR_BUCKET_NAME",
-        "arn:aws:s3:::YOUR_BUCKET_NAME/*"
+        "arn:aws:s3:::trustworthy-registry-artifacts-47906",
+        "arn:aws:s3:::trustworthy-registry-artifacts-47906/*"
       ]
     }
   ]
@@ -125,15 +125,14 @@ echo "✅ S3 permissions added to Lambda role: ${ROLE_NAME}"
 # Set your values
 FUNCTION_NAME="trustworthy-model-registry"
 BUCKET_NAME="trustworthy-registry-artifacts-XXXXX"  # From Step 1
-AWS_REGION="us-east-1"  # Your Lambda's region
 
 # Update Lambda configuration
+# Note: AWS_REGION is automatically set by Lambda and cannot be modified
 aws lambda update-function-configuration \
   --function-name ${FUNCTION_NAME} \
   --environment "Variables={
     USE_S3=1,
     S3_BUCKET_NAME=${BUCKET_NAME},
-    AWS_REGION=${AWS_REGION},
     USE_SQLITE=0,
     ENVIRONMENT=production,
     LOG_LEVEL=INFO
@@ -149,10 +148,11 @@ echo "✅ Lambda environment variables updated"
 4. Add/Update these variables:
    - `USE_S3` = `1` (enables S3 storage)
    - `S3_BUCKET_NAME` = `your-bucket-name-from-step-1` (REQUIRED)
-   - `AWS_REGION` = `us-east-1` (or your Lambda's region)
    - `USE_SQLITE` = `0` (disable SQLite in production)
    - `ENVIRONMENT` = `production`
    - `LOG_LEVEL` = `INFO`
+   
+   **Note:** `AWS_REGION` is automatically set by Lambda based on your function's region and cannot be modified. The code will automatically detect it.
 5. Click **"Save"**
 
 ## Step 4: Update CI/CD Workflow (Optional)
@@ -171,7 +171,6 @@ If you want S3 configured automatically via GitHub Actions, update `.github/work
       --environment "Variables={
         USE_S3=1,
         S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }},
-        AWS_REGION=us-east-1,
         USE_SQLITE=0,
         ENVIRONMENT=production,
         LOG_LEVEL=INFO
@@ -275,7 +274,7 @@ YOUR_BUCKET_NAME/
 ```bash
 USE_S3=1                    # Enable S3 storage
 S3_BUCKET_NAME=your-bucket  # REQUIRED: Your S3 bucket name
-AWS_REGION=us-east-1        # Your Lambda's region
+# Note: AWS_REGION is automatically set by Lambda (cannot be modified)
 USE_SQLITE=0                # Disable SQLite in production
 ENVIRONMENT=production       # Production environment
 LOG_LEVEL=INFO              # Logging level
@@ -307,11 +306,11 @@ ENVIRONMENT=development                        # Development environment
   - `s3:DeleteObject` (delete artifacts)
   - `s3:ListBucket` (list artifacts and pagination - covers ListObjectsV2 API)
 - ✅ Verify bucket name matches exactly (case-sensitive)
-- ✅ Check bucket region matches `AWS_REGION` environment variable
+- ✅ Check bucket region matches Lambda's region (AWS_REGION is automatically set by Lambda)
 
 ### Bucket Not Found Errors
 - ✅ Ensure bucket exists in the same region as Lambda
-- ✅ Check `AWS_REGION` environment variable matches bucket region
+- ✅ Verify bucket region matches Lambda's region (AWS_REGION is automatically set by Lambda)
 - ✅ Verify bucket name is correct (no typos)
 
 ### Artifacts Not Persisting
@@ -363,7 +362,7 @@ The system gracefully handles storage failures:
 ```bash
 USE_S3=1
 S3_BUCKET_NAME=your-bucket-name
-AWS_REGION=us-east-1
+# Note: AWS_REGION is automatically set by Lambda (read-only)
 USE_SQLITE=0
 ENVIRONMENT=production
 ```
