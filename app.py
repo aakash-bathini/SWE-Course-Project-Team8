@@ -1257,8 +1257,20 @@ async def artifact_by_regex(
             # Search in both name and README, and also include hf_model_name for exact matches
             # Include hf_model_name to allow searching by full HuggingFace model name
             hf_model_name = artifact_data.get("hf_model_name", "")
+
+            # For exact matches (patterns like ^name$), check name and hf_model_name individually
+            # For partial matches, search in the concatenated text
+            # This ensures exact match regexes work correctly
+            name_matches = pattern.search(name)
+            hf_name_matches = pattern.search(hf_model_name) if hf_model_name else False
+            readme_matches = pattern.search(readme_text) if readme_text else False
+
+            # Also check concatenated text for partial matches
             search_text = f"{name} {hf_model_name} {readme_text}"
-            if pattern.search(search_text):
+            concatenated_matches = pattern.search(search_text)
+
+            # Match if any component matches
+            if name_matches or hf_name_matches or readme_matches or concatenated_matches:
                 matches.append(
                     ArtifactMetadata(
                         name=name,
