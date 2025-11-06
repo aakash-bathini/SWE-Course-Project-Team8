@@ -1679,20 +1679,37 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
             logger.warning("Metrics calculation not available, using default values")
         else:
             hf_data = None
-            if isinstance(url, str) and "huggingface.co" in url.lower():
+            # For ingested models, try to get hf_data from stored artifact data
+            if not USE_SQLITE:
+                if id in artifacts_db:
+                    artifact_data = artifacts_db[id]
+                    if "hf_data" in artifact_data.get("data", {}):
+                        hf_data_list = artifact_data["data"].get("hf_data", [])
+                        if isinstance(hf_data_list, list) and len(hf_data_list) > 0:
+                            hf_data = hf_data_list[0] if isinstance(hf_data_list[0], dict) else None
+
+            # If hf_data not found in stored data, try scraping from URL
+            if hf_data is None and isinstance(url, str) and "huggingface.co" in url.lower():
                 if scrape_hf_url is not None:
-                    hf_data, _ = scrape_hf_url(url)
-                    if isinstance(hf_data.get("pipeline_tag"), str):
-                        category = str(hf_data.get("pipeline_tag"))
+                    try:
+                        hf_data, _ = scrape_hf_url(url)
+                        if isinstance(hf_data.get("pipeline_tag"), str):
+                            category = str(hf_data.get("pipeline_tag"))
+                    except Exception as scrape_err:
+                        logger.warning(
+                            f"Failed to scrape HuggingFace URL for metrics: {scrape_err}"
+                        )
+                        hf_data = None
+
             model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
             metrics = await calculate_phase2_metrics(model_data)
             # Compute size_score dict explicitly
             ctx = create_eval_context_from_model_data(model_data)
-            size_scores = await size_metric.metric(ctx)
-            if isinstance(size_scores, dict):
-                size_scores = size_scores
+            size_scores_result = await size_metric.metric(ctx)
+            if isinstance(size_scores_result, dict):
+                size_scores = size_scores_result
     except Exception as e:
-        logger.warning(f"Metrics calculation failed: {e}")
+        logger.warning(f"Metrics calculation failed: {e}", exc_info=True)
         metrics = {}
 
     net_score = (
