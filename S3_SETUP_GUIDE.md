@@ -75,8 +75,7 @@ aws iam put-role-policy \
           \"s3:PutObject\",
           \"s3:GetObject\",
           \"s3:DeleteObject\",
-          \"s3:ListBucket\",
-          \"s3:ListObjectsV2\"
+          \"s3:ListBucket\"
         ],
         \"Resource\": [
           \"arn:aws:s3:::${BUCKET_NAME}\",
@@ -105,8 +104,7 @@ echo "✅ S3 permissions added to Lambda role: ${ROLE_NAME}"
         "s3:PutObject",
         "s3:GetObject",
         "s3:DeleteObject",
-        "s3:ListBucket",
-        "s3:ListObjectsV2"
+        "s3:ListBucket"
       ],
       "Resource": [
         "arn:aws:s3:::YOUR_BUCKET_NAME",
@@ -307,8 +305,7 @@ ENVIRONMENT=development                        # Development environment
   - `s3:PutObject` (write metadata)
   - `s3:GetObject` (read metadata)
   - `s3:DeleteObject` (delete artifacts)
-  - `s3:ListBucket` (list artifacts)
-  - `s3:ListObjectsV2` (pagination)
+  - `s3:ListBucket` (list artifacts and pagination - covers ListObjectsV2 API)
 - ✅ Verify bucket name matches exactly (case-sensitive)
 - ✅ Check bucket region matches `AWS_REGION` environment variable
 
