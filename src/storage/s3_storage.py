@@ -89,25 +89,44 @@ class S3Storage:
             True if successful, False otherwise
         """
         if not self.s3_client:
+            if logger:
+                logger.error(f"Cannot save artifact {artifact_id}: S3 client not initialized")
             return False
 
         if not self._ensure_bucket_exists():
+            if logger:
+                logger.error(
+                    f"Cannot save artifact {artifact_id}: Bucket {self.bucket_name} does not exist"
+                )
             return False
 
         try:
             key = f"artifacts/{artifact_id}/metadata.json"
+            metadata_json = json.dumps(metadata, indent=2)
             self.s3_client.put_object(
                 Bucket=self.bucket_name,
                 Key=key,
-                Body=json.dumps(metadata, indent=2),
+                Body=metadata_json,
                 ContentType="application/json",
             )
             if logger:
-                logger.info(f"Saved artifact metadata to S3: {key}")
+                logger.info(
+                    f"✅ Successfully saved artifact metadata to S3: {key} (artifact_id={artifact_id})"
+                )
             return True
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "")
+            if logger:
+                logger.error(
+                    f"❌ S3 ClientError saving artifact {artifact_id} to {key}: {error_code} - {e}"
+                )
+            return False
         except Exception as e:
             if logger:
-                logger.error(f"Failed to save artifact metadata to S3: {e}")
+                logger.error(
+                    f"❌ Failed to save artifact metadata to S3: {key} (artifact_id={artifact_id}) - {e}",
+                    exc_info=True,
+                )
             return False
 
     def get_artifact_metadata(self, artifact_id: str) -> Optional[Dict[str, Any]]:
@@ -120,6 +139,8 @@ class S3Storage:
             Artifact metadata dictionary, or None if not found
         """
         if not self.s3_client:
+            if logger:
+                logger.warning(f"Cannot retrieve artifact {artifact_id}: S3 client not initialized")
             return None
 
         try:
@@ -127,19 +148,28 @@ class S3Storage:
             response = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
             metadata = json.loads(response["Body"].read().decode("utf-8"))
             if logger:
-                logger.debug(f"Retrieved artifact metadata from S3: {key}")
+                logger.info(
+                    f"✅ Retrieved artifact metadata from S3: {key} (artifact_id={artifact_id})"
+                )
             return metadata
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
             if error_code == "NoSuchKey":
                 # Artifact not found
+                if logger:
+                    logger.warning(f"⚠️ Artifact not found in S3: {key} (artifact_id={artifact_id})")
                 return None
             if logger:
-                logger.error(f"Failed to retrieve artifact metadata from S3: {e}")
+                logger.error(
+                    f"❌ S3 ClientError retrieving artifact {artifact_id} from {key}: {error_code} - {e}"
+                )
             return None
         except Exception as e:
             if logger:
-                logger.error(f"Error retrieving artifact metadata from S3: {e}")
+                logger.error(
+                    f"❌ Error retrieving artifact metadata from S3: {key} (artifact_id={artifact_id}) - {e}",
+                    exc_info=True,
+                )
             return None
 
     def delete_artifact_metadata(self, artifact_id: str) -> bool:
