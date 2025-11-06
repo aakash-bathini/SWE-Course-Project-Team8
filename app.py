@@ -617,9 +617,13 @@ async def models_upload(
 
         artifacts_db[artifact_id] = artifact_entry
 
-        # Store in S3 if enabled
+        # Store in S3 if enabled - verify save success
         if USE_S3 and s3_storage:
-            s3_storage.save_artifact_metadata(artifact_id, artifact_entry)
+            success = s3_storage.save_artifact_metadata(artifact_id, artifact_entry)
+            if not success:
+                logger.error(
+                    f"Failed to save artifact {artifact_id} to S3 in models_upload, but continuing..."
+                )
 
         # Store in SQLite if enabled
         if USE_SQLITE:
