@@ -211,6 +211,191 @@ class S3Storage:
                 logger.error(f"Failed to list artifacts from S3: {e}")
             return []
 
+    def list_artifacts_by_queries(self, queries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """List artifacts matching queries (similar to SQLite list_by_queries)
+
+        Args:
+            queries: List of query dicts with 'name' and 'types' keys
+
+        Returns:
+            List of artifact metadata dicts
+        """
+        if not self.s3_client:
+            return []
+
+        all_artifacts: List[Dict[str, Any]] = []
+        seen_ids = set()
+
+        try:
+            # Get all artifact IDs
+            artifact_ids = self.list_artifacts()
+
+            for artifact_id in artifact_ids:
+                if artifact_id in seen_ids:
+                    continue
+
+                metadata = self.get_artifact_metadata(artifact_id)
+                if not metadata:
+                    continue
+
+                art_name = metadata.get("metadata", {}).get("name", "")
+                art_type = metadata.get("metadata", {}).get("type", "")
+
+                # Check if artifact matches any query
+                matches_any_query = False
+                for q in queries:
+                    name = q.get("name")
+                    types = q.get("types")
+
+                    # Check name match
+                    name_match = True
+                    if name and name != "*":
+                        name_match = art_name == name
+
+                    # Check type match
+                    type_match = True
+                    if types:
+                        type_match = art_type in types
+
+                    if name_match and type_match:
+                        matches_any_query = True
+                        break
+
+                if matches_any_query:
+                    all_artifacts.append(metadata)
+                    seen_ids.add(artifact_id)
+
+            return all_artifacts
+        except Exception as e:
+            if logger:
+                logger.error(f"Failed to list artifacts by queries from S3: {e}")
+            return []
+
+    def list_artifacts_by_name(self, name: str) -> List[Dict[str, Any]]:
+        """List artifacts with exact name match
+
+        Args:
+            name: Artifact name to search for
+
+        Returns:
+            List of artifact metadata dicts
+        """
+        if not self.s3_client:
+            return []
+
+        matches = []
+        try:
+            artifact_ids = self.list_artifacts()
+            for artifact_id in artifact_ids:
+                metadata = self.get_artifact_metadata(artifact_id)
+                if not metadata:
+                    continue
+
+                art_name = metadata.get("metadata", {}).get("name", "")
+                if art_name == name:
+                    matches.append(metadata)
+                # Also check hf_model_name for ingested models
+                elif metadata.get("hf_model_name") == name:
+                    matches.append(metadata)
+
+            return matches
+        except Exception as e:
+            if logger:
+                logger.error(f"Failed to list artifacts by name from S3: {e}")
+            return []
+
+    def list_artifacts_by_regex(self, regex: str) -> List[Dict[str, Any]]:
+        """List artifacts matching regex pattern (searches names and READMEs)
+
+        Args:
+            regex: Regex pattern to match
+
+        Returns:
+            List of artifact metadata dicts
+        """
+        if not self.s3_client:
+            return []
+
+        import re
+
+        try:
+            pattern = re.compile(regex, re.IGNORECASE)
+        except re.error:
+            return []
+
+        matches = []
+        try:
+            artifact_ids = self.list_artifacts()
+            for artifact_id in artifact_ids:
+                metadata = self.get_artifact_metadata(artifact_id)
+                if not metadata:
+                    continue
+
+                art_name = metadata.get("metadata", {}).get("name", "")
+                hf_model_name = metadata.get("hf_model_name", "")
+
+                # Get README text from hf_data
+                readme_text = ""
+                hf_data = metadata.get("data", {}).get("hf_data", [])
+                if isinstance(hf_data, list) and len(hf_data) > 0:
+                    readme_text = (
+                        hf_data[0].get("readme_text", "") if isinstance(hf_data[0], dict) else ""
+                    )
+
+                # Check if pattern matches name, hf_model_name, or README
+                name_matches = pattern.search(art_name)
+                hf_name_matches = pattern.search(hf_model_name) if hf_model_name else False
+                readme_matches = pattern.search(readme_text) if readme_text else False
+                search_text = f"{art_name} {hf_model_name} {readme_text}"
+                concatenated_matches = pattern.search(search_text)
+
+                if name_matches or hf_name_matches or readme_matches or concatenated_matches:
+                    matches.append(metadata)
+
+            return matches
+        except Exception as e:
+            if logger:
+                logger.error(f"Failed to list artifacts by regex from S3: {e}")
+            return []
+
+    def clear_all_artifacts(self) -> bool:
+        """Clear all artifacts from S3 (for reset endpoint)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.s3_client:
+            return False
+
+        try:
+            prefix = "artifacts/"
+            paginator = self.s3_client.get_paginator("list_objects_v2")
+            pages = paginator.paginate(Bucket=self.bucket_name, Prefix=prefix)
+
+            objects_to_delete = []
+            for page in pages:
+                if "Contents" not in page:
+                    continue
+
+                for obj in page["Contents"]:
+                    objects_to_delete.append({"Key": obj["Key"]})
+
+            if objects_to_delete:
+                # Delete in batches of 1000 (S3 limit)
+                for i in range(0, len(objects_to_delete), 1000):
+                    batch = objects_to_delete[i : i + 1000]
+                    self.s3_client.delete_objects(
+                        Bucket=self.bucket_name, Delete={"Objects": batch}
+                    )
+
+            if logger:
+                logger.info(f"Cleared {len(objects_to_delete)} objects from S3")
+            return True
+        except Exception as e:
+            if logger:
+                logger.error(f"Failed to clear artifacts from S3: {e}")
+            return False
+
     def count_artifacts_by_type(self, artifact_type: str) -> int:
         """Count artifacts of a specific type
 
