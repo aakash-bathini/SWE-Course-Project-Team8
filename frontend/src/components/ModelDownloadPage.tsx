@@ -19,12 +19,13 @@ import {
   Chip,
   IconButton,
   Tooltip,
+  Menu,
 } from '@mui/material';
 import {
   Download,
   History,
 } from '@mui/icons-material';
-import { apiService, type ArtifactMetadata, type ArtifactAuditEntry } from '../services/apiService';
+import { apiService, type ArtifactMetadata, type ArtifactAuditEntry, type ModelRating } from '../services/apiService';
 
 interface User {
   username: string;
@@ -46,6 +47,9 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
   const [licenseUrl, setLicenseUrl] = useState('https://github.com/google-research/bert');
   const [auditDialog, setAuditDialog] = useState<{ open: boolean; artifact?: ArtifactMetadata }>({ open: false });
   const [auditEntries, setAuditEntries] = useState<ArtifactAuditEntry[]>([]);
+  const [ratingDialog, setRatingDialog] = useState<{ open: boolean; rating?: ModelRating; artifactName?: string }>({ open: false });
+  const [downloadAnchorEl, setDownloadAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedArtifactForDownload, setSelectedArtifactForDownload] = useState<ArtifactMetadata | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const canDownload = user.permissions.includes('download') || user.permissions.includes('search');
@@ -153,11 +157,14 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
                   <Stack direction="row" spacing={1} flexWrap="wrap">
                     {m.type === 'model' && (
                       <>
-                        <Tooltip title="Download full model">
+                        <Tooltip title="Download model">
                           <IconButton
                             size="small"
                             disabled={!!busyId}
-                            onClick={() => handleDownload(m, 'full')}
+                            onClick={(e) => {
+                              setSelectedArtifactForDownload(m);
+                              setDownloadAnchorEl(e.currentTarget);
+                            }}
                             color="primary"
                           >
                             <Download />
@@ -177,7 +184,7 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
                           try {
                             setBusyId(m.id);
                             const rating = await apiService.rateModel(m.id);
-                            setInfo(`Rating for ${m.name}: net_score=${rating.net_score.toFixed(2)}`);
+                            setRatingDialog({ open: true, rating, artifactName: m.name });
                             setError('');
                           } catch (e: any) {
                             setError(e?.response?.data?.detail || e?.message || 'Failed to fetch rating');
@@ -254,6 +261,106 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
               }
             }}
           >Run Check</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Download Aspect Menu */}
+      <Menu
+        anchorEl={downloadAnchorEl}
+        open={Boolean(downloadAnchorEl)}
+        onClose={() => {
+          setDownloadAnchorEl(null);
+          setSelectedArtifactForDownload(null);
+        }}
+      >
+        <MenuItem onClick={() => {
+          if (selectedArtifactForDownload) {
+            handleDownload(selectedArtifactForDownload, 'full');
+          }
+          setDownloadAnchorEl(null);
+          setSelectedArtifactForDownload(null);
+        }}>
+          Download Full Model
+        </MenuItem>
+        <MenuItem onClick={() => {
+          if (selectedArtifactForDownload) {
+            handleDownload(selectedArtifactForDownload, 'weights');
+          }
+          setDownloadAnchorEl(null);
+          setSelectedArtifactForDownload(null);
+        }}>
+          Download Weights Only
+        </MenuItem>
+        <MenuItem onClick={() => {
+          if (selectedArtifactForDownload) {
+            handleDownload(selectedArtifactForDownload, 'datasets');
+          }
+          setDownloadAnchorEl(null);
+          setSelectedArtifactForDownload(null);
+        }}>
+          Download Datasets Only
+        </MenuItem>
+        <MenuItem onClick={() => {
+          if (selectedArtifactForDownload) {
+            handleDownload(selectedArtifactForDownload, 'code');
+          }
+          setDownloadAnchorEl(null);
+          setSelectedArtifactForDownload(null);
+        }}>
+          Download Code Only
+        </MenuItem>
+      </Menu>
+
+      {/* Rating Details Dialog */}
+      <Dialog open={ratingDialog.open} onClose={() => setRatingDialog({ open: false })} fullWidth maxWidth="md">
+        <DialogTitle>
+          Model Rating: {ratingDialog.artifactName}
+        </DialogTitle>
+        <DialogContent>
+          {ratingDialog.rating ? (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Overall Score: {ratingDialog.rating.net_score.toFixed(3)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Category: {ratingDialog.rating.category}
+              </Typography>
+              <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+                Phase 1 Metrics:
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
+                <Typography variant="body2">Ramp-up Time: {ratingDialog.rating.ramp_up_time.toFixed(3)}</Typography>
+                <Typography variant="body2">Bus Factor: {ratingDialog.rating.bus_factor.toFixed(3)}</Typography>
+                <Typography variant="body2">Performance Claims: {ratingDialog.rating.performance_claims.toFixed(3)}</Typography>
+                <Typography variant="body2">License: {ratingDialog.rating.license.toFixed(3)}</Typography>
+                <Typography variant="body2">Dataset & Code Score: {ratingDialog.rating.dataset_and_code_score.toFixed(3)}</Typography>
+                <Typography variant="body2">Dataset Quality: {ratingDialog.rating.dataset_quality.toFixed(3)}</Typography>
+                <Typography variant="body2">Code Quality: {ratingDialog.rating.code_quality.toFixed(3)}</Typography>
+              </Box>
+              <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+                Phase 2 Metrics:
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
+                <Typography variant="body2">Reproducibility: {ratingDialog.rating.reproducibility.toFixed(3)}</Typography>
+                <Typography variant="body2">Reviewedness: {ratingDialog.rating.reviewedness.toFixed(3)}</Typography>
+                <Typography variant="body2">Tree Score: {ratingDialog.rating.tree_score.toFixed(3)}</Typography>
+              </Box>
+              <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+                Size Scores:
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
+                <Typography variant="body2">Raspberry Pi: {ratingDialog.rating.size_score.raspberry_pi.toFixed(3)}</Typography>
+                <Typography variant="body2">Jetson Nano: {ratingDialog.rating.size_score.jetson_nano.toFixed(3)}</Typography>
+                <Typography variant="body2">Desktop PC: {ratingDialog.rating.size_score.desktop_pc.toFixed(3)}</Typography>
+                <Typography variant="body2">AWS Server: {ratingDialog.rating.size_score.aws_server.toFixed(3)}</Typography>
+              </Box>
+            </Box>
+          ) : (
+            <Alert severity="info">No rating data available</Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRatingDialog({ open: false })}>Close</Button>
         </DialogActions>
       </Dialog>
 
