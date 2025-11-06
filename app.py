@@ -567,35 +567,29 @@ async def models_upload(
             raise HTTPException(status_code=400, detail="File must be a ZIP archive")
 
         # Generate artifact ID
-        # Priority: S3 > SQLite > in-memory
-        if USE_S3 and s3_storage:
-            try:
-                model_count = s3_storage.count_artifacts_by_type("model")
-                artifact_id = f"model-{model_count + 1}-{int(datetime.now().timestamp())}"
-            except Exception:
-                # Fallback to SQLite or in-memory count
-                if USE_SQLITE:
-                    try:
-                        with next(get_db()) as _db:  # type: ignore[misc]
-                            model_count = db_crud.count_artifacts_by_type(_db, "model")
-                            artifact_id = (
-                                f"model-{model_count + 1}-{int(datetime.now().timestamp())}"
-                            )
-                    except Exception:
-                        artifact_id = (
-                            f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
-                        )
-                else:
-                    artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
-        elif USE_SQLITE:
+        # Priority: in-memory (for consistency within Lambda invocation) > SQLite > S3
+        # Use in-memory count first to avoid S3 eventual consistency issues
+        model_count = sum(
+            1
+            for art in artifacts_db.values()
+            if art.get("metadata", {}).get("type") == "model"
+        )
+        if USE_SQLITE:
             try:
                 with next(get_db()) as _db:  # type: ignore[misc]
-                    model_count = db_crud.count_artifacts_by_type(_db, "model")
-                    artifact_id = f"model-{model_count + 1}-{int(datetime.now().timestamp())}"
+                    sqlite_count = db_crud.count_artifacts_by_type(_db, "model")
+                    # Use max of in-memory and SQLite counts to handle edge cases
+                    model_count = max(model_count, sqlite_count)
             except Exception:
-                artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
-        else:
-            artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
+                pass  # Use in-memory count if SQLite fails
+        # Fallback to S3 count only if in-memory is empty (shouldn't happen, but safety check)
+        if model_count == 0 and USE_S3 and s3_storage:
+            try:
+                s3_count = s3_storage.count_artifacts_by_type("model")
+                model_count = max(model_count, s3_count)
+            except Exception:
+                pass  # Use in-memory count if S3 fails
+        artifact_id = f"model-{model_count + 1}-{int(datetime.now().timestamp())}"
 
         # Read file content
         content = await file.read()
@@ -1143,35 +1137,29 @@ async def models_ingest(
 
         # Model passed threshold - proceed with ingest (create artifact)
         # Generate artifact ID
-        # Priority: S3 > SQLite > in-memory
-        if USE_S3 and s3_storage:
-            try:
-                model_count = s3_storage.count_artifacts_by_type("model")
-                artifact_id = f"model-{model_count + 1}-{int(datetime.now().timestamp())}"
-            except Exception:
-                # Fallback to SQLite or in-memory count
-                if USE_SQLITE:
-                    try:
-                        with next(get_db()) as _db:  # type: ignore[misc]
-                            model_count = db_crud.count_artifacts_by_type(_db, "model")
-                            artifact_id = (
-                                f"model-{model_count + 1}-{int(datetime.now().timestamp())}"
-                            )
-                    except Exception:
-                        artifact_id = (
-                            f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
-                        )
-                else:
-                    artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
-        elif USE_SQLITE:
+        # Priority: in-memory (for consistency within Lambda invocation) > SQLite > S3
+        # Use in-memory count first to avoid S3 eventual consistency issues
+        model_count = sum(
+            1
+            for art in artifacts_db.values()
+            if art.get("metadata", {}).get("type") == "model"
+        )
+        if USE_SQLITE:
             try:
                 with next(get_db()) as _db:  # type: ignore[misc]
-                    model_count = db_crud.count_artifacts_by_type(_db, "model")
-                    artifact_id = f"model-{model_count + 1}-{int(datetime.now().timestamp())}"
+                    sqlite_count = db_crud.count_artifacts_by_type(_db, "model")
+                    # Use max of in-memory and SQLite counts to handle edge cases
+                    model_count = max(model_count, sqlite_count)
             except Exception:
-                artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
-        else:
-            artifact_id = f"model-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
+                pass  # Use in-memory count if SQLite fails
+        # Fallback to S3 count only if in-memory is empty (shouldn't happen, but safety check)
+        if model_count == 0 and USE_S3 and s3_storage:
+            try:
+                s3_count = s3_storage.count_artifacts_by_type("model")
+                model_count = max(model_count, s3_count)
+            except Exception:
+                pass  # Use in-memory count if S3 fails
+        artifact_id = f"model-{model_count + 1}-{int(datetime.now().timestamp())}"
         model_display_name = model_name.split("/")[-1] if "/" in model_name else model_name
 
         artifact_entry = {
@@ -1488,8 +1476,12 @@ async def artifact_by_regex(
             # For exact matches (patterns like ^name$), check name and hf_model_name individually
             # For partial matches, search in the concatenated text
             # This ensures exact match regexes work correctly
-            name_matches = pattern.search(name)
-            hf_name_matches = pattern.search(hf_model_name) if hf_model_name else False
+            name_matches = pattern.search(name) or pattern.fullmatch(name)
+            hf_name_matches = (
+                (pattern.search(hf_model_name) or pattern.fullmatch(hf_model_name))
+                if hf_model_name
+                else False
+            )
             readme_matches = pattern.search(readme_text) if readme_text else False
 
             # Also check concatenated text for partial matches
@@ -1557,40 +1549,31 @@ async def artifact_create(
             # If metrics fail, allow ingest for Delivery 1
             pass
     # Generate unique artifact ID
-    # Priority: S3 > SQLite > in-memory
-    if USE_S3 and s3_storage:
-        try:
-            type_count = s3_storage.count_artifacts_by_type(artifact_type.value)
-            artifact_id = (
-                f"{artifact_type.value}-{type_count + 1}-{int(datetime.now().timestamp())}"
-            )
-        except Exception:
-            # Fallback to SQLite or in-memory count
-            if USE_SQLITE:
-                try:
-                    with next(get_db()) as _db:  # type: ignore[misc]
-                        type_count = db_crud.count_artifacts_by_type(_db, artifact_type.value)
-                        artifact_id = f"{artifact_type.value}-{type_count + 1}-{int(datetime.now().timestamp())}"
-                except Exception:
-                    artifact_id = f"{artifact_type.value}-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
-            else:
-                artifact_id = f"{artifact_type.value}-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
-    elif USE_SQLITE:
+    # Priority: in-memory (for consistency within Lambda invocation) > SQLite > S3
+    # Use in-memory count first to avoid S3 eventual consistency issues
+    type_count = sum(
+        1
+        for art in artifacts_db.values()
+        if art.get("metadata", {}).get("type") == artifact_type.value
+    )
+    if USE_SQLITE:
         try:
             with next(get_db()) as _db:  # type: ignore[misc]
-                type_count = db_crud.count_artifacts_by_type(_db, artifact_type.value)
-                artifact_id = (
-                    f"{artifact_type.value}-{type_count + 1}-{int(datetime.now().timestamp())}"
-                )
+                sqlite_count = db_crud.count_artifacts_by_type(_db, artifact_type.value)
+                # Use max of in-memory and SQLite counts to handle edge cases
+                type_count = max(type_count, sqlite_count)
         except Exception:
-            # Fallback to in-memory count if SQLite query fails
-            artifact_id = (
-                f"{artifact_type.value}-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
-            )
-    else:
-        artifact_id = (
-            f"{artifact_type.value}-{len(artifacts_db) + 1}-{int(datetime.now().timestamp())}"
-        )
+            pass  # Use in-memory count if SQLite fails
+    # Fallback to S3 count only if in-memory is empty (shouldn't happen, but safety check)
+    if type_count == 0 and USE_S3 and s3_storage:
+        try:
+            s3_count = s3_storage.count_artifacts_by_type(artifact_type.value)
+            type_count = max(type_count, s3_count)
+        except Exception:
+            pass  # Use in-memory count if S3 fails
+    artifact_id = (
+        f"{artifact_type.value}-{type_count + 1}-{int(datetime.now().timestamp())}"
+    )
 
     # Extract name from URL (handle trailing slashes)
     artifact_name = artifact_data.url.rstrip("/").split("/")[-1] if artifact_data.url else "unknown"
