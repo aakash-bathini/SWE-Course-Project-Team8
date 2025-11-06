@@ -91,9 +91,17 @@ except ImportError as e:
     calculate_phase2_net_score = None  # type: ignore[assignment]
     size_metric = None  # type: ignore[assignment]
 
-# Storage layer selection: in-memory (default), SQLite (Milestone 2), or S3 (production)
-USE_SQLITE: bool = os.environ.get("USE_SQLITE", "0") == "1"
-USE_S3: bool = os.environ.get("USE_S3", "0") == "1"
+# Storage layer selection: in-memory (default), SQLite (local dev), or S3 (production)
+# Production (Lambda): Use S3 only
+# Local development: Use SQLite
+USE_SQLITE: bool = (
+    os.environ.get("USE_SQLITE", "0") == "1"
+    and os.environ.get("ENVIRONMENT") != "production"
+    and not os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+)
+USE_S3: bool = os.environ.get("USE_S3", "0") == "1" or (
+    os.environ.get("ENVIRONMENT") == "production" or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+)
 
 artifacts_db: Dict[str, Dict[str, Any]] = {}  # artifact_id -> artifact_data (in-memory)
 users_db: Dict[str, Dict[str, Any]] = {}

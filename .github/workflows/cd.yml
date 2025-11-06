@@ -120,7 +120,7 @@ jobs:
             --handler app.handler \
             --timeout 60 \
             --memory-size 1024 \
-            --environment "Variables={USE_SQLITE=1,ENVIRONMENT=production,LOG_LEVEL=INFO,SQLALCHEMY_DATABASE_URL=sqlite:///tmp/registry.db}"
+            --environment "Variables={USE_S3=1,S3_BUCKET_NAME=trustworthy-registry-artifacts,AWS_REGION=us-east-1,ENVIRONMENT=production,LOG_LEVEL=INFO}"
           
           # Wait for configuration update to complete
           echo "Waiting for Lambda function configuration update to complete..."

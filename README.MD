@@ -345,12 +345,16 @@ npm run lint
 #### Backend (Lambda) Environment Variables
 The following environment variables are configured automatically via CI/CD when deploying to AWS Lambda:
 
-- `USE_SQLITE=1` - Enable SQLite for persistent storage in Lambda (database stored in `/tmp`)
-- `ENVIRONMENT=production` - Set environment to production
+- `USE_S3=1` - Enable S3 for persistent storage (automatically enabled in production)
+- `S3_BUCKET_NAME=trustworthy-registry-artifacts` - S3 bucket name for artifact storage
+- `AWS_REGION=us-east-1` - AWS region for S3 bucket
+- `ENVIRONMENT=production` - Set environment to production (disables SQLite)
 - `LOG_LEVEL=INFO` - Set logging level
-- `SQLALCHEMY_DATABASE_URL=sqlite:///tmp/registry.db` - SQLite database path (uses `/tmp` which is writable in Lambda)
 
-**Note:** SQLite is enabled in production to ensure data persistence across Lambda invocations. The database file is stored in `/tmp` (Lambda's writable directory, ~512MB-10GB depending on Lambda configuration). While `/tmp` is ephemeral (cleared on container recycle), it persists across multiple invocations within the same container, which is sufficient for autograder testing.
+**Note:** 
+- **Production (Lambda)**: Uses S3 storage only. SQLite is automatically disabled in production.
+- **Local Development**: Uses SQLite database (stored in `./registry.db`). Set `USE_SQLITE=1` and `ENVIRONMENT=development` (or omit `ENVIRONMENT`).
+- SQLite in `/tmp` is NOT used in production - S3 provides persistent storage across Lambda invocations.
 
 #### Frontend (AWS Amplify) Environment Variables
 Configure these in AWS Amplify Console → App Settings → Environment Variables:
@@ -507,9 +511,13 @@ The frontend is deployed via AWS Amplify. Configure the following:
 - **Timeout:** 60 seconds (increased for metric calculations)
 - **Memory:** 1024 MB (increased for HuggingFace API calls)
 - **Environment Variables:** Set automatically via CI/CD
-  - `USE_SQLITE=1` - SQLite enabled for persistent storage
-  - `SQLALCHEMY_DATABASE_URL=sqlite:///tmp/registry.db` - Database stored in `/tmp` (Lambda's writable directory)
-- **Storage:** SQLite database persists across Lambda invocations within the same container (ephemeral `/tmp` storage, sufficient for autograder testing)
+  - `USE_S3=1` - S3 enabled for persistent storage (production only)
+  - `S3_BUCKET_NAME=trustworthy-registry-artifacts` - S3 bucket name
+  - `AWS_REGION=us-east-1` - AWS region
+  - `ENVIRONMENT=production` - Production environment (disables SQLite)
+  - `LOG_LEVEL=INFO` - Logging level
+- **Storage:** S3 provides persistent storage across Lambda invocations (production only)
+- **Local Development:** SQLite database stored in `./registry.db` (when `USE_SQLITE=1` and not in production)
 
 ### Monitoring & Logging
 
@@ -1129,13 +1137,19 @@ Rating endpoint now includes:
 #### Environment Variables (Optional)
 - `GITHUB_TOKEN` - For reviewedness metric (avoids rate limits)
 - `USE_SQLITE=1` - Enable SQLite storage (default: enabled in production, disabled locally)
-- `SQLALCHEMY_DATABASE_URL` - Override database path (default: `/tmp/registry.db` in Lambda, `./registry.db` locally)
+- `USE_S3` - Enable S3 storage (default: auto-enabled in production/Lambda)
+- `S3_BUCKET_NAME` - S3 bucket name for artifact storage (required if USE_S3=1)
+- `AWS_REGION` - AWS region for S3 bucket (default: us-east-1)
+- `USE_SQLITE` - Enable SQLite storage (default: disabled in production, enabled locally)
+- `SQLALCHEMY_DATABASE_URL` - Override database path (default: `./registry.db` locally, not used in production)
 
 #### Storage Location
-- **SQLite Database:**
-  - **Lambda:** `/tmp/registry.db` (persists across invocations within same container)
-  - **Local:** `./registry.db` (current directory)
-- **Uploaded Files:** `uploads/{artifact_id}/` (local development only - not used in Lambda)
+- **Production (Lambda):**
+  - **S3:** `s3://trustworthy-registry-artifacts/artifacts/{artifact_id}/metadata.json`
+  - **SQLite:** Disabled automatically in production
+- **Local Development:**
+  - **SQLite Database:** `./registry.db` (current directory)
+  - **Uploaded Files:** `uploads/{artifact_id}/` (local development only)
 
 ## 🎯 Next Steps
 
