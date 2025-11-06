@@ -619,11 +619,14 @@ async def models_upload(
 
         # Store in S3 if enabled - verify save success
         if USE_S3 and s3_storage:
+            logger.info(f"💾 Saving artifact to S3: id={artifact_id}, name={model_name}")
             success = s3_storage.save_artifact_metadata(artifact_id, artifact_entry)
             if not success:
                 logger.error(
-                    f"Failed to save artifact {artifact_id} to S3 in models_upload, but continuing..."
+                    f"❌ CRITICAL: Failed to save artifact {artifact_id} to S3 in models_upload - artifact will not persist!"
                 )
+            else:
+                logger.info(f"✅ Successfully saved artifact {artifact_id} to S3")
 
         # Store in SQLite if enabled
         if USE_SQLITE:
@@ -1160,11 +1163,14 @@ async def models_ingest(
 
         # Store in S3 if enabled - verify save success
         if USE_S3 and s3_storage:
+            logger.info(f"💾 Saving artifact to S3: id={artifact_id}, name={model_display_name}")
             success = s3_storage.save_artifact_metadata(artifact_id, artifact_entry)
             if not success:
                 logger.error(
-                    f"Failed to save artifact {artifact_id} to S3 in models_ingest, but continuing..."
+                    f"❌ CRITICAL: Failed to save artifact {artifact_id} to S3 in models_ingest - artifact will not persist!"
                 )
+            else:
+                logger.info(f"✅ Successfully saved artifact {artifact_id} to S3")
 
         if USE_SQLITE:
             with next(get_db()) as _db:  # type: ignore[misc]
