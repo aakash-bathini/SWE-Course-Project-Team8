@@ -878,33 +878,57 @@ async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
         )
 
     # Clear all artifacts (CRITICAL: ensure this is complete)
-    artifacts_db.clear()
+    if USE_SQLITE:
+        # Clear SQLite database
+        try:
+            with next(get_db()) as _db:  # type: ignore[misc]
+                db_crud.reset_registry(_db)
+        except Exception as e:
+            logger.error(f"Failed to reset SQLite database: {e}")
+            print(f"DEBUG: SQLite reset failed: {e}")
+            sys.stdout.flush()
+    else:
+        # Clear in-memory storage
+        artifacts_db.clear()
+
     audit_log.clear()
 
     # Clear token call counts on reset
     token_call_counts.clear()
 
     # Clear users but preserve default admin (per spec requirement)
-    users_db.clear()
+    if USE_SQLITE:
+        # Users are stored in SQLite, will be cleared by reset_registry
+        pass
+    else:
+        users_db.clear()
 
     # CRITICAL: Recreate default admin user immediately after clear
     admin_username: str = str(DEFAULT_ADMIN["username"])
-    users_db[admin_username] = DEFAULT_ADMIN.copy()
+    if not USE_SQLITE:
+        users_db[admin_username] = DEFAULT_ADMIN.copy()
 
     # Log reset completion
+    artifact_count = 0
+    if USE_SQLITE:
+        try:
+            with next(get_db()) as _db:  # type: ignore[misc]
+                artifact_count = len(db_crud.list_by_queries(_db, [{"name": "*", "types": None}]))
+        except Exception:
+            artifact_count = 0
+    else:
+        artifact_count = len(artifacts_db)
+
     logger.info(
-        f"Registry reset completed. Artifacts cleared: {len(artifacts_db) == 0}, Default admin recreated: {admin_username in users_db}"
+        f"Registry reset completed. Artifacts cleared: {artifact_count == 0}, Default admin recreated: {admin_username in (users_db if not USE_SQLITE else [])}"
     )
-    print(
-        f"DEBUG: Reset completed. artifacts_db size: {len(artifacts_db)}, users_db keys: {list(users_db.keys())}"
-    )
+    print(f"DEBUG: Reset completed. Artifacts: {artifact_count}, USE_SQLITE: {USE_SQLITE}")
     sys.stdout.flush()
 
     if USE_SQLITE:
         try:
             with next(get_db()) as _db:  # type: ignore[misc]
-                db_crud.reset_registry(_db)
-                # Recreate default admin in database
+                # Recreate default admin in database (reset_registry already cleared users)
                 db_crud.upsert_default_admin(
                     _db,
                     username=str(DEFAULT_ADMIN["username"]),
@@ -912,9 +936,13 @@ async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
                     permissions=list(DEFAULT_ADMIN["permissions"]),  # type: ignore[arg-type]
                 )
         except Exception as e:
-            logger.error(f"Failed to reset SQLite database: {e}")
-            print(f"DEBUG: SQLite reset failed: {e}")
+            logger.error(f"Failed to recreate default admin in SQLite database: {e}")
+            print(f"DEBUG: SQLite default admin recreation failed: {e}")
             sys.stdout.flush()
+    else:
+        # Ensure default admin is in in-memory users_db
+        if admin_username not in users_db:
+            users_db[admin_username] = DEFAULT_ADMIN.copy()
 
     return {"message": "Registry is reset."}
 
