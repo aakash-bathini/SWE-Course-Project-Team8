@@ -2122,7 +2122,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if isinstance(response, dict):
             status_code = response.get("statusCode", "N/A")
             body_preview = str(response.get("body", ""))[:200] if response.get("body") else "N/A"
-        else:
 
         # Ensure response has correct format (per Stack Overflow requirements)
         if not isinstance(response, dict):
