@@ -373,8 +373,13 @@ class S3Storage:
                     )
 
                 # Check if pattern matches name, hf_model_name, or README
-                name_matches = pattern.search(art_name)
-                hf_name_matches = pattern.search(hf_model_name) if hf_model_name else False
+                # Use both search() and fullmatch() to handle both partial and exact matches
+                name_matches = pattern.search(art_name) or pattern.fullmatch(art_name)
+                hf_name_matches = (
+                    (pattern.search(hf_model_name) or pattern.fullmatch(hf_model_name))
+                    if hf_model_name
+                    else False
+                )
                 readme_matches = pattern.search(readme_text) if readme_text else False
                 search_text = f"{art_name} {hf_model_name} {readme_text}"
                 concatenated_matches = pattern.search(search_text)
