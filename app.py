@@ -111,7 +111,9 @@ audit_log: List[Dict[str, Any]] = []
 # Initialize S3 storage if enabled (production only)
 s3_storage = None
 print(
-    f"DEBUG: USE_S3={USE_S3}, AWS_LAMBDA_FUNCTION_NAME={os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'not set')}, ENVIRONMENT={os.environ.get('ENVIRONMENT', 'not set')}"
+    f"DEBUG: USE_S3={USE_S3}, "
+    f"AWS_LAMBDA_FUNCTION_NAME={os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'not set')}, "
+    f"ENVIRONMENT={os.environ.get('ENVIRONMENT', 'not set')}"
 )
 sys.stdout.flush()
 if USE_S3:
@@ -641,7 +643,8 @@ async def models_upload(
             success = s3_storage.save_artifact_metadata(artifact_id, artifact_entry)
             if not success:
                 logger.error(
-                    f"❌ CRITICAL: Failed to save artifact {artifact_id} to S3 in models_upload - artifact will not persist!"
+                    f"❌ CRITICAL: Failed to save artifact {artifact_id} to S3 in models_upload - "
+                    f"artifact will not persist!"
                 )
                 print(
                     f"DEBUG: ❌ CRITICAL: Failed to save artifact {artifact_id} to S3 in models_upload"
@@ -1195,7 +1198,8 @@ async def models_ingest(
             success = s3_storage.save_artifact_metadata(artifact_id, artifact_entry)
             if not success:
                 logger.error(
-                    f"❌ CRITICAL: Failed to save artifact {artifact_id} to S3 in models_ingest - artifact will not persist!"
+                    f"❌ CRITICAL: Failed to save artifact {artifact_id} to S3 in models_ingest - "
+                    f"artifact will not persist!"
                 )
                 print(
                     f"DEBUG: ❌ CRITICAL: Failed to save artifact {artifact_id} to S3 in models_ingest"
@@ -1542,7 +1546,10 @@ async def artifact_create(
                     if failing_metrics:
                         raise HTTPException(
                             status_code=424,
-                            detail=f"Artifact is not registered due to the disqualified rating. Failing metrics: {', '.join(failing_metrics)}",
+                            detail=(
+                                f"Artifact is not registered due to the disqualified rating. "
+                                f"Failing metrics: {', '.join(failing_metrics)}"
+                            ),
                         )
         except HTTPException:
             raise
@@ -1699,7 +1706,8 @@ async def artifact_retrieve(
             # Fallback to in-memory for same-request compatibility (Lambda cold start protection)
             if id in artifacts_db:
                 logger.warning(
-                    f"⚠️ Artifact {id} not in S3 but found in-memory (same request) - may not persist across Lambda invocations"
+                    f"⚠️ Artifact {id} not in S3 but found in-memory (same request) - "
+                    f"may not persist across Lambda invocations"
                 )
                 artifact_data = artifacts_db[id]
                 stored_type = artifact_data["metadata"]["type"]
@@ -2269,16 +2277,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         print(
             f"DEBUG: Event keys={event_keys}, path={event_path}, method={event_method}, routeKey={route_key}"
         )
-        
+
         # Log S3 initialization status (runs on every request for visibility)
-        print(f"DEBUG: [S3 Status] USE_S3={USE_S3}, S3_BUCKET_NAME={os.environ.get('S3_BUCKET_NAME', 'NOT SET')}, ENVIRONMENT={os.environ.get('ENVIRONMENT', 'NOT SET')}, AWS_LAMBDA_FUNCTION_NAME={os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'NOT SET')}")
+        s3_bucket = os.environ.get("S3_BUCKET_NAME", "NOT SET")
+        env = os.environ.get("ENVIRONMENT", "NOT SET")
+        lambda_fn = os.environ.get("AWS_LAMBDA_FUNCTION_NAME", "NOT SET")
+        print(
+            f"DEBUG: [S3 Status] USE_S3={USE_S3}, S3_BUCKET_NAME={s3_bucket}, "
+            f"ENVIRONMENT={env}, AWS_LAMBDA_FUNCTION_NAME={lambda_fn}"
+        )
         if USE_S3:
             if s3_storage:
-                print(f"DEBUG: [S3 Status] ✅ S3 storage initialized and ready")
+                print("DEBUG: [S3 Status] ✅ S3 storage initialized and ready")
             else:
-                print(f"DEBUG: [S3 Status] ⚠️ USE_S3=True but s3_storage is None - initialization may have failed")
+                print(
+                    "DEBUG: [S3 Status] ⚠️ USE_S3=True but s3_storage is None - "
+                    "initialization may have failed"
+                )
         else:
-            print(f"DEBUG: [S3 Status] S3 storage disabled")
+            print("DEBUG: [S3 Status] S3 storage disabled")
         sys.stdout.flush()
     except Exception as log_err:
         print(f"ERROR logging event: {log_err}")
