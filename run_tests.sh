@@ -22,7 +22,7 @@ BACKEND_RESULT=$?
 echo -e "\n${YELLOW}Test 2: Frontend UI Tests${NC}"
 if curl -s http://localhost:3000 > /dev/null 2>&1; then
     echo "Frontend is running - running UI tests..."
-    python3 test_frontend_ui.py
+    python3 tests/test_frontend_ui.py
     UI_RESULT=$?
 else
     echo -e "${YELLOW}⚠️  Frontend not running${NC}"
