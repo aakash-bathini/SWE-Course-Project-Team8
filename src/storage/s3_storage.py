@@ -268,19 +268,25 @@ class S3Storage:
                 if not metadata:
                     continue
 
-                art_name = metadata.get("metadata", {}).get("name", "")
-                art_type = metadata.get("metadata", {}).get("type", "")
+                art_name = str(metadata.get("metadata", {}).get("name", ""))
+                art_type = str(metadata.get("metadata", {}).get("type", ""))
+                hf_model_name = str(metadata.get("hf_model_name", ""))
 
                 # Check if artifact matches any query
                 matches_any_query = False
                 for q in queries:
-                    name = q.get("name")
+                    name = str(q.get("name", "")) if q.get("name") is not None else ""
                     types = q.get("types")
 
                     # Check name match
                     name_match = True
                     if name and name != "*":
-                        name_match = art_name == name
+                        # Case-insensitive; match either stored name or HF full name
+                        name_lc = name.strip().lower()
+                        hf_match = (
+                            hf_model_name.strip().lower() == name_lc if hf_model_name else False
+                        )
+                        name_match = (art_name.strip().lower() == name_lc) or hf_match
 
                     # Check type match
                     type_match = True
