@@ -694,7 +694,7 @@ async def models_upload(
 @app.get("/models/{id}/download")
 async def models_download(
     id: str,
-    aspect: str = Query("full", regex="^(full|weights|datasets|code)$"),
+    aspect: str = Query("full", pattern="^(full|weights|datasets|code)$"),
     user: Dict[str, Any] = Depends(verify_token),
 ):
     """Download model files with optional aspect filtering"""

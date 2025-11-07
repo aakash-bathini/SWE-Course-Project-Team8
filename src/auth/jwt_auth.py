@@ -3,7 +3,7 @@ JWT Authentication Module for Phase 2
 Handles token generation, validation, and user authentication
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -80,14 +80,14 @@ class JWTAuth:
         to_encode = data.copy()
 
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = datetime.now(UTC) + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
+            expire = datetime.now(UTC) + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
 
         to_encode.update(
             {
                 "exp": expire,
-                "iat": datetime.utcnow(),
+                "iat": datetime.now(UTC),
                 "call_count": 0,
                 "max_calls": ACCESS_TOKEN_EXPIRE_CALLS,
             }
@@ -104,7 +104,7 @@ class JWTAuth:
 
             # Check expiration
             exp = payload.get("exp")
-            if exp and datetime.utcnow() > datetime.fromtimestamp(exp):
+            if exp and datetime.now(UTC) > datetime.fromtimestamp(exp, tz=UTC):
                 logger.warning("Token expired")
                 return None
 

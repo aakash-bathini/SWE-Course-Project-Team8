@@ -266,13 +266,13 @@ def test_token_call_count_available(client: TestClient, admin_headers: Dict[str,
 def test_token_expiration_enforced(client: TestClient):
     """Token expiration is checked"""
     from src.auth.jwt_auth import auth as jwt_auth
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, UTC
 
     # Create token that's already expired
     payload = {
         "sub": "expireduser",
         "permissions": [],
-        "exp": datetime.utcnow() - timedelta(hours=1),  # 1 hour ago
+        "exp": datetime.now(UTC) - timedelta(hours=1),  # 1 hour ago
     }
     token = jwt_auth.create_access_token(payload)
 
