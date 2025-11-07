@@ -135,6 +135,30 @@ class S3Storage:
                 logger.error(f"Failed to list users from S3: {e}")
             return []
 
+    def get_user(self, username: str) -> Optional[Dict[str, Any]]:
+        """Get a single user document by username"""
+        if not self.s3_client:
+            return None
+        if not username:
+            return None
+        try:
+            key = f"users/{username}.json"
+            resp = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
+            payload = resp["Body"].read().decode("utf-8")
+            doc = json.loads(payload)
+            return doc if isinstance(doc, dict) else None
+        except ClientError as e:
+            code = e.response.get("Error", {}).get("Code", "")
+            if code == "NoSuchKey":
+                return None
+            if logger:
+                logger.error(f"Failed to get user {username} from S3: {e}")
+            return None
+        except Exception as e:
+            if logger:
+                logger.error(f"Error getting user {username} from S3: {e}")
+            return None
+
     def _ensure_bucket_exists(self) -> bool:
         """Ensure S3 bucket exists, create if needed"""
         if not self.s3_client:

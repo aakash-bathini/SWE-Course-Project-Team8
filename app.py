@@ -905,10 +905,11 @@ async def delete_user(username: str, user: Dict[str, Any] = Depends(verify_token
     if username == DEFAULT_ADMIN["username"]:
         raise HTTPException(status_code=400, detail="Cannot delete default admin user.")
 
-    if username not in users_db:
-        raise HTTPException(status_code=404, detail="User not found.")
-
-    del users_db[username]
+    found_any = False
+    # Remove from in-memory cache if present
+    if username in users_db:
+        del users_db[username]
+        found_any = True
 
     if USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
@@ -918,12 +919,17 @@ async def delete_user(username: str, user: Dict[str, Any] = Depends(verify_token
             if db_user:
                 _db.delete(db_user)
                 _db.commit()
+                found_any = True
 
     if USE_S3 and s3_storage:
         try:
-            s3_storage.delete_user(username)
+            if s3_storage.delete_user(username):
+                found_any = True
         except Exception:
             pass
+
+    if not found_any:
+        raise HTTPException(status_code=404, detail="User not found.")
 
     return {"message": "User deleted successfully."}
 
@@ -995,11 +1001,42 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
         users_db[admin_username] = DEFAULT_ADMIN.copy()
         logger.info(f"Recreated default admin user: {admin_username}")
 
-    # Validate user credentials against in-memory/SQLite user store
+    # Validate user credentials against in-memory/SQLite/S3 user store
     user_data = users_db.get(request.user.name)
     if not user_data:
-        logger.warning(f"User not found: {request.user.name}")
-        raise HTTPException(status_code=401, detail="The user or password is invalid.")
+        # Try S3 (production)
+        if USE_S3 and s3_storage:
+            try:
+                s3_user = s3_storage.get_user(request.user.name)
+                if isinstance(s3_user, dict) and s3_user.get("username"):
+                    users_db[request.user.name] = s3_user
+                    user_data = s3_user
+            except Exception:
+                pass
+        # Try SQLite (local)
+        if not user_data and USE_SQLITE:
+            try:
+                with next(get_db()) as _db:  # type: ignore[misc]
+                    from src.db import models as db_models
+
+                    row = _db.get(db_models.User, request.user.name)
+                    if row:
+                        user_data = {
+                            "username": row.username,
+                            "password": row.password,  # type: ignore[assignment]
+                            "permissions": (
+                                [p for p in str(row.permissions).split(",") if p]
+                                if getattr(row, "permissions", None)
+                                else []
+                            ),
+                            "is_admin": bool(getattr(row, "is_admin", False)),
+                        }
+                        users_db[request.user.name] = user_data
+            except Exception:
+                user_data = None
+        if not user_data:
+            logger.warning(f"User not found: {request.user.name}")
+            raise HTTPException(status_code=401, detail="The user or password is invalid.")
 
     # Use bcrypt for password verification (Milestone 3 requirement)
     stored_password = user_data.get("password", "")
