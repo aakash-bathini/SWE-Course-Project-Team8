@@ -15,21 +15,21 @@ NC='\033[0m' # No Color
 
 # Test 1: Backend API Tests
 echo -e "\n${YELLOW}Test 1: Backend API Tests${NC}"
-python3 test_frontend_simple.py
+python3 tests/test_frontend_simple.py
 BACKEND_RESULT=$?
 
 # Test 2: Frontend UI Tests (if frontend is running)
 echo -e "\n${YELLOW}Test 2: Frontend UI Tests${NC}"
 if curl -s http://localhost:3000 > /dev/null 2>&1; then
     echo "Frontend is running - running UI tests..."
-    python3 test_frontend_ui.py
+    python3 tests/test_frontend_ui.py
     UI_RESULT=$?
 else
     echo -e "${YELLOW}⚠️  Frontend not running${NC}"
     echo "To test UI, start frontend in another terminal:"
     echo "  cd frontend && npm start"
     echo ""
-    echo "Then run: python3 test_frontend_ui.py"
+    echo "Then run: python3 tests/test_frontend_ui.py"
     UI_RESULT=0  # Don't fail if frontend isn't running
 fi
 

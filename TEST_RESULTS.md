@@ -75,7 +75,7 @@ All backend API endpoints tested and working:
 
 ### Backend API Tests
 ```bash
-python3 test_frontend_simple.py
+python3 tests/test_frontend_simple.py
 ```
 - Automatically starts backend
 - Tests all API endpoints
@@ -84,7 +84,7 @@ python3 test_frontend_simple.py
 
 ### Frontend UI Tests
 ```bash
-python3 test_frontend_ui.py
+python3 tests/test_frontend_ui.py
 ```
 - Requires frontend to be running
 - Uses Selenium for browser automation
