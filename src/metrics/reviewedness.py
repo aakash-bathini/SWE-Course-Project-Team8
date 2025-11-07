@@ -8,6 +8,7 @@ Scoring:
 """
 
 import logging
+import json
 import requests
 import os
 from typing import Optional
@@ -57,7 +58,17 @@ def _extract_github_url(context: EvalContext) -> Optional[str]:
 
         # Check HF data for GitHub links
         if context.hf_data and len(context.hf_data) > 0:
-            hf_info = context.hf_data[0]
+            raw = context.hf_data[0]
+            if isinstance(raw, dict):
+                hf_info = raw
+            elif isinstance(raw, str):
+                try:
+                    parsed = json.loads(raw)
+                    hf_info = parsed if isinstance(parsed, dict) else {}
+                except Exception:
+                    hf_info = {}
+            else:
+                hf_info = {}
 
             # Check github_links field
             github_links = hf_info.get("github_links", [])
