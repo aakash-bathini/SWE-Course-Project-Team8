@@ -127,6 +127,16 @@ def test_frontend_ui():
             actual_password = driver.execute_script("return arguments[0].value;", password_input)
             if len(actual_password) != len(DEFAULT_PASSWORD):
                 print(f"⚠️ Password length mismatch: set {len(DEFAULT_PASSWORD)}, got {len(actual_password)}")
+                print(f"   Expected: {repr(DEFAULT_PASSWORD)}")
+                print(f"   Got:      {repr(actual_password)}")
+                # Try to find which character is missing
+                if len(actual_password) == len(DEFAULT_PASSWORD) - 1:
+                    for i in range(len(DEFAULT_PASSWORD)):
+                        if i >= len(actual_password) or actual_password[i] != DEFAULT_PASSWORD[i]:
+                            print(f"   Missing character at index {i}: '{DEFAULT_PASSWORD[i]}' (ord={ord(DEFAULT_PASSWORD[i])})")
+                            break
+            else:
+                print(f"✅ Password set correctly: {len(actual_password)} characters")
             
             # Use JavaScript click to avoid interception issues
             driver.execute_script("arguments[0].click();", login_button)
