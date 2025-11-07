@@ -17,7 +17,7 @@ from typing import Dict, List, Tuple
 BACKEND_URL = "http://localhost:8000"
 FRONTEND_URL = "http://localhost:3000"
 DEFAULT_USERNAME = "ece30861defaultadminuser"
-DEFAULT_PASSWORD = "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"
+DEFAULT_PASSWORD = 'correcthorsebatterystaple123(!__+@**(A\'"`;DROP TABLE packages;'
 
 class FrontendTester:
     def __init__(self):

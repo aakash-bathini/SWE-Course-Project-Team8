@@ -23,7 +23,7 @@ except ImportError:
 FRONTEND_URL = "http://localhost:3000"
 BACKEND_URL = "http://localhost:8000"
 DEFAULT_USERNAME = "ece30861defaultadminuser"
-DEFAULT_PASSWORD = "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"
+DEFAULT_PASSWORD = 'correcthorsebatterystaple123(!__+@**(A\'"`;DROP TABLE packages;'
 
 def check_backend_available() -> bool:
     """Check if backend is running"""
