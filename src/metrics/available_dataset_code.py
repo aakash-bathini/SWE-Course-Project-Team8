@@ -184,11 +184,7 @@ async def metric(ctx: EvalContext) -> float:
     if downloads < 10000 and likes < 10:  # Very low engagement
         final = min(final, 0.1)  # Cap at 0.1
         logging.info("Low-engagement model detected, capping dataset/code score at 0.1")
-    elif (
-        100000 < downloads < 1000000 and 100 < likes < 1000
-    ):  # Moderate engagement (like whisper-tiny)
-        final = 0.0  # Set to 0.0 for moderate engagement models
-        logging.info("Moderate-engagement model detected, setting dataset/code score to 0.0")
+    # Keep moderate engagement models unmodified; do not force to 0.0
 
     logging.info(
         f"Final dataset/code availability score: {final:.3f} (dataset: {dscore:.3f}, code: {cscore:.3f})"

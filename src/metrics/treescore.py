@@ -8,6 +8,7 @@ Scoring:
 """
 
 import logging
+import json
 from typing import Set
 from src.models.model_types import EvalContext
 
@@ -66,7 +67,17 @@ def _extract_parent_models(context: EvalContext) -> list[str]:
         if not context.hf_data or len(context.hf_data) == 0:
             return parent_urls
 
-        hf_info = context.hf_data[0]
+        raw = context.hf_data[0]
+        if isinstance(raw, dict):
+            hf_info = raw
+        elif isinstance(raw, str):
+            try:
+                parsed = json.loads(raw)
+                hf_info = parsed if isinstance(parsed, dict) else {}
+            except Exception:
+                hf_info = {}
+        else:
+            hf_info = {}
 
         # Check card_yaml for base_model field
         card_yaml = hf_info.get("card_yaml", {})
