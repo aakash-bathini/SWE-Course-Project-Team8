@@ -100,7 +100,8 @@ def test_frontend_ui():
             username_input.clear()
             username_input.send_keys(DEFAULT_USERNAME)
             password_input.clear()
-            password_input.send_keys(DEFAULT_PASSWORD)
+            # Use JavaScript to set password to avoid character loss with special characters
+            driver.execute_script("arguments[0].value = arguments[1];", password_input, DEFAULT_PASSWORD)
             
             # Remove webpack dev server overlay if present
             try:
