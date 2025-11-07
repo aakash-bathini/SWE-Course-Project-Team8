@@ -6,6 +6,7 @@ import os
 import re
 import time
 from typing import Any, Dict, List, Tuple
+import errno
 from urllib.parse import urlparse
 from huggingface_hub import HfApi, ModelCard
 from datetime import datetime, date
@@ -32,8 +33,38 @@ def _project_root() -> str:
     return os.environ.get("PROJECT_ROOT", os.getcwd())
 
 
+def _preferred_cache_dir() -> str:
+    """Return a writable cache directory.
+
+    Preference order (if set): HF_HOME, TRANSFORMERS_CACHE, HUGGINGFACE_HUB_CACHE,
+    XDG_CACHE_HOME. If none are set, try `<project_root>/.cache`, but if the
+    filesystem is read-only (e.g., AWS Lambda `/var/task`), fall back to `/tmp/.cache`.
+    """
+    for env_var in ("HF_HOME", "TRANSFORMERS_CACHE", "HUGGINGFACE_HUB_CACHE", "XDG_CACHE_HOME"):
+        value = os.environ.get(env_var)
+        if value:
+            return os.path.join(value)
+
+    # Default to project .cache
+    default_dir = os.path.join(_project_root(), ".cache")
+    try:
+        os.makedirs(default_dir, exist_ok=True)
+        # Test writability by creating and removing a temp file
+        test_path = os.path.join(default_dir, ".writable")
+        with open(test_path, "w") as f:
+            f.write("ok")
+        os.remove(test_path)
+        return default_dir
+    except OSError as e:
+        if e.errno in (errno.EROFS, errno.EACCES, errno.EPERM):
+            tmp_dir = os.path.join("/tmp", ".cache")
+            os.makedirs(tmp_dir, exist_ok=True)
+            return tmp_dir
+        raise
+
+
 def _cache_path() -> str:
-    return os.path.join(_project_root(), ".cache", "hf_meta.json")
+    return os.path.join(_preferred_cache_dir(), "hf_meta.json")
 
 
 # load cache, create if nonexistent
@@ -58,8 +89,20 @@ def _json_default(o: Any) -> str:
 # save updated cache data
 def _save_cache(cache: Dict[str, Any]) -> None:
     path = _cache_path()
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(cache, f, default=_json_default)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(cache, f, default=_json_default)
+    except OSError as e:
+        # If write fails due to read-only FS, retry in /tmp
+        if e.errno in (errno.EROFS, errno.EACCES, errno.EPERM):
+            alt_dir = os.path.join("/tmp", ".cache")
+            os.makedirs(alt_dir, exist_ok=True)
+            alt_path = os.path.join(alt_dir, "hf_meta.json")
+            with open(alt_path, "w", encoding="utf-8") as f:
+                json.dump(cache, f, default=_json_default)
+        else:
+            raise
 
 
 # within TTL range?

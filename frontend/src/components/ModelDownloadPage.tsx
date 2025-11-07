@@ -161,9 +161,24 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
                           <IconButton
                             size="small"
                             disabled={!!busyId}
-                            onClick={(e) => {
-                              setSelectedArtifactForDownload(m);
-                              setDownloadAnchorEl(e.currentTarget);
+                            onClick={async (e) => {
+                              try {
+                                setBusyId(m.id);
+                                // Verify artifact has local files before offering download options
+                                const art = await apiService.getArtifact('model', m.id);
+                                const url = art?.data?.url || '';
+                                if (typeof url === 'string' && url.startsWith('local://')) {
+                                  setSelectedArtifactForDownload(m);
+                                  setDownloadAnchorEl(e.currentTarget);
+                                  setError('');
+                                } else {
+                                  setError('This model has no local files (ingested from HuggingFace). Download is unavailable.');
+                                }
+                              } catch (err: any) {
+                                setError(err?.response?.data?.detail || err?.message || 'Failed to check model availability');
+                              } finally {
+                                setBusyId(null);
+                              }
                             }}
                             color="primary"
                           >
