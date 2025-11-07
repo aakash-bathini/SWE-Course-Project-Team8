@@ -161,5 +161,5 @@ chromedriver
 config.local.*
 settings.local.*
 
-# Keep OpenAPI spec file (it's needed for the project)
-!ece461_fall_2025_openapi_spec.yaml
+# OpenAPI spec file (autograder file, not needed in git)
+ece461_fall_2025_openapi_spec.yaml
