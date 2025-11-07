@@ -1052,15 +1052,18 @@ async def artifacts_list(
                     type=ArtifactType(metadata.get("type", "")),
                 )
             )
-    elif USE_SQLITE:
+
+    # S3 may be eventually consistent; if nothing returned, also consult SQLite and in-memory
+    if not results and USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             db_items = db_crud.list_by_queries(_db, [q.model_dump() for q in queries])
             for art in db_items:
                 results.append(
                     ArtifactMetadata(name=art.name, id=art.id, type=ArtifactType(art.type))
                 )
-    else:
-        # In-memory fallback
+
+    if not results:
+        # In-memory fallback (captures artifacts created earlier in the same request lifecycle)
         for query in queries:
             if query.name == "*":
                 # Wildcard query - include all artifacts, optionally filtered by type
@@ -1075,7 +1078,7 @@ async def artifacts_list(
                             )
                         )
             else:
-                # Specific name query
+                # Specific name query (exact match as per spec)
                 for artifact_id, artifact_data in artifacts_db.items():
                     if artifact_data["metadata"]["name"] == query.name:
                         artifact_type_str = artifact_data["metadata"]["type"]
