@@ -36,6 +36,7 @@ dmypy.json
 .coverage.*
 coverage.xml
 *.cover
+htmlcov/
 .hypothesis/
 .tox/
 .nox/
@@ -71,9 +72,18 @@ celerybeat.pid
 *.swp
 *.swo
 *~
-.DS_Store
 *.sublime-project
 *.sublime-workspace
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
 
 # Database files
 *.db
@@ -112,18 +122,10 @@ frontend/.yarn/unplugged
 frontend/.yarn/build-state.yml
 frontend/.yarn/install-state.gz
 frontend/.pnp.js
-frontend/.yarn/install-state.gz
-frontend/.yarn/cache
-frontend/.yarn/unplugged
-frontend/.yarn/build-state.yml
-frontend/.yarn/install-state.gz
-frontend/.pnp.js
 
 # AWS / Lambda deployment artifacts
 lambda_package/
 lambda_deployment.zip
-*.zip
-!requirements*.txt
 .serverless/
 .aws-sam/
 samconfig.toml
@@ -134,6 +136,8 @@ test-model/
 test-model.zip
 downloaded-model.zip
 search.json
+
+# ZIP files (but keep requirements files)
 *.zip
 !requirements*.txt
 
@@ -141,19 +145,6 @@ search.json
 *.tmp
 *.temp
 *.bak
-*.swp
-*.swo
-*~
-
-# OS files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-Desktop.ini
 
 # Selenium / Browser automation
 *.crx
@@ -161,20 +152,9 @@ geckodriver
 chromedriver
 *.exe
 
-# Coverage reports
-htmlcov/
-.coverage
-coverage.xml
-*.cover
-.hypothesis/
-
-# Ruff cache
+# Code quality tool caches
 .ruff_cache/
-
-# Bandit cache
 .bandit
-
-# Safety cache
 .safety/
 
 # Local configuration files (keep example files)
