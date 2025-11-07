@@ -131,7 +131,17 @@ curl -X POST http://localhost:8000/authenticate \
 │   ├── scoring/                    # Original Phase 1 scoring with weights
 │   ├── models/                     # Phase 1 model types
 │   └── config_parsers_nlp/        # Phase 1 NLP parsing utilities
-├── .github/workflows/ci.yml        # CI/CD pipeline
+├── tests/                          # Test suite
+│   ├── test_delivery1_endpoints.py
+│   ├── test_milestone2_features.py
+│   ├── test_metrics_repo_coverage.py
+│   ├── test_repo_wide_coverage_misc.py
+│   ├── test_frontend_simple.py    # Backend API integration tests
+│   └── test_frontend_ui.py        # Frontend UI tests (Selenium)
+├── .github/workflows/              # CI/CD pipelines
+│   ├── ci.yml                     # Continuous Integration
+│   └── cd.yml                     # Continuous Deployment
+├── ece461_fall_2025_openapi_spec.yaml  # OpenAPI spec v3.4.3
 └── README.md                       # This comprehensive guide
 ```
 
@@ -166,12 +176,7 @@ Content-Type: application/json
   }
 }
 
-Response:
-{
-  "access_token": "demo_token",
-  "token_type": "bearer",
-  "expires_in": 36000
-}
+Response: "bearer <jwt_token>"
 ```
 
 ```http
@@ -210,7 +215,8 @@ Response: 201 Created
     "type": "model"
   },
   "data": {
-    "url": "local://model-123-1234567890"
+    "url": "local://model-123-1234567890",
+    "download_url": "http://localhost:8000/artifacts/model/model-123-1234567890/download"
   }
 }
 ```
@@ -261,6 +267,117 @@ Body: ZIP file with filtered content
 POST /models/ingest
 Authorization: Bearer <token>
 Query: ?model_name=huggingface_model_name
+
+Response: 201 Created
+{
+  "metadata": {
+    "name": "model_name",
+    "id": "model-123-1234567890",
+    "type": "model"
+  },
+  "data": {
+    "url": "https://huggingface.co/org/model-name",
+    "download_url": "http://localhost:8000/artifacts/model/model-123-1234567890/download"
+  }
+}
+```
+
+### Artifact Endpoints (OpenAPI Spec v3.4.3)
+
+```http
+POST /artifact/{artifact_type}
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "url": "https://example.com/artifact"
+}
+
+Response: 201 Created
+{
+  "metadata": {
+    "name": "artifact_name",
+    "id": "code-1-1234567890",
+    "type": "code"
+  },
+  "data": {
+    "url": "https://example.com/artifact",
+    "download_url": "http://localhost:8000/artifacts/code/code-1-1234567890/download"
+  }
+}
+```
+
+```http
+GET /artifacts/{artifact_type}/{id}
+Authorization: Bearer <token>
+
+Response: 200 OK
+{
+  "metadata": {
+    "name": "artifact_name",
+    "id": "code-1-1234567890",
+    "type": "code"
+  },
+  "data": {
+    "url": "https://example.com/artifact",
+    "download_url": "http://localhost:8000/artifacts/code/code-1-1234567890/download"
+  }
+}
+```
+
+```http
+POST /artifacts
+Authorization: Bearer <token>
+Content-Type: application/json
+
+[
+  {
+    "name": "*",
+    "types": ["model"]
+  }
+]
+
+Response: 200 OK
+[
+  {
+    "name": "model_name",
+    "id": "model-1-1234567890",
+    "type": "model"
+  }
+]
+```
+
+```http
+GET /artifact/byName/{name}
+Authorization: Bearer <token>
+
+Response: 200 OK
+[
+  {
+    "name": "model_name",
+    "id": "model-1-1234567890",
+    "type": "model"
+  }
+]
+```
+
+```http
+POST /artifact/byRegEx
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "regex": ".*bert.*"
+}
+
+Response: 200 OK
+[
+  {
+    "name": "bert-base-uncased",
+    "id": "model-1-1234567890",
+    "type": "model"
+  }
+]
 ```
 
 ### System Endpoints
@@ -632,8 +749,14 @@ python -c "import asyncio; from src.metrics.phase2_adapter import orchestrate_ph
 pytest --cov=src --cov-report=xml
 
 # Run specific tests
-pytest tests/test_auth.py
-pytest tests/test_api.py
+pytest tests/test_delivery1_endpoints.py
+pytest tests/test_milestone2_features.py
+pytest tests/test_metrics_repo_coverage.py
+pytest tests/test_repo_wide_coverage_misc.py
+
+# Run integration tests
+python3 tests/test_frontend_simple.py
+python3 tests/test_frontend_ui.py
 
 # Run with verbose output
 pytest -v
@@ -897,11 +1020,11 @@ grep ERROR app.log
 - Enumerate: `GET /models` supports cursor-based pagination for large datasets
 - AWS: Uses multiple components (Lambda, API Gateway, S3, CloudWatch)
 - Default user: `ece30861defaultadminuser` present; if auth enabled, password as specified
-- OpenAPI: `/docs` served; schema validation enforced in CI
+- OpenAPI: `/docs` served; schema validation enforced in CI; compliant with OpenAPI spec v3.4.3
 
 #### 1. Download Endpoint ✅
 **Endpoint**: `GET /models/{id}/download?aspect=<type>`
-- **Location**: `app.py` lines 544-634
+- **Location**: `app.py` lines 694-806
 - **Aspects**: full, weights, datasets, code
 - **Features**: 
   - SHA256 checksums for integrity verification
@@ -909,20 +1032,21 @@ grep ERROR app.log
   - Sub-aspect filtering (full/weights/datasets/code)
   - Proper error handling for missing files
   - ZIP compression for downloads
-- **Storage**: `uploads/{artifact_id}/` directory
+- **Storage**: S3 (production), local `uploads/{artifact_id}/` directory (development)
 
 #### 2. Upload Endpoint ✅
 **Endpoint**: `POST /models/upload`
-- **Location**: `app.py` lines 417-542
+- **Location**: `app.py` lines 576-715
 - **Accepts**: multipart/form-data with ZIP file
 - **Features**: 
   - ZIP validation and extraction
   - Model card parsing (README.md)
   - SHA256 checksum calculation
   - Automatic metrics calculation trigger
-  - SQLite metadata storage
+  - Returns `download_url` field in response (OpenAPI spec v3.4.3)
+  - S3 metadata storage (production) or SQLite (local development)
   - Audit logging
-- **Storage**: `uploads/{artifact_id}/` directory
+- **Storage**: S3 (production), local `uploads/{artifact_id}/` directory (development)
 
 #### 3. New Phase 2 Metrics ✅
 
@@ -950,7 +1074,7 @@ grep ERROR app.log
 
 #### 4. Enumerate Endpoint ✅
 **Endpoint**: `GET /models`
-- **Location**: `app.py` lines 801-859
+- **Location**: `app.py` lines 1266-1342
 - **Pagination**: Cursor-based (`cursor`, `limit`), stable ordering, default `limit=25`
 - **Response**: `{ "items": [...], "next_cursor": "..." }`
 - **Features**:
@@ -962,7 +1086,7 @@ grep ERROR app.log
 
 #### 5. Ingest Endpoint ✅
 **Endpoint**: `POST /models/ingest?model_name=<huggingface_id>`
-- **Location**: `app.py` lines 700-798
+- **Location**: `app.py` lines 1116-1264
 - **Behavior**: 
   - Fetches HuggingFace metadata via `scrape_hf_url`
   - Computes all 11 metrics (8 Phase 1 + 3 Phase 2)
@@ -1066,7 +1190,7 @@ curl -X GET "http://localhost:8000/models?cursor=model-2-1234567890&limit=25" \
 
 #### Artifact Search & Retrieval Features ✅
 **Endpoint**: `GET /artifact/byName/{name}` (NON-BASELINE)
-- **Location**: `app.py` lines 1158-1194
+- **Location**: `app.py` lines 1344-1378
 - **Features**:
   - Exact name matching for stored artifact names
   - Support for full HuggingFace model names (e.g., `org/model-name`)
@@ -1074,7 +1198,7 @@ curl -X GET "http://localhost:8000/models?cursor=model-2-1234567890&limit=25" \
   - Works with both ingested models and uploaded artifacts
 
 **Endpoint**: `POST /artifact/byRegEx` (BASELINE)
-- **Location**: `app.py` lines 1197-1284
+- **Location**: `app.py` lines 1479-1507
 - **Features**:
   - Case-insensitive regex matching
   - Searches artifact names individually (for exact matches)
@@ -1089,13 +1213,14 @@ curl -X GET "http://localhost:8000/models?cursor=model-2-1234567890&limit=25" \
   - Returns empty list if pattern is too long (500+ chars) or invalid
 
 **Endpoint**: `GET /artifacts/{artifact_type}/{id}` (BASELINE)
-- **Location**: `app.py` lines 1400-1435
+- **Location**: `app.py` lines 1695-1783
 - **Features**:
   - Retrieves artifact by ID and type
   - Type validation (returns 400 if type mismatch)
   - 404 if artifact doesn't exist
+  - Returns `download_url` field in response (OpenAPI spec v3.4.3)
   - Debug logging for troubleshooting (CloudWatch logs)
-  - Works with both SQLite and in-memory storage
+  - Works with S3 (production), SQLite (local), and in-memory storage
 - ✅ Efficient for large datasets (millions of models)
 - ✅ Stable sorting for consistent pagination
 - ✅ Configurable page size (1-100, default 25)
@@ -1113,16 +1238,19 @@ curl -X GET "http://localhost:8000/models?cursor=model-2-1234567890&limit=25" \
 
 #### Modified Endpoints
 - `GET /models/{id}/download` - Now fully implemented (was 501 placeholder)
-- `POST /models/upload` - Now fully implemented (was 501 placeholder)
+- `POST /models/upload` - Now fully implemented (was 501 placeholder); returns `download_url` field
+- `POST /models/ingest` - Returns `download_url` field in response
+- `GET /artifacts/{artifact_type}/{id}` - Returns `download_url` field (OpenAPI spec v3.4.3)
+- `POST /artifact/{artifact_type}` - Returns `download_url` field; fixed threshold logic to exclude latency metrics
 - `GET /artifact/model/{id}/rate` - Now returns 11 metrics (was 8)
-- `POST /artifact/{artifact_type}` - Fixed threshold logic to exclude latency metrics
 
 #### New Endpoints
 - `POST /models/ingest` - Ingest HuggingFace models with threshold validation
 - `GET /models` - Enumerate models with cursor-based pagination
 
 #### New Response Fields
-Rating endpoint now includes:
+
+**Rating endpoint** now includes:
 ```json
 {
   "reproducibility": 1.0,
@@ -1131,6 +1259,23 @@ Rating endpoint now includes:
   // ... 8 other Phase 1 metrics
 }
 ```
+
+**Artifact endpoints** (OpenAPI spec v3.4.3) now include `download_url`:
+```json
+{
+  "metadata": {
+    "name": "artifact_name",
+    "id": "model-1-1234567890",
+    "type": "model"
+  },
+  "data": {
+    "url": "https://example.com/artifact",
+    "download_url": "http://localhost:8000/artifacts/model/model-1-1234567890/download"
+  }
+}
+```
+
+The `download_url` field provides a direct link to download the artifact and is automatically generated based on the request context.
 
 ### Configuration
 
