@@ -67,11 +67,7 @@ async def metric(ctx: EvalContext) -> float:
             f"High-engagement model detected (downloads: {downloads}, likes: {likes}), boosting dataset quality score"
         )
         model_ds_score = min(1.0, model_ds_score + 0.3)  # Add substantial boost
-    elif (
-        100000 < downloads < 1000000 and 100 < likes < 1000
-    ):  # Moderate engagement (like whisper-tiny)
-        model_ds_score = 0.0  # Set to 0.0 for moderate engagement models
-        logging.info("Moderate-engagement model detected, setting dataset quality score to 0.0")
+    # Do not penalize moderate engagement by forcing to 0.0; keep computed score
     elif downloads < 10000 and likes < 10:  # Very low engagement models
         model_ds_score = 0.0  # Set to 0.0 for very low engagement models
         logging.info("Very low engagement model detected, setting dataset quality score to 0.0")

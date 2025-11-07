@@ -1138,20 +1138,24 @@ async def models_ingest(
         # Calculate all metrics
         metrics = await calculate_phase2_metrics(model_data)
 
-        # Filter out latency metrics - only check non-latency metrics for threshold
+        # Filter out latency metrics and sentinel negatives
         # Latency metrics have "_latency" suffix or are "net_score_latency", "size_score_latency", etc.
+        # Reviewedness returns -1 when no GitHub repo is linked — treat negatives as "not applicable".
         non_latency_metrics = {
             k: v
             for k, v in metrics.items()
-            if not k.endswith("_latency") and k != "net_score_latency"
+            if (not k.endswith("_latency") and k != "net_score_latency")
         }
 
-        # Check threshold: all non-latency metrics must be >= 0.5
-        failing_metrics = [
-            k
+        # Only enforce threshold on metrics that are numeric and non-negative
+        metrics_to_check = {
+            k: float(v)
             for k, v in non_latency_metrics.items()
-            if isinstance(v, (int, float)) and float(v) < 0.5
-        ]
+            if isinstance(v, (int, float)) and float(v) >= 0.0
+        }
+
+        # Check threshold: all applicable non-latency metrics must be >= 0.5
+        failing_metrics = [k for k, v in metrics_to_check.items() if v < 0.5]
 
         if failing_metrics:
             raise HTTPException(
@@ -1547,18 +1551,19 @@ async def artifact_create(
                         "gh_data": [],
                     }
                     metrics = await calculate_phase2_metrics(model_data)
-                    # Filter out latency metrics - only check non-latency metrics for threshold
+                    # Filter out latency metrics and ignore sentinel negatives (e.g., reviewedness = -1 with no GitHub repo)
                     non_latency_metrics = {
                         k: v
                         for k, v in metrics.items()
                         if not k.endswith("_latency") and k != "net_score_latency"
                     }
-                    # Require all available non-latency metrics to be at least 0.5
-                    failing_metrics = [
-                        k
+                    applicable_metrics = {
+                        k: float(v)
                         for k, v in non_latency_metrics.items()
-                        if isinstance(v, (int, float)) and float(v) < 0.5
-                    ]
+                        if isinstance(v, (int, float)) and float(v) >= 0.0
+                    }
+                    # Require all applicable non-latency metrics to be at least 0.5
+                    failing_metrics = [k for k, v in applicable_metrics.items() if v < 0.5]
                     if failing_metrics:
                         raise HTTPException(
                             status_code=424,

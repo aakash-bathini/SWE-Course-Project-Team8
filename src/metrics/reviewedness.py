@@ -125,7 +125,7 @@ def _calculate_review_fraction(owner: str, repo: str) -> float:
 
         if commits_response.status_code != 200:
             logger.warning(f"GitHub API error: {commits_response.status_code}")
-            return 0.0
+            return -1.0
 
         commits = commits_response.json()
         total_commits = len(commits)
@@ -174,7 +174,7 @@ def _calculate_review_fraction(owner: str, repo: str) -> float:
 
     except requests.RequestException as e:
         logger.error(f"GitHub API request error: {e}")
-        return 0.0
+        return -1.0
     except Exception as e:
         logger.error(f"Error calculating review fraction: {e}")
-        return 0.0
+        return -1.0
