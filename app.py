@@ -1361,9 +1361,9 @@ async def artifact_by_name(
     if USE_S3 and s3_storage:
         # Broad list then filter client-side (handles case-insensitive, hf_model_name, and trimming)
         try:
-            s3_artifacts = s3_storage.list_artifacts_by_queries([
-                {"name": "*", "types": ["model", "dataset", "code"]}
-            ])
+            s3_artifacts = s3_storage.list_artifacts_by_queries(
+                [{"name": "*", "types": ["model", "dataset", "code"]}]
+            )
         except Exception:
             s3_artifacts = []
         for art_data in s3_artifacts:
@@ -1408,7 +1408,9 @@ async def artifact_by_name(
             for a in items:
                 # Case-insensitive safeguard
                 if str(a.name).lower() == search_name_lc:
-                    matches.append(ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type)))
+                    matches.append(
+                        ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type))
+                    )
     else:
         # In-memory fallback
         for artifact_id, artifact_data in artifacts_db.items():
