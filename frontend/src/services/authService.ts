@@ -56,10 +56,10 @@ export const authService = {
       if (typeof token === 'string' && token.trim().length > 0) {
         const decoded = decodeJWT(token);
         if (decoded && decoded.sub) {
-          return {
+        return {
             username: decoded.sub,
             permissions: decoded.permissions || [],
-          };
+        };
         }
         // Fallback for invalid tokens (shouldn't happen, but handle gracefully)
         return null;
