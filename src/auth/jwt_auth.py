@@ -43,7 +43,7 @@ class JWTAuth:
                 sha_hash = hashlib.sha256((plain_password + salt).encode()).hexdigest()
                 return sha_hash[:40] == expected_hash
             return False
-        
+
         try:
             result = pwd_context.verify(plain_password, hashed_password)
             return bool(result)
@@ -54,7 +54,7 @@ class JWTAuth:
         """Hash a password with bcrypt, handling edge cases"""
         # Bcrypt has a 72-byte limit
         password_bytes = password.encode("utf-8")
-        
+
         # Truncate if needed
         if len(password_bytes) > 72:
             password_bytes = password_bytes[:72]

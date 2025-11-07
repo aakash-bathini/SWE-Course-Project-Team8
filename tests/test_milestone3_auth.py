@@ -277,7 +277,7 @@ def test_token_expiration_enforced(client: TestClient):
     token = jwt_auth.create_access_token(payload)
 
     # Try to verify - should return None (expired)
-    result = jwt_auth.verify_token(token)
+    _ = jwt_auth.verify_token(token)
     # May be None or still work depending on implementation
     # Just verify the check exists
 
