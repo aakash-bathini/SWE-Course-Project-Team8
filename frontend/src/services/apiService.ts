@@ -66,6 +66,7 @@ export interface ArtifactMetadata {
 
 export interface ArtifactData {
   url: string;
+  download_url?: string;
 }
 
 export interface Artifact {
