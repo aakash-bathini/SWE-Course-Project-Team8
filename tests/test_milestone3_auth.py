@@ -19,6 +19,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 def client():
     """Create a fresh FastAPI test client"""
     from app import app
+
     return TestClient(app)
 
 
@@ -148,6 +149,7 @@ def test_register_stores_permissions(client: TestClient, admin_headers: Dict[str
     assert resp.status_code == 200
 
     from app import users_db
+
     user = users_db.get("permuser")
     assert user is not None
     assert user["permissions"] == perms
@@ -471,7 +473,9 @@ def test_user_cannot_delete_other_user(client: TestClient, admin_headers: Dict[s
     assert resp2.status_code == 401
 
 
-def test_multiple_users_with_different_permissions(client: TestClient, admin_headers: Dict[str, str]):
+def test_multiple_users_with_different_permissions(
+    client: TestClient, admin_headers: Dict[str, str]
+):
     """Multiple users can have different permission sets"""
     if not admin_headers:
         pytest.skip("Admin token not available")
