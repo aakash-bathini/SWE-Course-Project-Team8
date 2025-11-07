@@ -71,6 +71,70 @@ class S3Storage:
                 logger.error(f"Failed to initialize S3 client: {e}")
             self.s3_client = None
 
+    # --------------------------
+    # Users (Access Control) APIs
+    # --------------------------
+    def save_user(self, username: str, data: Dict[str, Any]) -> bool:
+        """Save user document to S3 (production persistence)"""
+        if not self.s3_client:
+            return False
+        if not username:
+            return False
+        try:
+            key = f"users/{username}.json"
+            safe_data = _make_json_safe(data)
+            payload = json.dumps(safe_data, indent=2)
+            self.s3_client.put_object(
+                Bucket=self.bucket_name, Key=key, Body=payload, ContentType="application/json"
+            )
+            return True
+        except Exception as e:
+            if logger:
+                logger.error(f"Failed to save user {username} to S3: {e}")
+            return False
+
+    def delete_user(self, username: str) -> bool:
+        """Delete user document from S3"""
+        if not self.s3_client:
+            return False
+        try:
+            key = f"users/{username}.json"
+            self.s3_client.delete_object(Bucket=self.bucket_name, Key=key)
+            return True
+        except Exception as e:
+            if logger:
+                logger.error(f"Failed to delete user {username} from S3: {e}")
+            return False
+
+    def list_users(self) -> List[Dict[str, Any]]:
+        """List all users from S3 (best-effort)"""
+        if not self.s3_client:
+            return []
+        try:
+            prefix = "users/"
+            paginator = self.s3_client.get_paginator("list_objects_v2")
+            pages = paginator.paginate(Bucket=self.bucket_name, Prefix=prefix)
+            users: List[Dict[str, Any]] = []
+            for page in pages:
+                for obj in page.get("Contents", []):
+                    key = obj.get("Key", "")
+                    if not key.endswith(".json"):
+                        continue
+                    try:
+                        resp = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
+                        payload = resp["Body"].read().decode("utf-8")
+                        doc = json.loads(payload)
+                        if isinstance(doc, dict):
+                            users.append(doc)
+                    except Exception:
+                        # Skip unreadable documents
+                        continue
+            return users
+        except Exception as e:
+            if logger:
+                logger.error(f"Failed to list users from S3: {e}")
+            return []
+
     def _ensure_bucket_exists(self) -> bool:
         """Ensure S3 bucket exists, create if needed"""
         if not self.s3_client:

@@ -55,5 +55,3 @@ def test_users_happy_path(client: TestClient, admin_headers: Dict[str, str]):
     assert resp2.status_code == 200
     users2 = resp2.json()
     assert any(u.get("username") == uname for u in users2)
-
-

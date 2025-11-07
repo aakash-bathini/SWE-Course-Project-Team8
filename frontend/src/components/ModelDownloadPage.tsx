@@ -155,8 +155,8 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
                 key={m.id}
                 secondaryAction={
                   <Stack direction="row" spacing={1} flexWrap="wrap">
-                    {m.type === 'model' && (
-                      <>
+                  {m.type === 'model' && (
+                    <>
                         <Tooltip title="Download model">
                           <IconButton
                             size="small"
@@ -195,40 +195,40 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
                             <History />
                           </IconButton>
                         </Tooltip>
-                        <Button size="small" disabled={!!busyId} onClick={async () => {
-                          try {
-                            setBusyId(m.id);
-                            const rating = await apiService.rateModel(m.id);
+                      <Button size="small" disabled={!!busyId} onClick={async () => {
+                        try {
+                          setBusyId(m.id);
+                          const rating = await apiService.rateModel(m.id);
                             setRatingDialog({ open: true, rating, artifactName: m.name });
-                            setError('');
-                          } catch (e: any) {
+                          setError('');
+                        } catch (e: any) {
                             setError(e?.response?.data?.detail || e?.message || 'Failed to fetch rating');
-                          } finally { setBusyId(null); }
-                        }}>Rate</Button>
-                        <Button size="small" disabled={!!busyId} onClick={async () => {
-                          try {
-                            setBusyId(m.id);
-                            const lineage = await apiService.getModelLineage(m.id);
+                        } finally { setBusyId(null); }
+                      }}>Rate</Button>
+                      <Button size="small" disabled={!!busyId} onClick={async () => {
+                        try {
+                          setBusyId(m.id);
+                          const lineage = await apiService.getModelLineage(m.id);
                             setInfo(`Lineage: ${lineage?.nodes?.length || 0} nodes, ${lineage?.edges?.length || 0} edges`);
-                            setError('');
-                          } catch (e: any) {
+                          setError('');
+                        } catch (e: any) {
                             setError(e?.response?.data?.detail || e?.message || 'Failed to fetch lineage');
-                          } finally { setBusyId(null); }
-                        }}>Lineage</Button>
+                        } finally { setBusyId(null); }
+                      }}>Lineage</Button>
                         <Button size="small" disabled={!!busyId} onClick={() => setLicenseDialog({ open: true, id: m.id })}>License</Button>
-                      </>
-                    )}
-                    <Button size="small" disabled={!!busyId} onClick={async () => {
-                      try {
-                        setBusyId(m.id);
-                        const cost = await apiService.getArtifactCost(m.type, m.id, false);
-                        setInfo(`Cost (MB) for ${m.name}: ${cost[m.id]?.total_cost}`);
-                        setError('');
-                      } catch (e: any) {
+                    </>
+                  )}
+                  <Button size="small" disabled={!!busyId} onClick={async () => {
+                    try {
+                      setBusyId(m.id);
+                      const cost = await apiService.getArtifactCost(m.type, m.id, false);
+                      setInfo(`Cost (MB) for ${m.name}: ${cost[m.id]?.total_cost}`);
+                      setError('');
+                    } catch (e: any) {
                         setError(e?.response?.data?.detail || e?.message || 'Failed to fetch cost');
-                      } finally { setBusyId(null); }
-                    }}>Cost</Button>
-                  </Stack>
+                    } finally { setBusyId(null); }
+                  }}>Cost</Button>
+                </Stack>
                 }
               >
                 <ListItemText

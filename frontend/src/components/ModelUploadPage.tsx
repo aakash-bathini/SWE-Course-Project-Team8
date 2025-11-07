@@ -45,8 +45,8 @@ const ModelUploadPage: React.FC<ModelUploadPageProps> = ({ user, onNotification 
     if (file) {
       if (!file.name.endsWith('.zip')) {
         setError('File must be a ZIP archive');
-        return;
-      }
+      return;
+    }
       setSelectedFile(file);
       setError('');
       // Auto-set model name from filename
@@ -153,32 +153,32 @@ const ModelUploadPage: React.FC<ModelUploadPageProps> = ({ user, onNotification 
           <Box sx={{ p: 3 }}>
             {uploadMode === 'url' && (
               <Stack spacing={2}>
-                <TextField
-                  label="Artifact Type"
-                  select
-                  value={artifactType}
-                  onChange={(e) => setArtifactType(e.target.value as any)}
-                  sx={{ minWidth: 180 }}
-                  disabled={loading}
-                >
-                  <MenuItem value="model">model</MenuItem>
-                  <MenuItem value="dataset">dataset</MenuItem>
-                  <MenuItem value="code">code</MenuItem>
-                </TextField>
-                <TextField
-                  fullWidth
+          <TextField
+            label="Artifact Type"
+            select
+            value={artifactType}
+            onChange={(e) => setArtifactType(e.target.value as any)}
+            sx={{ minWidth: 180 }}
+            disabled={loading}
+          >
+            <MenuItem value="model">model</MenuItem>
+            <MenuItem value="dataset">dataset</MenuItem>
+            <MenuItem value="code">code</MenuItem>
+          </TextField>
+          <TextField
+            fullWidth
                   label="Source URL"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  disabled={loading}
-                  error={Boolean(error)}
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            disabled={loading}
+            error={Boolean(error)}
                   helperText={error || 'Provide a source URL (e.g., https://example.com/resource)'}
                   placeholder="https://example.com/resource"
-                />
+          />
                 <Button variant="contained" onClick={handleUrlUpload} disabled={loading || !canUpload}>
-                  {loading ? 'Registering...' : 'Register Artifact'}
-                </Button>
-              </Stack>
+            {loading ? 'Registering...' : 'Register Artifact'}
+          </Button>
+        </Stack>
             )}
 
             {uploadMode === 'zip' && (
