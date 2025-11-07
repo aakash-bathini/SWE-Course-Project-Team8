@@ -21,6 +21,28 @@ except Exception:
     pass
 
 
+def _make_json_safe(value):  # type: ignore[no-untyped-def]
+    """Recursively convert objects to JSON-serializable structures."""
+    # Primitives
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    # Dict
+    if isinstance(value, dict):
+        return {str(k): _make_json_safe(v) for k, v in value.items()}
+    # List/Tuple/Set
+    if isinstance(value, (list, tuple, set)):
+        return [_make_json_safe(v) for v in list(value)]
+    # Objects with __dict__
+    obj_dict = getattr(value, "__dict__", None)
+    if isinstance(obj_dict, dict):
+        return _make_json_safe(obj_dict)
+    # Fallback to string
+    try:
+        return str(value)
+    except Exception:
+        return repr(value)
+
+
 class S3Storage:
     """S3-backed storage for artifacts and metadata"""
 
@@ -102,7 +124,9 @@ class S3Storage:
 
         try:
             key = f"artifacts/{artifact_id}/metadata.json"
-            metadata_json = json.dumps(metadata, indent=2)
+            # Ensure metadata is JSON-serializable (handles HF ModelCardData/DatasetCardData)
+            safe_metadata = _make_json_safe(metadata)
+            metadata_json = json.dumps(safe_metadata, indent=2)
             self.s3_client.put_object(
                 Bucket=self.bucket_name,
                 Key=key,
