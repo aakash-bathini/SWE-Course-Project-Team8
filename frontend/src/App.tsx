@@ -218,6 +218,14 @@ const App: React.FC = () => {
                 <MenuItem onClick={handleMenuClose}>
                   <Typography>Welcome, {user.username}</Typography>
                 </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    handleMenuClose();
+                    window.location.href = '/account';
+                  }}
+                >
+                  My Account
+                </MenuItem>
                 <MenuItem onClick={handleLogout}>Logout</MenuItem>
               </Menu>
             </>
@@ -301,6 +309,16 @@ const App: React.FC = () => {
             path="/users"
             element={
               user && hasPermission('admin') ? (
+                <UserManagementPage user={user} onNotification={showNotification} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/account"
+            element={
+              user ? (
                 <UserManagementPage user={user} onNotification={showNotification} />
               ) : (
                 <Navigate to="/login" replace />
