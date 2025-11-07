@@ -151,7 +151,7 @@ if USE_SQLITE:
         from src.db.database import Base, engine, get_db
         from src.db import crud as db_crud
 
-    # Ensure schema exists
+        # Ensure schema exists
         Base.metadata.create_all(bind=engine)
         logger.info(
             f"SQLite initialized successfully. Database path: {os.environ.get('SQLALCHEMY_DATABASE_URL', 'default')}"
