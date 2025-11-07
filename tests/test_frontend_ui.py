@@ -100,15 +100,33 @@ def test_frontend_ui():
             username_input.clear()
             username_input.send_keys(DEFAULT_USERNAME)
             password_input.clear()
-            # Use JavaScript to set password to avoid character loss with special characters
-            driver.execute_script("arguments[0].value = arguments[1];", password_input, DEFAULT_PASSWORD)
             
             # Remove webpack dev server overlay if present
             try:
                 overlay = driver.find_element(By.ID, "webpack-dev-server-client-overlay")
                 driver.execute_script("arguments[0].remove();", overlay)
+                time.sleep(1)
             except:
                 pass  # Overlay not present
+            
+            # Use JavaScript to set password to avoid character loss with special characters
+            # Also trigger input/change events so React state updates
+            driver.execute_script("""
+                var input = arguments[0];
+                var value = arguments[1];
+                input.value = value;
+                // Trigger React change events
+                var event = new Event('input', { bubbles: true });
+                input.dispatchEvent(event);
+                var changeEvent = new Event('change', { bubbles: true });
+                input.dispatchEvent(changeEvent);
+            """, password_input, DEFAULT_PASSWORD)
+            time.sleep(0.5)  # Wait for React state to update
+            
+            # Verify password was set correctly
+            actual_password = driver.execute_script("return arguments[0].value;", password_input)
+            if len(actual_password) != len(DEFAULT_PASSWORD):
+                print(f"⚠️ Password length mismatch: set {len(DEFAULT_PASSWORD)}, got {len(actual_password)}")
             
             # Use JavaScript click to avoid interception issues
             driver.execute_script("arguments[0].click();", login_button)
