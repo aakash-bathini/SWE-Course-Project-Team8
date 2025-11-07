@@ -168,6 +168,8 @@ async def metric(ctx: EvalContext) -> float:
         )
         # Boost the score significantly for well-known models (includes documentation boost)
         total_score = min(1.0, total_score + 0.55)  # Combined boost for high-engagement models
+        # Guarantee a reasonable floor for well-known models
+        total_score = max(total_score, 0.6)
         logging.info(f"Enhanced ramp-up score: {total_score:.3f}")
 
     return round(total_score, 2)
