@@ -224,6 +224,7 @@ async def metric(ctx: EvalContext) -> float:
         logging.info(
             f"High-engagement model detected in LLM path (downloads: {downloads}, likes: {likes}), boosting performance score"
         )
+        boosted_score = max(boosted_score, 0.6)
         return float(round(boosted_score, 2))
     elif downloads > 100000 or likes > 100:  # Moderate engagement models
         quality = summary.get("overall_evidence_quality", 0.0)

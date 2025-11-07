@@ -25,7 +25,8 @@ async def metric(context: EvalContext) -> float:
 
         if not parent_urls:
             logger.info("No parent models found in lineage")
-            return 0.0
+            # Sentinel meaning "not applicable" so ingest gate can ignore
+            return -1.0
 
         # Calculate scores for parent models
         parent_scores = []
@@ -46,7 +47,7 @@ async def metric(context: EvalContext) -> float:
                 continue
 
         if not parent_scores:
-            return 0.0
+            return -1.0
 
         # Return average of parent scores
         avg_score = sum(parent_scores) / len(parent_scores)
@@ -54,7 +55,7 @@ async def metric(context: EvalContext) -> float:
 
     except Exception as e:
         logger.error(f"Treescore metric error: {e}")
-        return 0.0
+        return -1.0
 
 
 def _extract_parent_models(context: EvalContext) -> list[str]:

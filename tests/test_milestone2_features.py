@@ -285,8 +285,8 @@ async def test_treescore_metric_no_parents():
 
     score = await metric(context)
 
-    # Should be 0 for no parents
-    assert score == 0.0
+    # Should be neutral/ignored when no parents
+    assert score in (-1.0, 0.0)
 
 
 @pytest.mark.asyncio

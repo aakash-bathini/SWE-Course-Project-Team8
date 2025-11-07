@@ -102,6 +102,7 @@ async def metric(ctx: EvalContext) -> float:
                 f"High-engagement model detected (downloads: {downloads}, likes: {likes}), boosting code quality score"
             )
             score = min(1.0, score + 0.5)  # Add substantial boost
+            score = max(score, 0.6)  # Floor for well-known models
 
         # Models with very low engagement might have lower code quality
         if downloads < 10000 and likes < 10:  # Very low engagement
@@ -133,6 +134,7 @@ async def metric(ctx: EvalContext) -> float:
                 f"High-engagement model detected (downloads: {downloads}, likes: {likes}), boosting code quality score"
             )
             score = min(1.0, score + 0.5)  # Add substantial boost
+            score = max(score, 0.6)  # Floor for well-known models
 
         # Models with very low engagement might have lower code quality
         if downloads < 10000 and likes < 10:  # Very low engagement
