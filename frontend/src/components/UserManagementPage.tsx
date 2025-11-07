@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Container,
   Paper,
@@ -57,6 +57,25 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ user, onNotific
 
   const isAdmin = user.permissions.includes('admin');
 
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
+      const list = await apiService.getUsers();
+      setUsers(list);
+    } catch {
+      // Non-fatal: keep any existing users array
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadUsers();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleRegister = async () => {
     if (!formData.username || !formData.password || formData.permissions.length === 0) {
       onNotification('Please fill in all fields', 'error');
@@ -73,7 +92,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ user, onNotific
       onNotification('User registered successfully', 'success');
       setRegisterDialogOpen(false);
       setFormData({ username: '', password: '', permissions: [] });
-      // Refresh users list (would need backend endpoint to list users)
+      await loadUsers();
     } catch (error: any) {
       onNotification(error.response?.data?.detail || 'Failed to register user', 'error');
     } finally {
@@ -90,7 +109,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ user, onNotific
       onNotification('User deleted successfully', 'success');
       setDeleteDialogOpen(false);
       setSelectedUser('');
-      // Refresh users list (would need backend endpoint to list users)
+      await loadUsers();
     } catch (error: any) {
       onNotification(error.response?.data?.detail || 'Failed to delete user', 'error');
     } finally {
@@ -100,10 +119,67 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ user, onNotific
 
   if (!isAdmin) {
     return (
-      <Container maxWidth="lg">
-        <Alert severity="error" sx={{ mt: 4 }}>
-          You do not have permission to access user management. Admin privileges required.
-        </Alert>
+      <Container maxWidth="sm">
+        <Box sx={{ mt: 6 }}>
+          <Typography variant="h5" gutterBottom>
+            My Account
+          </Typography>
+          <Alert severity="info" sx={{ mb: 3 }}>
+            You are signed in as <strong>{user.username}</strong>.
+          </Alert>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              Delete Account
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              This action permanently deletes your account. You will be signed out immediately.
+            </Typography>
+            <Button
+              color="error"
+              variant="contained"
+              onClick={() => {
+                setSelectedUser(user.username);
+                setDeleteDialogOpen(true);
+              }}
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Delete My Account'}
+            </Button>
+          </Paper>
+        </Box>
+
+        {/* Delete User Dialog (self-delete) */}
+        <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+          <DialogTitle>Delete Account</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Are you sure you want to delete your account <strong>{selectedUser}</strong>?
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={async () => {
+                try {
+                  setLoading(true);
+                  await apiService.deleteUser(selectedUser);
+                  onNotification('Account deleted. Signing out…', 'success');
+                  localStorage.removeItem('token');
+                  window.location.href = '/login';
+                } catch (error: any) {
+                  onNotification(error.response?.data?.detail || 'Failed to delete account', 'error');
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              color="error"
+              variant="contained"
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Delete'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     );
   }
@@ -133,25 +209,42 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ user, onNotific
                 </TableRow>
               </TableHead>
               <TableBody>
-                <TableRow>
-                  <TableCell>ece30861defaultadminuser</TableCell>
-                  <TableCell>
-                    {user.permissions.map((p) => (
-                      <Chip key={p} label={p} size="small" sx={{ mr: 0.5 }} />
-                    ))}
-                  </TableCell>
-                  <TableCell>
-                    <Chip label="Default Admin" color="primary" size="small" />
-                  </TableCell>
-                </TableRow>
-                {/* Note: Would need GET /users endpoint to list all users */}
-                <TableRow>
-                  <TableCell colSpan={3} align="center">
-                    <Typography variant="body2" color="text.secondary">
-                      Note: User listing requires GET /users endpoint (not yet implemented)
-                    </Typography>
-                  </TableCell>
-                </TableRow>
+                {users.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} align="center">
+                      <Typography variant="body2" color="text.secondary">
+                        {loading ? 'Loading users...' : 'No users found'}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  users.map((u) => (
+                    <TableRow key={u.username}>
+                      <TableCell>{u.username}</TableCell>
+                      <TableCell>
+                        {u.permissions.map((p) => (
+                          <Chip key={p} label={p} size="small" sx={{ mr: 0.5 }} />
+                        ))}
+                      </TableCell>
+                      <TableCell>
+                        {u.username === 'ece30861defaultadminuser' ? (
+                          <Chip label="Default Admin" color="primary" size="small" />
+                        ) : (
+                          <IconButton
+                            aria-label="delete user"
+                            color="error"
+                            onClick={() => {
+                              setSelectedUser(u.username);
+                              setDeleteDialogOpen(true);
+                            }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>

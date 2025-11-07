@@ -287,6 +287,12 @@ export const apiService = {
     return response.data as ArtifactAuditEntry[];
   },
 
+  // Users (Milestone 3)
+  async getUsers(): Promise<Array<{ username: string; permissions: string[] }>> {
+    const response = await apiClient.get('/users');
+    return response.data as Array<{ username: string; permissions: string[] }>;
+  },
+
   // Model file download (ZIP)
   async downloadModel(id: string, aspect: 'full' | 'weights' | 'datasets' | 'code' = 'full'): Promise<Blob> {
     const response = await apiClient.get(`/models/${id}/download`, {

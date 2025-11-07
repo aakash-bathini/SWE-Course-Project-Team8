@@ -30,7 +30,7 @@ def upsert_default_admin(db: Session, username: str, password: str, permissions:
             permissions=",".join(permissions),
         )
         db.add(user)
-    db.commit()
+        db.commit()
 
 
 def create_artifact(

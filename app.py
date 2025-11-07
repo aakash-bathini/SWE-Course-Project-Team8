@@ -881,6 +881,13 @@ async def register_user(
             _db.add(db_user)
             _db.commit()
 
+    if USE_S3 and s3_storage:
+        try:
+            s3_storage.save_user(request.username, new_user)
+        except Exception:
+            # Non-fatal for registration; will still exist in-memory/SQLite
+            pass
+
     return {"message": "User registered successfully."}
 
 
@@ -912,7 +919,68 @@ async def delete_user(username: str, user: Dict[str, Any] = Depends(verify_token
                 _db.delete(db_user)
                 _db.commit()
 
+    if USE_S3 and s3_storage:
+        try:
+            s3_storage.delete_user(username)
+        except Exception:
+            pass
+
     return {"message": "User deleted successfully."}
+
+
+# User listing endpoint (Milestone 3) - supports S3 (prod) and SQLite/local
+@app.get("/users")
+async def list_users(user: Dict[str, Any] = Depends(verify_token)) -> List[Dict[str, Any]]:
+    """List users for admin UI (admin only). Returns username and permissions."""
+    if not check_permission(user, "admin"):
+        raise HTTPException(status_code=401, detail="You do not have permission to list users.")
+
+    results: List[Dict[str, Any]] = []
+
+    if USE_S3 and s3_storage:
+        try:
+            documents = s3_storage.list_users()
+            for doc in documents:
+                username = str(doc.get("username") or doc.get("name") or "")
+                if not username:
+                    continue
+                perms = doc.get("permissions") or []
+                # Normalize permissions to list[str]
+                if isinstance(perms, str):
+                    perms_list = [p for p in perms.split(",") if p]
+                elif isinstance(perms, list):
+                    perms_list = [str(p) for p in perms]
+                else:
+                    perms_list = []
+                results.append({"username": username, "permissions": perms_list})
+        except Exception:
+            # Fall through to SQLite/memory if S3 fails
+            results = []
+
+    if not results and USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            from src.db import models as db_models
+
+            rows = _db.query(db_models.User).all()
+            for r in rows:
+                perms_list = []
+                if getattr(r, "permissions", None):
+                    perms_list = [p for p in str(r.permissions).split(",") if p]  # type: ignore[attr-defined]
+                results.append({"username": r.username, "permissions": perms_list})
+
+    if not results:
+        # In-memory fallback
+        for uname, udata in users_db.items():
+            perms = udata.get("permissions", [])
+            if isinstance(perms, list):
+                perms_list = [str(p) for p in perms]
+            elif isinstance(perms, str):
+                perms_list = [p for p in perms.split(",") if p]
+            else:
+                perms_list = []
+            results.append({"username": uname, "permissions": perms_list})
+
+    return results
 
 
 # Authentication endpoint
@@ -1163,7 +1231,10 @@ async def models_ingest(
         if failing_metrics:
             raise HTTPException(
                 status_code=424,
-                detail=f"Model does not meet 0.5 threshold requirement. Failing metrics: {', '.join(failing_metrics)}",
+                detail=(
+                    "Model does not meet 0.5 threshold requirement. "
+                    f"Failing metrics: {', '.join(failing_metrics)}"
+                ),
             )
 
         # Model passed threshold - proceed with ingest (create artifact)
@@ -1984,18 +2055,18 @@ async def artifact_lineage(
         if url and isinstance(url, str) and "huggingface.co" in url.lower():
             if scrape_hf_url is not None:
                 hf_data, _ = scrape_hf_url(url)
-                for ds in (hf_data.get("datasets") or [])[:5]:
-                    ds_id = f"dataset:{ds}"
-                    nodes.append(
-                        ArtifactLineageNode(artifact_id=ds_id, name=str(ds), source="config_json")
+            for ds in (hf_data.get("datasets") or [])[:5]:
+                ds_id = f"dataset:{ds}"
+                nodes.append(
+                    ArtifactLineageNode(artifact_id=ds_id, name=str(ds), source="config_json")
+                )
+                edges.append(
+                    ArtifactLineageEdge(
+                        from_node_artifact_id=ds_id,
+                        to_node_artifact_id=id,
+                        relationship="fine_tuning_dataset",
                     )
-                    edges.append(
-                        ArtifactLineageEdge(
-                            from_node_artifact_id=ds_id,
-                            to_node_artifact_id=id,
-                            relationship="fine_tuning_dataset",
-                        )
-                    )
+                )
     except Exception:
         # Fall back to single-node graph
         pass
@@ -2116,13 +2187,13 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
                         )
                         hf_data = None
 
-            model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
-            metrics = await calculate_phase2_metrics(model_data)
-            # Compute size_score dict explicitly
-            ctx = create_eval_context_from_model_data(model_data)
-            size_scores_result = await size_metric.metric(ctx)
-            if isinstance(size_scores_result, dict):
-                size_scores = size_scores_result
+        model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
+        metrics = await calculate_phase2_metrics(model_data)
+        # Compute size_score dict explicitly
+        ctx = create_eval_context_from_model_data(model_data)
+        size_scores_result = await size_metric.metric(ctx)
+        if isinstance(size_scores_result, dict):
+            size_scores = size_scores_result
     except Exception as e:
         logger.warning(f"Metrics calculation failed: {e}", exc_info=True)
         metrics = {}

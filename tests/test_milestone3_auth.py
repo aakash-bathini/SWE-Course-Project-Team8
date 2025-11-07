@@ -537,6 +537,38 @@ def test_authorization_header_fallback(client: TestClient, admin_headers: Dict[s
     assert resp.status_code in [200, 403]  # Either OK or missing search permission
 
 
+def test_users_list_requires_admin(client: TestClient, admin_headers: Dict[str, str]):
+    """GET /users requires admin; without token it returns 403"""
+    # No token
+    resp = client.get("/users")
+    assert resp.status_code in [401, 403]
+
+    if not admin_headers:
+        pytest.skip("Admin token not available")
+    # With admin token
+    resp2 = client.get("/users", headers=admin_headers)
+    assert resp2.status_code == 200
+    data = resp2.json()
+    assert isinstance(data, list)
+    assert any(u.get("username") == "ece30861defaultadminuser" for u in data)
+
+
+def test_users_list_includes_new_user(client: TestClient, admin_headers: Dict[str, str]):
+    """Registered users appear in GET /users listing"""
+    if not admin_headers:
+        pytest.skip("Admin token not available")
+    uname = "listme"
+    client.post(
+        "/register",
+        json={"username": uname, "password": "p", "permissions": ["upload"]},
+        headers=admin_headers,
+    )
+    resp = client.get("/users", headers=admin_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert any(u.get("username") == uname for u in data)
+
+
 def test_password_hashing_consistency(client: TestClient):
     """Password hashing is consistent"""
     from src.auth.jwt_auth import auth as jwt_auth

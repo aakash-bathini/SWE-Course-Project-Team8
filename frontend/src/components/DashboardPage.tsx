@@ -53,11 +53,11 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
   const fetchSystemStats = async () => {
     try {
       const data = await apiService.getHealth();
-      setStats({
-        modelsCount: data.models_count,
-        usersCount: data.users_count,
-        lastHourActivity: data.last_hour_activity,
-      });
+        setStats({
+          modelsCount: data.models_count,
+          usersCount: data.users_count,
+          lastHourActivity: data.last_hour_activity,
+        });
       setError('');
     } catch (err) {
       console.error('Failed to fetch system statistics:', err);
