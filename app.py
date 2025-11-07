@@ -1,6 +1,6 @@
 """
 Phase 2 FastAPI Application - Trustworthy Model Registry
-Main application entry point with REST API endpoints matching OpenAPI spec v3.4.2
+Main application entry point with REST API endpoints matching OpenAPI spec v3.4.3
 """
 
 import logging
@@ -28,6 +28,7 @@ try:
         File,
         Form,
         UploadFile,
+        Request,
     )
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.security import HTTPBearer
@@ -54,7 +55,7 @@ except ImportError as e:
 app = FastAPI(
     title="ECE 461 - Fall 2025 - Project Phase 2",
     description="API for ECE 461/Fall 2025/Project Phase 2: A Trustworthy Model Registry",
-    version="3.4.2",
+    version="3.4.3",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -210,6 +211,7 @@ class ArtifactMetadata(BaseModel):
 
 class ArtifactData(BaseModel):
     url: str
+    download_url: Optional[str] = None
 
 
 class Artifact(BaseModel):
@@ -372,6 +374,25 @@ class HealthComponentCollection(BaseModel):
 
 # Server-side token call count tracking (Milestone 3 requirement: 1000 calls or 10 hours)
 token_call_counts: Dict[str, int] = {}  # token_hash -> call_count
+
+
+def generate_download_url(
+    artifact_type: str, artifact_id: str, request: Optional[Request] = None
+) -> str:
+    """
+    Generate download URL for an artifact.
+    Uses request base URL if available, otherwise constructs from environment or relative path.
+    """
+    if request:
+        base_url = str(request.base_url).rstrip("/")
+        return f"{base_url}/artifacts/{artifact_type}/{artifact_id}/download"
+    # Fallback: try to get from environment variable or use relative path
+    api_url = os.environ.get("API_GATEWAY_URL") or os.environ.get("REACT_APP_API_URL")
+    if api_url:
+        base_url = api_url.rstrip("/")
+        return f"{base_url}/artifacts/{artifact_type}/{artifact_id}/download"
+    # Last resort: relative path (client will need to resolve)
+    return f"/artifacts/{artifact_type}/{artifact_id}/download"
 
 
 # Authentication functions (Milestone 3 - with call count tracking)
@@ -554,6 +575,7 @@ async def root() -> Dict[str, str]:
 
 @app.post("/models/upload", response_model=Artifact, status_code=201)
 async def models_upload(
+    request: Request,
     file: UploadFile = File(...),
     name: Optional[str] = Form(None),
     user: Dict[str, Any] = Depends(verify_token),
@@ -679,9 +701,10 @@ async def models_upload(
         except Exception as e:
             logger.warning(f"Metrics calculation failed for uploaded model: {e}")
 
+        download_url = generate_download_url("model", artifact_id, request)
         return Artifact(
             metadata=ArtifactMetadata(**artifact_entry["metadata"]),
-            data=ArtifactData(url=artifact_entry["data"]["url"]),
+            data=ArtifactData(url=artifact_entry["data"]["url"], download_url=download_url),
         )
 
     except HTTPException:
@@ -1090,6 +1113,7 @@ async def artifacts_list(
 
 @app.post("/models/ingest", response_model=Artifact, status_code=201)
 async def models_ingest(
+    request: Request,
     model_name: str = Query(..., description="HuggingFace model name (e.g., 'google/gemma-2-2b')"),
     user: Dict[str, Any] = Depends(verify_token),
 ) -> Artifact:
@@ -1226,9 +1250,10 @@ async def models_ingest(
                         action="INGEST",
                     )
 
+        download_url = generate_download_url("model", artifact_id, request)
         return Artifact(
             metadata=ArtifactMetadata(**artifact_entry["metadata"]),
-            data=ArtifactData(url=artifact_entry["data"]["url"]),
+            data=ArtifactData(url=artifact_entry["data"]["url"], download_url=download_url),
         )
 
     except HTTPException:
@@ -1503,6 +1528,7 @@ async def artifact_by_regex(
 async def artifact_create(
     artifact_type: ArtifactType,
     artifact_data: ArtifactData,
+    request: Request,
     user: Dict[str, Any] = Depends(verify_token),
 ) -> Artifact:
     """Register a new artifact (BASELINE)"""
@@ -1659,15 +1685,19 @@ async def artifact_create(
                     action="CREATE",
                 )
 
+    download_url = generate_download_url(artifact_type.value, artifact_id, request)
     return Artifact(
         metadata=ArtifactMetadata(**artifact_entry["metadata"]),
-        data=ArtifactData(url=artifact_entry["data"]["url"]),
+        data=ArtifactData(url=artifact_entry["data"]["url"], download_url=download_url),
     )
 
 
 @app.get("/artifacts/{artifact_type}/{id}", response_model=Artifact)
 async def artifact_retrieve(
-    artifact_type: ArtifactType, id: str, user: Dict[str, Any] = Depends(verify_token)
+    artifact_type: ArtifactType,
+    id: str,
+    request: Request,
+    user: Dict[str, Any] = Depends(verify_token),
 ) -> Artifact:
     """Interact with the artifact with this id (BASELINE)"""
     logger.info(f"Retrieving artifact: type={artifact_type.value}, id={id}")
@@ -1690,9 +1720,10 @@ async def artifact_retrieve(
                 stored_type = artifact_data["metadata"]["type"]
                 if stored_type != artifact_type.value:
                     raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+                download_url = generate_download_url(artifact_type.value, id, request)
                 return Artifact(
                     metadata=ArtifactMetadata(**artifact_data["metadata"]),
-                    data=ArtifactData(url=artifact_data["data"]["url"]),
+                    data=ArtifactData(url=artifact_data["data"]["url"], download_url=download_url),
                 )
             logger.error(
                 f"❌ Artifact not found in S3 or in-memory: id={id}, type={artifact_type.value}"
@@ -1708,9 +1739,10 @@ async def artifact_retrieve(
                 f"Artifact type mismatch: stored={stored_type}, requested={artifact_type.value}"
             )
             raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+        download_url = generate_download_url(artifact_type.value, id, request)
         return Artifact(
             metadata=ArtifactMetadata(**artifact_data["metadata"]),
-            data=ArtifactData(url=artifact_data["data"]["url"]),
+            data=ArtifactData(url=artifact_data["data"]["url"], download_url=download_url),
         )
     elif USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
@@ -1723,9 +1755,10 @@ async def artifact_retrieve(
                     f"Artifact type mismatch: stored={art.type}, requested={artifact_type.value}"
                 )
                 raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+            download_url = generate_download_url(artifact_type.value, id, request)
             return Artifact(
                 metadata=ArtifactMetadata(name=art.name, id=art.id, type=ArtifactType(art.type)),
-                data=ArtifactData(url=art.url),
+                data=ArtifactData(url=art.url, download_url=download_url),
             )
     else:
         # In-memory fallback
@@ -1739,9 +1772,10 @@ async def artifact_retrieve(
                 f"Artifact type mismatch: stored={stored_type}, requested={artifact_type.value}"
             )
             raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+        download_url = generate_download_url(artifact_type.value, id, request)
         return Artifact(
             metadata=ArtifactMetadata(**artifact_data["metadata"]),
-            data=ArtifactData(url=artifact_data["data"]["url"]),
+            data=ArtifactData(url=artifact_data["data"]["url"], download_url=download_url),
         )
 
 
@@ -1750,11 +1784,14 @@ async def artifact_retrieve(
 # This dual route handler ensures compatibility with both patterns
 @app.get("/artifact/{artifact_type}/{id}", response_model=Artifact)
 async def artifact_retrieve_singular(
-    artifact_type: ArtifactType, id: str, user: Dict[str, Any] = Depends(verify_token)
+    artifact_type: ArtifactType,
+    id: str,
+    request: Request,
+    user: Dict[str, Any] = Depends(verify_token),
 ) -> Artifact:
     """Interact with the artifact with this id (BASELINE) - Singular route variant for autograder compatibility"""
     # Delegate to the plural route handler
-    return await artifact_retrieve(artifact_type, id, user)
+    return await artifact_retrieve(artifact_type, id, request, user)
 
 
 @app.put("/artifacts/{artifact_type}/{id}")
