@@ -47,6 +47,9 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ user, onNotific
   const [registerDialogOpen, setRegisterDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string>('');
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<string>('');
+  const [editPermissions, setEditPermissions] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -112,6 +115,27 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ user, onNotific
       await loadUsers();
     } catch (error: any) {
       onNotification(error.response?.data?.detail || 'Failed to delete user', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openEditPermissions = (u: User) => {
+    setEditTarget(u.username);
+    setEditPermissions(u.permissions);
+    setEditDialogOpen(true);
+  };
+
+  const handleSavePermissions = async () => {
+    if (!editTarget) return;
+    try {
+      setLoading(true);
+      await apiService.updateUserPermissions(editTarget, editPermissions);
+      onNotification('Permissions updated', 'success');
+      setEditDialogOpen(false);
+      await loadUsers();
+    } catch (error: any) {
+      onNotification(error.response?.data?.detail || 'Failed to update permissions', 'error');
     } finally {
       setLoading(false);
     }
@@ -230,16 +254,26 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ user, onNotific
                         {u.username === 'ece30861defaultadminuser' ? (
                           <Chip label="Default Admin" color="primary" size="small" />
                         ) : (
-                          <IconButton
-                            aria-label="delete user"
-                            color="error"
-                            onClick={() => {
-                              setSelectedUser(u.username);
-                              setDeleteDialogOpen(true);
-                            }}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
+                          <>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              sx={{ mr: 1 }}
+                              onClick={() => openEditPermissions(u)}
+                            >
+                              Edit
+                            </Button>
+                            <IconButton
+                              aria-label="delete user"
+                              color="error"
+                              onClick={() => {
+                                setSelectedUser(u.username);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </>
                         )}
                       </TableCell>
                     </TableRow>
@@ -316,6 +350,44 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ user, onNotific
             <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleDelete} color="error" variant="contained" disabled={loading}>
               {loading ? <CircularProgress size={24} /> : 'Delete'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Edit Permissions Dialog */}
+        <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Edit Permissions</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Editing permissions for <strong>{editTarget}</strong>
+            </Typography>
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Permissions</InputLabel>
+              <Select
+                multiple
+                value={editPermissions}
+                onChange={(e) => setEditPermissions(e.target.value as string[])}
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {(selected as string[]).map((value) => (
+                      <Chip key={value} label={value} size="small" />
+                    ))}
+                  </Box>
+                )}
+              >
+                {availablePermissions.map((perm) => (
+                  <MenuItem key={perm} value={perm}>
+                    <Checkbox checked={editPermissions.indexOf(perm) > -1} />
+                    <ListItemText primary={perm} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSavePermissions} variant="contained" disabled={loading}>
+              {loading ? <CircularProgress size={24} /> : 'Save'}
             </Button>
           </DialogActions>
         </Dialog>

@@ -466,6 +466,10 @@ class UserRegistrationRequest(BaseModel):
     permissions: List[str]
 
 
+class UserPermissionsUpdateRequest(BaseModel):
+    permissions: List[str]
+
+
 # API Endpoints matching OpenAPI spec v3.3.1
 
 
@@ -932,6 +936,65 @@ async def delete_user(username: str, user: Dict[str, Any] = Depends(verify_token
         raise HTTPException(status_code=404, detail="User not found.")
 
     return {"message": "User deleted successfully."}
+
+
+# Update user permissions (admin only)
+@app.put("/user/{username}/permissions")
+async def update_user_permissions(
+    username: str,
+    request: UserPermissionsUpdateRequest,
+    user: Dict[str, Any] = Depends(verify_token),
+):
+    """Update a user's permissions (admin only). Cannot modify default admin."""
+    if not check_permission(user, "admin"):
+        raise HTTPException(status_code=401, detail="You do not have permission to edit users.")
+
+    if username == DEFAULT_ADMIN["username"]:
+        raise HTTPException(status_code=400, detail="Cannot edit default admin user.")
+
+    new_permissions: List[str] = [str(p) for p in request.permissions if isinstance(p, str)]
+    is_admin_flag = "admin" in new_permissions
+
+    # Update in-memory cache if present
+    if username in users_db:
+        users_db[username]["permissions"] = new_permissions
+        users_db[username]["is_admin"] = is_admin_flag
+
+    # SQLite update
+    if USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            from src.db import models as db_models
+
+            db_user = _db.get(db_models.User, username)
+            if not db_user:
+                # Create if missing to keep sources consistent
+                db_user = db_models.User(
+                    username=username,
+                    password=DEFAULT_ADMIN["password"],  # placeholder; user must reset
+                    is_admin=is_admin_flag,
+                    permissions=",".join(new_permissions),
+                )
+                _db.add(db_user)
+            else:
+                db_user.permissions = ",".join(new_permissions)  # type: ignore[assignment]
+                setattr(db_user, "is_admin", is_admin_flag)
+            _db.commit()
+
+    # S3 update
+    if USE_S3 and s3_storage:
+        try:
+            # Fetch then update or create best-effort
+            existing = s3_storage.get_user(username) or {
+                "username": username,
+                "password": DEFAULT_ADMIN["password"],
+            }
+            existing["permissions"] = new_permissions
+            existing["is_admin"] = is_admin_flag
+            s3_storage.save_user(username, existing)
+        except Exception:
+            pass
+
+    return {"message": "Permissions updated."}
 
 
 # User listing endpoint (Milestone 3) - supports S3 (prod) and SQLite/local

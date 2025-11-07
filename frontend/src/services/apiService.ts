@@ -293,6 +293,13 @@ export const apiService = {
     return response.data as Array<{ username: string; permissions: string[] }>;
   },
 
+  async updateUserPermissions(username: string, permissions: string[]) {
+    const response = await apiClient.put(`/user/${encodeURIComponent(username)}/permissions`, {
+      permissions,
+    });
+    return response.data;
+  },
+
   // Model file download (ZIP)
   async downloadModel(id: string, aspect: 'full' | 'weights' | 'datasets' | 'code' = 'full'): Promise<Blob> {
     const response = await apiClient.get(`/models/${id}/download`, {
