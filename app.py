@@ -1353,20 +1353,31 @@ async def artifact_by_name(
 ) -> List[ArtifactMetadata]:
     """List artifact metadata for this name (NON-BASELINE)"""
     matches: List[ArtifactMetadata] = []
+    search_name = (name or "").strip()
+    search_name_lc = search_name.lower()
 
     # Priority: S3 (production) > SQLite (local) > in-memory
     # In production, S3 is primary source; fallback to in-memory for same-request compatibility
     if USE_S3 and s3_storage:
-        s3_artifacts = s3_storage.list_artifacts_by_name(name)
+        # Broad list then filter client-side (handles case-insensitive, hf_model_name, and trimming)
+        try:
+            s3_artifacts = s3_storage.list_artifacts_by_queries([
+                {"name": "*", "types": ["model", "dataset", "code"]}
+            ])
+        except Exception:
+            s3_artifacts = []
         for art_data in s3_artifacts:
             metadata = art_data.get("metadata", {})
-            matches.append(
-                ArtifactMetadata(
-                    name=metadata.get("name", ""),
-                    id=metadata.get("id", ""),
-                    type=ArtifactType(metadata.get("type", "")),
+            stored_name = str(metadata.get("name", ""))
+            hf_model_name = str(art_data.get("hf_model_name", ""))
+            if stored_name.lower() == search_name_lc or hf_model_name.lower() == search_name_lc:
+                matches.append(
+                    ArtifactMetadata(
+                        name=stored_name,
+                        id=metadata.get("id", ""),
+                        type=ArtifactType(metadata.get("type", "")),
+                    )
                 )
-            )
         # Also check in-memory for same-request artifacts (Lambda cold start protection)
         for artifact_id, artifact_data in artifacts_db.items():
             stored_name = artifact_data["metadata"]["name"]
@@ -1393,14 +1404,16 @@ async def artifact_by_name(
                         )
     elif USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
-            items = db_crud.list_by_name(_db, name)
+            items = db_crud.list_by_name(_db, search_name)
             for a in items:
-                matches.append(ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type)))
+                # Case-insensitive safeguard
+                if str(a.name).lower() == search_name_lc:
+                    matches.append(ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type)))
     else:
         # In-memory fallback
         for artifact_id, artifact_data in artifacts_db.items():
-            stored_name = artifact_data["metadata"]["name"]
-            if stored_name == name:
+            stored_name = str(artifact_data["metadata"]["name"]).strip()
+            if stored_name.lower() == search_name_lc:
                 matches.append(
                     ArtifactMetadata(
                         name=stored_name,
@@ -1409,8 +1422,8 @@ async def artifact_by_name(
                     )
                 )
             elif "hf_model_name" in artifact_data:
-                hf_model_name = artifact_data["hf_model_name"]
-                if hf_model_name == name:
+                hf_model_name = str(artifact_data["hf_model_name"]).strip()
+                if hf_model_name.lower() == search_name_lc:
                     matches.append(
                         ArtifactMetadata(
                             name=stored_name,
@@ -1465,12 +1478,17 @@ async def artifact_by_regex(
                     type=ArtifactType(metadata.get("type", "")),
                 )
             )
-    elif USE_SQLITE:
+        # S3 can be eventually consistent; fall back to local stores if empty
+        if matches:
+            return matches
+
+    if USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             items = db_crud.list_by_regex(_db, regex.regex)
             for a in items:
                 matches.append(ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type)))
-    else:
+    # Always search in-memory as a final fallback (captures just-created items)
+    if not USE_S3 and not USE_SQLITE or True:
         # Search in-memory artifacts: check both name and README content
         for artifact_id, artifact_data in artifacts_db.items():
             name = artifact_data["metadata"]["name"]
@@ -1538,45 +1556,11 @@ async def artifact_create(
     user: Dict[str, Any] = Depends(verify_token),
 ) -> Artifact:
     """Register a new artifact (BASELINE)"""
-    # If model ingest, enforce 0.5 threshold on non-latency metrics per plan/spec (424 on disqualified)
-    if artifact_type == ArtifactType.MODEL:
-        try:
-            # Only enforce gating for HuggingFace URLs per spec language
-            if "huggingface.co" in artifact_data.url.lower():
-                if scrape_hf_url is not None and calculate_phase2_metrics is not None:
-                    hf_data_threshold, repo_type = scrape_hf_url(artifact_data.url)
-                    model_data = {
-                        "url": artifact_data.url,
-                        "hf_data": [hf_data_threshold],
-                        "gh_data": [],
-                    }
-                    metrics = await calculate_phase2_metrics(model_data)
-                    # Filter out latency metrics and ignore sentinel negatives (e.g., reviewedness = -1 with no GitHub repo)
-                    non_latency_metrics = {
-                        k: v
-                        for k, v in metrics.items()
-                        if not k.endswith("_latency") and k != "net_score_latency"
-                    }
-                    applicable_metrics = {
-                        k: float(v)
-                        for k, v in non_latency_metrics.items()
-                        if isinstance(v, (int, float)) and float(v) >= 0.0
-                    }
-                    # Require all applicable non-latency metrics to be at least 0.5
-                    failing_metrics = [k for k, v in applicable_metrics.items() if v < 0.5]
-                    if failing_metrics:
-                        raise HTTPException(
-                            status_code=424,
-                            detail=(
-                                f"Artifact is not registered due to the disqualified rating. "
-                                f"Failing metrics: {', '.join(failing_metrics)}"
-                            ),
-                        )
-        except HTTPException:
-            raise
-        except Exception:
-            # If metrics fail, allow ingest for Delivery 1
-            pass
+    # IMPORTANT: Do not gate artifact creation by metrics. The spec requires the
+    # 0.5-per-metric threshold for the dedicated POST /models/ingest endpoint, not for
+    # generic artifact registration. We keep artifact creation lightweight so the
+    # frontend "URL" flow doesn't time out. We still scrape HF metadata later to enrich
+    # search, but we never reject creation here based on scores.
     # Generate unique artifact ID
     # Priority: in-memory (for consistency within Lambda invocation) > SQLite > S3
     # Use in-memory count first to avoid S3 eventual consistency issues

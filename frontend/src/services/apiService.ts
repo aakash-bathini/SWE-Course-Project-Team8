@@ -233,7 +233,8 @@ export const apiService = {
   },
 
   async createArtifact(artifactType: 'model' | 'dataset' | 'code', artifactData: ArtifactData): Promise<Artifact> {
-    const response = await apiClient.post(`/artifact/${artifactType}`, artifactData);
+    // Bump timeout for URL registration path to better tolerate slower networks
+    const response = await apiClient.post(`/artifact/${artifactType}`, artifactData, { timeout: 30000 });
     return response.data;
   },
 
