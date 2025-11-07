@@ -91,8 +91,8 @@ def _save_cache(cache: Dict[str, Any]) -> None:
     path = _cache_path()
     os.makedirs(os.path.dirname(path), exist_ok=True)
     try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(cache, f, default=_json_default)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(cache, f, default=_json_default)
     except OSError as e:
         # If write fails due to read-only FS, retry in /tmp
         if e.errno in (errno.EROFS, errno.EACCES, errno.EPERM):

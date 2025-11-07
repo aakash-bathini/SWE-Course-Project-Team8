@@ -83,8 +83,8 @@ try:
         calculate_phase2_net_score,
     )
     from src.metrics import size as size_metric  # noqa: E402
-except ImportError as e:
-    logger.warning(f"Optional imports failed (may not be available in Lambda): {e}")
+except Exception as e:
+    logger.warning(f"Optional imports failed (may not be available in this environment): {e}")
     # Set to None to prevent errors - use type: ignore for mypy compatibility
     scrape_hf_url = None  # type: ignore[assignment]
     create_eval_context_from_model_data = None  # type: ignore[assignment]
@@ -900,7 +900,12 @@ async def register_user(
 async def delete_user(username: str, user: Dict[str, Any] = Depends(verify_token)):
     """Delete a user (Milestone 3 - users can delete own account, admins can delete any)"""
     # Users can delete their own account, admins can delete any account
-    if username != user["username"] and not check_permission(user, "admin"):
+    # Additional policy: Non-default admins cannot delete their own account.
+    # Only the Default Admin may delete admin accounts.
+    is_requester_admin = check_permission(user, "admin")
+    is_requester_default_admin = str(user.get("username")) == str(DEFAULT_ADMIN["username"])
+
+    if username != user["username"] and not is_requester_admin:
         raise HTTPException(
             status_code=401, detail="You do not have permission to delete this user."
         )
@@ -908,6 +913,53 @@ async def delete_user(username: str, user: Dict[str, Any] = Depends(verify_token
     # Prevent deleting default admin
     if username == DEFAULT_ADMIN["username"]:
         raise HTTPException(status_code=400, detail="Cannot delete default admin user.")
+
+    # Resolve target user's permissions to check if target is admin
+    target_user_data = users_db.get(username)
+    if not target_user_data and USE_S3 and s3_storage:
+        try:
+            target_user_data = s3_storage.get_user(username)
+        except Exception:
+            target_user_data = None
+    if not target_user_data and USE_SQLITE:
+        try:
+            with next(get_db()) as _db:  # type: ignore[misc]
+                from src.db import models as db_models
+
+                row = _db.get(db_models.User, username)
+                if row:
+                    target_user_data = {
+                        "username": row.username,
+                        "permissions": (
+                            [p for p in str(row.permissions).split(",") if p]
+                            if getattr(row, "permissions", None)
+                            else []
+                        ),
+                        "is_admin": bool(getattr(row, "is_admin", False)),
+                    }
+        except Exception:
+            target_user_data = None
+    target_is_admin = False
+    if target_user_data:
+        perms_val = target_user_data.get("permissions", [])
+        if isinstance(perms_val, list):
+            target_is_admin = "admin" in [str(p) for p in perms_val]
+        elif isinstance(perms_val, str):
+            target_is_admin = "admin" in [p for p in perms_val.split(",") if p]
+
+    # Policy enforcement
+    # 1) Non-default admin cannot delete their own account
+    if username == user["username"] and is_requester_admin and not is_requester_default_admin:
+        raise HTTPException(
+            status_code=401,
+            detail="Administrators cannot delete their own account. Ask the default admin to delete it.",
+        )
+    # 2) Only default admin may delete other admin accounts
+    if username != user["username"] and target_is_admin and not is_requester_default_admin:
+        raise HTTPException(
+            status_code=401,
+            detail="Only the default admin may delete admin accounts.",
+        )
 
     found_any = False
     # Remove from in-memory cache if present
