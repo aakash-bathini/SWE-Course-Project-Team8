@@ -1,8 +1,8 @@
+# fmt: off
 """
 Phase 2 FastAPI Application - Trustworthy Model Registry
 Main application entry point with REST API endpoints matching OpenAPI spec v3.4.4
 """
-# fmt: off
 
 import logging
 import os
