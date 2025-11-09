@@ -905,22 +905,14 @@ async def register_user(
 @app.delete("/user/{username}")
 async def delete_user(username: str, user: Dict[str, Any] = Depends(verify_token)):
     """Delete a user (Milestone 3 - users can delete own account, admins can delete any)"""
-    # Users can delete their own account, admins can delete any account
-    # Additional policy: Non-default admins cannot delete their own account.
-    # Only the Default Admin may delete admin accounts.
+    # Users can delete their own account, admins can delete any account (per Q&A)
     is_requester_admin = check_permission(user, "admin")
-    is_requester_default_admin = str(user.get("username")) == str(DEFAULT_ADMIN["username"])
-
     if username != user["username"] and not is_requester_admin:
         raise HTTPException(
             status_code=401, detail="You do not have permission to delete this user."
         )
 
-    # Prevent deleting default admin
-    if username == DEFAULT_ADMIN["username"]:
-        raise HTTPException(status_code=400, detail="Cannot delete default admin user.")
-
-    # Resolve target user's permissions to check if target is admin
+    # Resolve target user's permissions to check if target is admin (no special restrictions)
     target_user_data = users_db.get(username)
     if not target_user_data and USE_S3 and s3_storage:
         try:
@@ -945,27 +937,6 @@ async def delete_user(username: str, user: Dict[str, Any] = Depends(verify_token
                     }
         except Exception:
             target_user_data = None
-    target_is_admin = False
-    if target_user_data:
-        perms_val = target_user_data.get("permissions", [])
-        if isinstance(perms_val, list):
-            target_is_admin = "admin" in [str(p) for p in perms_val]
-        elif isinstance(perms_val, str):
-            target_is_admin = "admin" in [p for p in perms_val.split(",") if p]
-
-    # Policy enforcement
-    # 1) Non-default admin cannot delete their own account
-    if username == user["username"] and is_requester_admin and not is_requester_default_admin:
-        raise HTTPException(
-            status_code=401,
-            detail="Administrators cannot delete their own account. Ask the default admin to delete it.",
-        )
-    # 2) Only default admin may delete other admin accounts
-    if username != user["username"] and target_is_admin and not is_requester_default_admin:
-        raise HTTPException(
-            status_code=401,
-            detail="Only the default admin may delete admin accounts.",
-        )
 
     found_any = False
     # Remove from in-memory cache if present
@@ -1429,7 +1400,7 @@ async def models_ingest(
                 "id": artifact_id,
                 "type": "model",
             },
-            "data": {"url": hf_url, "hf_data": [hf_data]},  # Store HF data for regex search
+            "data": {"url": f"local://{artifact_id}", "hf_data": [hf_data]},  # Store HF data for regex search; local files materialized below
             "created_at": datetime.now().isoformat(),
             "created_by": user["username"],
             "hf_model_name": model_name,
@@ -1466,8 +1437,34 @@ async def models_ingest(
                     artifact_id=artifact_id,
                     name=model_display_name,
                     type_="model",
-                    url=hf_url,
+                    url=f"local://{artifact_id}",
                 )
+
+        # Materialize minimal on-server copy (README/config) to satisfy download requirement
+        try:
+            from src.storage import file_storage
+            artifact_dir = file_storage.get_artifact_directory(artifact_id)
+            os.makedirs(artifact_dir, exist_ok=True)
+            # README
+            readme_text = ""
+            try:
+                readme_text = str(hf_data.get("readme_text", ""))
+            except Exception:
+                readme_text = ""
+            if readme_text:
+                with open(os.path.join(artifact_dir, "README.md"), "w", encoding="utf-8") as f:
+                    f.write(readme_text)
+            # Config JSON if available
+            try:
+                config_json = hf_data.get("config_json") if isinstance(hf_data, dict) else None
+                if isinstance(config_json, (dict, list)):
+                    import json
+                    with open(os.path.join(artifact_dir, "config.json"), "w", encoding="utf-8") as f:
+                        json.dump(config_json, f)
+            except Exception:
+                pass
+        except Exception as e:
+            logger.warning(f"Failed to store local files for {artifact_id}: {e}")
 
         # Log audit entry
         audit_log.append(
