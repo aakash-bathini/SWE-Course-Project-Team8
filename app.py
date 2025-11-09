@@ -913,10 +913,6 @@ async def delete_user(username: str, user: Dict[str, Any] = Depends(verify_token
             status_code=401, detail="You do not have permission to delete this user."
         )
 
-    # Spec/tests: Default admin cannot be deleted
-    if username == DEFAULT_ADMIN["username"]:
-        raise HTTPException(status_code=400, detail="Cannot delete default admin user.")
-
     # Resolve target user's permissions to check if target is admin (no special restrictions)
     target_user_data = users_db.get(username)
     if not target_user_data and USE_S3 and s3_storage:
