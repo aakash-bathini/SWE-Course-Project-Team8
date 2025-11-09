@@ -52,9 +52,11 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
   const [selectedArtifactForDownload, setSelectedArtifactForDownload] = useState<ArtifactMetadata | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const canDownload = user.permissions.includes('download') || user.permissions.includes('search');
+  const canSearch = user.permissions.includes('search');
+  const canDownload = user.permissions.includes('download');
 
   const fetchList = async () => {
+    if (!canSearch) return;
     setLoading(true);
     setError('');
     try {
@@ -124,9 +126,9 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           User: {user.username} | Permissions: {user.permissions.join(', ')}
         </Typography>
-        {!canDownload && (
+        {!canSearch && (
           <Alert severity="warning" sx={{ mb: 2 }}>
-            Your account does not have 'search' or 'download' permissions.
+            Your account does not have 'search' permission.
           </Alert>
         )}
         <Stack spacing={2} direction={{ xs: 'column', sm: 'row' }} sx={{ mb: 2 }}>
@@ -142,7 +144,7 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
             <MenuItem value="code">code</MenuItem>
           </TextField>
           <TextField label="Name (use * for all)" value={nameQuery} onChange={(e) => setNameQuery(e.target.value)} fullWidth />
-          <Button variant="outlined" onClick={fetchList} disabled={loading || !canDownload}>
+          <Button variant="outlined" onClick={fetchList} disabled={loading || !canSearch}>
             {loading ? 'Loading...' : 'Search'}
           </Button>
         </Stack>
@@ -155,7 +157,7 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
                 key={m.id}
                 secondaryAction={
                   <Stack direction="row" spacing={1} flexWrap="wrap">
-                  {m.type === 'model' && (
+                  {m.type === 'model' && canDownload && (
                     <>
                         <Tooltip title="Download model">
                           <IconButton

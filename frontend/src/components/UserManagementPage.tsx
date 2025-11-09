@@ -263,20 +263,16 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ user, onNotific
                             >
                               Edit
                             </Button>
-                            {u.permissions.includes('admin') ? (
-                              <Chip label="Admin account" color="default" size="small" />
-                            ) : (
-                              <IconButton
-                                aria-label="delete user"
-                                color="error"
-                                onClick={() => {
-                                  setSelectedUser(u.username);
-                                  setDeleteDialogOpen(true);
-                                }}
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            )}
+                            <IconButton
+                              aria-label="delete user"
+                              color="error"
+                              onClick={() => {
+                                setSelectedUser(u.username);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
                           </>
                         )}
                       </TableCell>
