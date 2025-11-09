@@ -1,6 +1,6 @@
 """
 Phase 2 FastAPI Application - Trustworthy Model Registry
-Main application entry point with REST API endpoints matching OpenAPI spec v3.4.3
+Main application entry point with REST API endpoints matching OpenAPI spec v3.4.4
 """
 
 import logging
@@ -55,7 +55,7 @@ except ImportError as e:
 app = FastAPI(
     title="ECE 461 - Fall 2025 - Project Phase 2",
     description="API for ECE 461/Fall 2025/Project Phase 2: A Trustworthy Model Registry",
-    version="3.4.3",
+    version="3.4.4",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -108,6 +108,7 @@ USE_S3: bool = os.environ.get("USE_S3", "0") == "1" or (
 )
 
 artifacts_db: Dict[str, Dict[str, Any]] = {}  # artifact_id -> artifact_data (in-memory)
+artifact_status: Dict[str, str] = {}  # artifact_id -> PENDING | READY | INVALID
 users_db: Dict[str, Dict[str, Any]] = {}
 audit_log: List[Dict[str, Any]] = []
 
@@ -1781,6 +1782,9 @@ async def artifact_create(
     artifact_type: ArtifactType,
     artifact_data: ArtifactData,
     request: Request,
+    response: Response,
+    x_async_ingest: Optional[str] = Header(None, alias="X-Async-Ingest"),
+    async_mode: Optional[bool] = Query(default=None, alias="async"),
     user: Dict[str, Any] = Depends(verify_token),
 ) -> Artifact:
     """Register a new artifact (BASELINE)"""
@@ -1905,6 +1909,20 @@ async def artifact_create(
                 )
 
     download_url = generate_download_url(artifact_type.value, artifact_id, request)
+    # Determine async ingest preference: support header X-Async-Ingest and query ?async=true
+    use_async = False
+    try:
+        if isinstance(async_mode, bool) and async_mode:
+            use_async = True
+        elif isinstance(x_async_ingest, str) and x_async_ingest.lower() in ("1", "true", "yes"):
+            use_async = True
+    except Exception:
+        use_async = False
+    # Track processing status to support 202 async flow and 404 until rating exists
+    artifact_status[artifact_id] = "PENDING" if use_async else "READY"
+    if use_async:
+        # Align with spec v3.4.4: allow 202 for async rating flows. Return body for frontend compatibility.
+        response.status_code = 202
     return Artifact(
         metadata=ArtifactMetadata(**artifact_entry["metadata"]),
         data=ArtifactData(url=artifact_entry["data"]["url"], download_url=download_url),
@@ -2263,6 +2281,10 @@ async def artifact_license_check(
 @app.get("/artifact/model/{id}/rate", response_model=ModelRating)
 async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_token)) -> ModelRating:
     """Get ratings for this model artifact (BASELINE)"""
+    # Support async ingest semantics (v3.4.4): 404 if artifact is pending or invalidated
+    status = artifact_status.get(id)
+    if status in ("PENDING", "INVALID"):
+        raise HTTPException(status_code=404, detail="Artifact does not exist.")
     # Check if artifact exists - Priority: S3 (production) > SQLite (local) > in-memory
     url = None
     artifact_name = None
@@ -2355,6 +2377,31 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
         if (metrics and calculate_phase2_net_score is not None)
         else 0.0
     )
+    # If rating completed, update status; if it fails threshold, invalidate and optionally remove
+    try:
+        if id in artifact_status and artifact_status.get(id) == "PENDING":
+            if net_score >= 0.5:
+                artifact_status[id] = "READY"
+            else:
+                artifact_status[id] = "INVALID"
+                # Best-effort removal of intermediate records while keeping tombstone
+                try:
+                    if id in artifacts_db:
+                        del artifacts_db[id]
+                except Exception:
+                    pass
+                if USE_SQLITE:
+                    try:
+                        with next(get_db()) as _db:  # type: ignore[misc]
+                            from src.db import crud as db_crud
+                            db_crud.delete_artifact(_db, id)
+                    except Exception:
+                        pass
+                # For S3, we intentionally do not delete here; tombstone causes 404s
+                raise HTTPException(status_code=404, detail="Artifact does not exist.")
+    except HTTPException:
+        # Propagate 404 for invalidated artifacts
+        raise
 
     def get_m(name: str) -> float:
         v = metrics.get(name)
