@@ -391,14 +391,24 @@ def test_admin_can_delete_any_user(client: TestClient, admin_headers: Dict[str, 
     assert resp2.status_code == 200
 
 
-def test_cannot_delete_default_admin(client: TestClient, admin_headers: Dict[str, str]):
-    """Default admin user cannot be deleted"""
+def test_admin_can_delete_default_admin(client: TestClient, admin_headers: Dict[str, str]):
+    """Admins can delete any account, including the seeded admin"""
     if not admin_headers:
         pytest.skip("Admin token not available")
-
+    # Create a replacement admin first to avoid locking ourselves out in subsequent tests
+    resp_create = client.post(
+        "/register",
+        json={
+            "username": "backupadmin",
+            "password": "p",
+            "permissions": ["admin", "upload", "search", "download"],
+        },
+        headers=admin_headers,
+    )
+    assert resp_create.status_code in (200, 409)
+    # Delete default admin
     resp = client.delete("/user/ece30861defaultadminuser", headers=admin_headers)
-    assert resp.status_code == 400
-    assert "default admin" in resp.json().get("detail", "").lower()
+    assert resp.status_code == 200
 
 
 def test_delete_nonexistent_user(client: TestClient, admin_headers: Dict[str, str]):
