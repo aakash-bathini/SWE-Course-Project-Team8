@@ -398,7 +398,11 @@ def test_admin_can_delete_default_admin(client: TestClient, admin_headers: Dict[
     # Create a replacement admin first to avoid locking ourselves out in subsequent tests
     resp_create = client.post(
         "/register",
-        json={"username": "backupadmin", "password": "p", "permissions": ["admin", "upload", "search", "download"]},
+        json={
+            "username": "backupadmin",
+            "password": "p",
+            "permissions": ["admin", "upload", "search", "download"],
+        },
         headers=admin_headers,
     )
     assert resp_create.status_code in (200, 409)
