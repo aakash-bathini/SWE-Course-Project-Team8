@@ -251,26 +251,30 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ user, onNotific
                         ))}
                       </TableCell>
                       <TableCell>
-                        <>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            sx={{ mr: 1 }}
-                            onClick={() => openEditPermissions(u)}
-                          >
-                            Edit
-                          </Button>
-                          <IconButton
-                            aria-label="delete user"
-                            color="error"
-                            onClick={() => {
-                              setSelectedUser(u.username);
-                              setDeleteDialogOpen(true);
-                            }}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </>
+                        {u.username === 'ece30861defaultadminuser' ? (
+                          <Chip label="Default Admin" color="primary" size="small" />
+                        ) : (
+                          <>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              sx={{ mr: 1 }}
+                              onClick={() => openEditPermissions(u)}
+                            >
+                              Edit
+                            </Button>
+                            <IconButton
+                              aria-label="delete user"
+                              color="error"
+                              onClick={() => {
+                                setSelectedUser(u.username);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))

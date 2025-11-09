@@ -2,6 +2,7 @@
 Phase 2 FastAPI Application - Trustworthy Model Registry
 Main application entry point with REST API endpoints matching OpenAPI spec v3.4.4
 """
+# fmt: off
 
 import logging
 import os
@@ -911,6 +912,10 @@ async def delete_user(username: str, user: Dict[str, Any] = Depends(verify_token
         raise HTTPException(
             status_code=401, detail="You do not have permission to delete this user."
         )
+
+    # Spec/tests: Default admin cannot be deleted
+    if username == DEFAULT_ADMIN["username"]:
+        raise HTTPException(status_code=400, detail="Cannot delete default admin user.")
 
     # Resolve target user's permissions to check if target is admin (no special restrictions)
     target_user_data = users_db.get(username)
@@ -2681,6 +2686,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         logger.info(f"Returning response with statusCode: {response.get('statusCode', 'N/A')}")
         return response
+
+# fmt: on
 
     except Exception as e:
         import traceback
