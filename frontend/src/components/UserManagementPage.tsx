@@ -111,7 +111,14 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ user, onNotific
       await apiService.deleteUser(selectedUser);
       onNotification('User deleted successfully', 'success');
       setDeleteDialogOpen(false);
+      const deleted = selectedUser;
       setSelectedUser('');
+      // If admin deleted their own account, sign them out
+      if (deleted === user.username) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+        return;
+      }
       await loadUsers();
     } catch (error: any) {
       onNotification(error.response?.data?.detail || 'Failed to delete user', 'error');
