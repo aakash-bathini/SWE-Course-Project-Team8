@@ -282,7 +282,7 @@ Response: 201 Created
 }
 ```
 
-### Artifact Endpoints (OpenAPI Spec v3.4.3)
+### Artifact Endpoints (OpenAPI Spec v3.4.4)
 
 ```http
 POST /artifact/{artifact_type}
