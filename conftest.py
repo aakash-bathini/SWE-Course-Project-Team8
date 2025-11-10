@@ -8,6 +8,18 @@ from unittest.mock import patch
 from typing import Dict, Any, Optional
 
 
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_database():
+    """Create all database tables for testing before any tests run."""
+    try:
+        from src.db.database import Base, engine
+        from src.db import models  # noqa: F401 - Import to register models
+
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f"Warning: Could not set up test database: {e}")
+
+
 @pytest.fixture
 def mock_verify_token():
     """Mock the verify_token dependency to allow endpoint testing without auth complications."""
