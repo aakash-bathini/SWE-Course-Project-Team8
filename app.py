@@ -1598,7 +1598,7 @@ def compare_versions(v1: tuple[int, ...], v2: tuple[int, ...]) -> int:
     max_len = max(len(v1), len(v2))
     v1_padded = v1 + (0,) * (max_len - len(v1))
     v2_padded = v2 + (0,) * (max_len - len(v2))
-    
+
     if v1_padded < v2_padded:
         return -1
     elif v1_padded > v2_padded:
@@ -1618,11 +1618,11 @@ def matches_version_query(version_str: str, query: str) -> bool:
     """
     try:
         parsed = parse_version(version_str)
-        
+
         # Exact version match
         if '-' not in query and not query.startswith(('~', '^')):
             return compare_versions(parsed, parse_version(query)) == 0
-        
+
         # Range: "1.2.3-2.1.0"
         if '-' in query:
             parts = query.split('-')
@@ -1630,7 +1630,7 @@ def matches_version_query(version_str: str, query: str) -> bool:
                 min_v = parse_version(parts[0].strip())
                 max_v = parse_version(parts[1].strip())
                 return compare_versions(parsed, min_v) >= 0 and compare_versions(parsed, max_v) <= 0
-        
+
         # Tilde: ~1.2.0 = >=1.2.0, <1.3.0
         if query.startswith('~'):
             base = parse_version(query[1:].strip())
@@ -1642,16 +1642,25 @@ def matches_version_query(version_str: str, query: str) -> bool:
             else:
                 upper = (base[0] + 1,)
             return compare_versions(parsed, upper) < 0
-        
-        # Caret: ^1.2.0 = >=1.2.0, <2.0.0
+
+        # Caret: ^1.2.0 = >=1.2.0, <2.0.0 (or <0.3.0 if major is 0)
         if query.startswith('^'):
             base = parse_version(query[1:].strip())
             if compare_versions(parsed, base) < 0:
                 return False
-            # Check upper bound: <next major version
-            upper = (base[0] + 1,)
+            # If major version is 0, the upper bound is the next minor version
+            # Otherwise, the upper bound is the next major version
+            if len(base) > 0 and base[0] == 0:
+                # For 0.x.y, allow changes to x but not x+1
+                if len(base) >= 2:
+                    upper = (0, base[1] + 1)
+                else:
+                    upper = (1,)
+            else:
+                # For x.y.z (x > 0), allow changes to y and z but not x+1
+                upper = (base[0] + 1,)
             return compare_versions(parsed, upper) < 0
-        
+
         return False
     except Exception:
         return False
@@ -1664,21 +1673,21 @@ async def search_models(
 ) -> Dict[str, Any]:
     """Search models by regex pattern over names and model cards (M4.2)"""
     import re
-    
+
     if not check_permission(user, "search"):
         raise HTTPException(status_code=401, detail="You do not have permission to search models.")
-    
+
     if not query or len(query.strip()) == 0:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
-    
+
     # Compile regex with case-insensitive matching
     try:
         pattern = re.compile(query, re.IGNORECASE)
     except re.error as e:
         raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
-    
+
     matches: List[ArtifactMetadata] = []
-    
+
     # Priority: S3 (production) > SQLite (local) > in-memory
     if USE_S3 and s3_storage:
         try:
@@ -1687,12 +1696,12 @@ async def search_models(
             )
         except Exception:
             s3_artifacts = []
-        
+
         for art_data in s3_artifacts:
             metadata = art_data.get("metadata", {})
             if metadata.get("type") != "model":
                 continue
-            
+
             # Search in name
             name = str(metadata.get("name", ""))
             if pattern.search(name):
@@ -1704,7 +1713,7 @@ async def search_models(
                     )
                 )
                 continue
-            
+
             # Search in model card (from HF data)
             data = art_data.get("data", {})
             hf_data_list = data.get("hf_data", [])
@@ -1720,14 +1729,14 @@ async def search_models(
                                 type=ArtifactType("model"),
                             )
                         )
-        
+
         # Also check in-memory for same-request artifacts
         for artifact_id, artifact_data in artifacts_db.items():
             if artifact_data["metadata"]["type"] != "model":
                 continue
             if any(m.id == artifact_id for m in matches):
                 continue
-            
+
             name = artifact_data["metadata"]["name"]
             if pattern.search(name):
                 matches.append(
@@ -1743,7 +1752,7 @@ async def search_models(
             for art in items:
                 if art.type != "model":
                     continue
-                
+
                 if pattern.search(art.name):
                     matches.append(
                         ArtifactMetadata(name=art.name, id=art.id, type=ArtifactType("model"))
@@ -1753,7 +1762,7 @@ async def search_models(
         for artifact_id, artifact_data in artifacts_db.items():
             if artifact_data["metadata"]["type"] != "model":
                 continue
-            
+
             name = artifact_data["metadata"]["name"]
             if pattern.search(name):
                 matches.append(
@@ -1763,7 +1772,7 @@ async def search_models(
                         type=ArtifactType("model"),
                     )
                 )
-    
+
     # Remove duplicates while preserving order
     seen = set()
     unique_matches = []
@@ -1771,7 +1780,7 @@ async def search_models(
         if m.id not in seen:
             seen.add(m.id)
             unique_matches.append(m)
-    
+
     return {
         "query": query,
         "count": len(unique_matches),
@@ -1787,12 +1796,12 @@ async def search_models_by_version(
     """Search models by version using semver notation (M4.2)"""
     if not check_permission(user, "search"):
         raise HTTPException(status_code=401, detail="You do not have permission to search models.")
-    
+
     if not query or len(query.strip()) == 0:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
-    
+
     matches: List[Dict[str, Any]] = []
-    
+
     # Priority: S3 (production) > SQLite (local) > in-memory
     if USE_S3 and s3_storage:
         try:
@@ -1801,17 +1810,17 @@ async def search_models_by_version(
             )
         except Exception:
             s3_artifacts = []
-        
+
         for art_data in s3_artifacts:
             metadata = art_data.get("metadata", {})
             if metadata.get("type") != "model":
                 continue
-            
+
             # Extract versions from HF data (git tags in vX or X format)
             versions = []
             data = art_data.get("data", {})
             hf_data_list = data.get("hf_data", [])
-            
+
             if hf_data_list and isinstance(hf_data_list, list) and len(hf_data_list) > 0:
                 hf_info = hf_data_list[0]
                 if isinstance(hf_info, dict):
@@ -1824,7 +1833,7 @@ async def search_models_by_version(
                                 if rfilename.startswith("v") and len(rfilename) > 1:
                                     # Extract version like "v1.0.0" -> "1.0.0"
                                     versions.append(rfilename[1:])
-            
+
             # Check if any version matches the query
             if versions:
                 for version in versions:
@@ -1836,14 +1845,14 @@ async def search_models_by_version(
                             "version": version,
                         })
                         break  # Only include each model once
-        
+
         # Also check in-memory
         for artifact_id, artifact_data in artifacts_db.items():
             if artifact_data["metadata"]["type"] != "model":
                 continue
             if any(m["id"] == artifact_id for m in matches):
                 continue
-            
+
             # For in-memory, we'd need to parse version from name or metadata
             # This is a simplified version check
     elif USE_SQLITE:
@@ -1852,7 +1861,7 @@ async def search_models_by_version(
             for art in items:
                 if art.type != "model":
                     continue
-                
+
                 # Try to extract version from artifact name (e.g., "model-v1.0.0")
                 import re
                 version_match = re.search(r'v?(\d+\.\d+(?:\.\d+)?)', art.name, re.IGNORECASE)
@@ -1871,7 +1880,7 @@ async def search_models_by_version(
         for artifact_id, artifact_data in artifacts_db.items():
             if artifact_data["metadata"]["type"] != "model":
                 continue
-            
+
             # Try to extract version from artifact name
             name = artifact_data["metadata"]["name"]
             version_match = re.search(r'v?(\d+\.\d+(?:\.\d+)?)', name, re.IGNORECASE)
@@ -1884,7 +1893,7 @@ async def search_models_by_version(
                         "type": "model",
                         "version": version,
                     })
-    
+
     # Remove duplicates by id
     seen = set()
     unique_matches = []
@@ -1892,7 +1901,7 @@ async def search_models_by_version(
         if m["id"] not in seen:
             seen.add(m["id"])
             unique_matches.append(m)
-    
+
     return {
         "query": query,
         "count": len(unique_matches),
