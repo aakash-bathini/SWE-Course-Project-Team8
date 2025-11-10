@@ -5,14 +5,14 @@ This file provides shared fixtures including auth mocking for testing endpoints.
 
 import pytest
 from unittest.mock import patch
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 @pytest.fixture
 def mock_verify_token():
     """Mock the verify_token dependency to allow endpoint testing without auth complications."""
 
-    def _mock_verify(token: str = None) -> Dict[str, Any]:
+    def _mock_verify(token: Optional[str] = None) -> Dict[str, Any]:
         """Return a valid admin user for testing."""
         return {
             "sub": "test-user-123",

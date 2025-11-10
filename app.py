@@ -1638,10 +1638,10 @@ def matches_version_query(version_str: str, query: str) -> bool:
                 return False
             # Check upper bound: <next minor version
             if len(base) >= 2:
-                upper = (base[0], base[1] + 1)
+                upper_tilde: tuple[int, ...] = (base[0], base[1] + 1)
             else:
-                upper = (base[0] + 1,)
-            return compare_versions(parsed, upper) < 0
+                upper_tilde = (base[0] + 1,)
+            return compare_versions(parsed, upper_tilde) < 0
 
         # Caret: ^1.2.0 = >=1.2.0, <2.0.0 (or <0.3.0 if major is 0)
         if query.startswith('^'):
@@ -1653,13 +1653,13 @@ def matches_version_query(version_str: str, query: str) -> bool:
             if len(base) > 0 and base[0] == 0:
                 # For 0.x.y, allow changes to x but not x+1
                 if len(base) >= 2:
-                    upper = (0, base[1] + 1)
+                    upper_caret: tuple[int, ...] = (0, base[1] + 1)
                 else:
-                    upper = (1,)
+                    upper_caret = (1,)
             else:
                 # For x.y.z (x > 0), allow changes to y and z but not x+1
-                upper = (base[0] + 1,)
-            return compare_versions(parsed, upper) < 0
+                upper_caret = (base[0] + 1,)
+            return compare_versions(parsed, upper_caret) < 0
 
         return False
     except Exception:
@@ -1753,7 +1753,7 @@ async def search_models(
                 if art.type != "model":
                     continue
 
-                if pattern.search(art.name):
+                if pattern.search(str(art.name)):
                     matches.append(
                         ArtifactMetadata(name=art.name, id=art.id, type=ArtifactType("model"))
                     )
@@ -1864,7 +1864,7 @@ async def search_models_by_version(
 
                 # Try to extract version from artifact name (e.g., "model-v1.0.0")
                 import re
-                version_match = re.search(r'v?(\d+\.\d+(?:\.\d+)?)', art.name, re.IGNORECASE)
+                version_match = re.search(r'v?(\d+\.\d+(?:\.\d+)?)', str(art.name), re.IGNORECASE)
                 if version_match:
                     version = version_match.group(1)
                     if matches_version_query(version, query):
