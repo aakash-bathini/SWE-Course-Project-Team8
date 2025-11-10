@@ -3028,7 +3028,7 @@ async def download_sensitive_model(
                     blocked = exec_result.get("blocked", False)
 
                     # Record in audit
-                    download_record.js_exit_code = js_exit_code
+                    download_record.js_exit_code = int(js_exit_code) if js_exit_code is not None else None  # type: ignore[assignment]
                     download_record.js_stdout = js_stdout
                     download_record.js_stderr = js_stderr
 

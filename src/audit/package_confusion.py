@@ -35,7 +35,8 @@ def analyze_download_velocity(
         window_start = now - timedelta(hours=window_hours)
 
         recent_downloads = [
-            d for d in download_history
+            d
+            for d in download_history
             if isinstance(d.get("downloaded_at"), str)
             and datetime.fromisoformat(d["downloaded_at"]) >= window_start
         ]
@@ -69,10 +70,7 @@ def calculate_user_diversity(download_history: List[Dict[str, Any]]) -> float:
 
     try:
         total_downloads = len(download_history)
-        unique_users = len(set(
-            d.get("downloader_username", "unknown")
-            for d in download_history
-        ))
+        unique_users = len(set(d.get("downloader_username", "unknown") for d in download_history))
 
         diversity = unique_users / total_downloads
         logger.debug(f"User diversity: {diversity:.2f} ({unique_users}/{total_downloads})")
@@ -124,7 +122,7 @@ def detect_bot_farm(
 
             if len(timestamps) >= 5:
                 time_diffs = [
-                    (timestamps[i+1] - timestamps[i]).total_seconds()
+                    (timestamps[i + 1] - timestamps[i]).total_seconds()
                     for i in range(len(timestamps) - 1)
                 ]
                 avg_time_between = statistics.mean(time_diffs) if time_diffs else float("inf")
@@ -132,11 +130,13 @@ def detect_bot_farm(
                 # Suspicious if average < 2 seconds between downloads
                 if avg_time_between < 2.0:
                     indicators_detected += 1
-                    logger.warning(f"Bot indicator: Rapid downloads ({avg_time_between:.1f}s apart)")
+                    logger.warning(
+                        f"Bot indicator: Rapid downloads ({avg_time_between:.1f}s apart)"
+                    )
 
         # Indicator 2: Repeated username pattern
         usernames = [d.get("downloader_username", "unknown") for d in download_history]
-        username_counts = defaultdict(int)
+        username_counts: defaultdict[str, int] = defaultdict(int)
         for u in usernames:
             username_counts[u] += 1
 
@@ -145,7 +145,9 @@ def detect_bot_farm(
             max_count = max(username_counts.values())
             if max_count > len(usernames) * 0.5:
                 indicators_detected += 1
-                logger.warning(f"Bot indicator: One user dominated {max_count}/{len(usernames)} downloads")
+                logger.warning(
+                    f"Bot indicator: One user dominated {max_count}/{len(usernames)} downloads"
+                )
 
         # Indicator 3: Too many downloads from same uploader
         # (This would require uploader info in history - skip for now)

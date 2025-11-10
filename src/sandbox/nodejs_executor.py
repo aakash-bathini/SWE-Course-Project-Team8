@@ -61,10 +61,7 @@ const ZIP_FILE_PATH = {json.dumps(zip_file_path)};
 
         # Write wrapper to temporary file
         with tempfile.NamedTemporaryFile(
-            mode="w",
-            suffix=".js",
-            delete=False,
-            encoding="utf-8"
+            mode="w", suffix=".js", delete=False, encoding="utf-8"
         ) as f:
             f.write(wrapper_code)
             temp_js_file = f.name

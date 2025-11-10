@@ -45,6 +45,7 @@ class AuditEntry(Base):
 
 class JSProgram(Base):
     """JavaScript monitoring program for sensitive models (M5.1)"""
+
     __tablename__ = "js_programs"
 
     id = Column(String, primary_key=True, index=True)
@@ -59,6 +60,7 @@ class JSProgram(Base):
 
 class SensitiveModel(Base):
     """Sensitive model with optional JavaScript monitoring program (M5.1)"""
+
     __tablename__ = "sensitive_models"
 
     id = Column(String, primary_key=True, index=True)
@@ -69,15 +71,20 @@ class SensitiveModel(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     js_program = relationship("JSProgram", back_populates="sensitive_models")
-    download_history = relationship("DownloadHistory", back_populates="sensitive_model", cascade="all, delete-orphan")
+    download_history = relationship(
+        "DownloadHistory", back_populates="sensitive_model", cascade="all, delete-orphan"
+    )
 
 
 class DownloadHistory(Base):
     """Download audit trail for sensitive models (M5.1)"""
+
     __tablename__ = "download_history"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    sensitive_model_id = Column(String, ForeignKey("sensitive_models.id"), nullable=False, index=True)
+    sensitive_model_id = Column(
+        String, ForeignKey("sensitive_models.id"), nullable=False, index=True
+    )
     downloader_username = Column(String, ForeignKey("users.username"), nullable=False)
     downloaded_at = Column(DateTime, default=datetime.utcnow)
     js_exit_code = Column(Integer, nullable=True)
@@ -85,4 +92,3 @@ class DownloadHistory(Base):
     js_stderr = Column(Text, nullable=True)
 
     sensitive_model = relationship("SensitiveModel", back_populates="download_history")
-
