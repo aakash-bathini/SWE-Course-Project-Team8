@@ -306,6 +306,7 @@ Response: 201 Created
   }
 }
 ```
+Note: As of v3.4.4, servers may return 202 Accepted when rating is deferred asynchronously (e.g., when `X-Async-Ingest: true` or `?async=true` is used). The implementation here returns the same response body with HTTP 202 for frontend compatibility, and `/artifact/model/{id}/rate` will return 404 until rating succeeds.
 
 ```http
 GET /artifacts/{artifact_type}/{id}
