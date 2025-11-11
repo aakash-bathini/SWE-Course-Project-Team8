@@ -40,6 +40,9 @@ htmlcov/
 .hypothesis/
 .tox/
 .nox/
+test_results.txt
+*.test-results
+test-results/
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -161,5 +164,4 @@ chromedriver
 config.local.*
 settings.local.*
 
-# OpenAPI spec file (autograder file, not needed in git)
-ece461_fall_2025_openapi_spec.yaml
+# Note: ece461_fall_2025_openapi_spec.yaml is kept in git as it's required for the project
