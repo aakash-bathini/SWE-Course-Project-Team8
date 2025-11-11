@@ -259,18 +259,12 @@ class TestAuthentication:
     def test_authenticate_success(self):
         """Test successful authentication"""
         from app import app, users_db, DEFAULT_ADMIN
-        from src.auth.jwt_auth import auth
         client = TestClient(app)
         
-        # Ensure default admin exists with correct password hash
+        # Ensure default admin exists (password is stored as plain text per code)
         admin_username = DEFAULT_ADMIN["username"]
         admin_password = DEFAULT_ADMIN["password"]
-        hashed_password = auth.get_password_hash(admin_password)
-        users_db[admin_username] = {
-            "username": admin_username,
-            "password": hashed_password,
-            "permissions": DEFAULT_ADMIN["permissions"]
-        }
+        users_db[admin_username] = DEFAULT_ADMIN.copy()
         
         auth_data = {
             "user": {"name": admin_username},
@@ -282,20 +276,15 @@ class TestAuthentication:
         token = response.json()
         assert isinstance(token, str)
         assert len(token) > 0
+        assert token.startswith("bearer ")
 
     def test_authenticate_invalid_password(self):
         """Test authentication with invalid password"""
         from app import app, users_db, DEFAULT_ADMIN
-        from src.auth.jwt_auth import auth
         client = TestClient(app)
         
         admin_username = DEFAULT_ADMIN["username"]
-        hashed_password = auth.get_password_hash(DEFAULT_ADMIN["password"])
-        users_db[admin_username] = {
-            "username": admin_username,
-            "password": hashed_password,
-            "permissions": DEFAULT_ADMIN["permissions"]
-        }
+        users_db[admin_username] = DEFAULT_ADMIN.copy()
         
         auth_data = {
             "user": {"name": admin_username},
@@ -348,23 +337,20 @@ class TestAuthentication:
     def test_authenticate_sqlite_user_lookup(self):
         """Test authentication with SQLite user lookup"""
         from app import app, get_db, db_crud, users_db
-        from src.auth.jwt_auth import auth
         client = TestClient(app)
         
-        if get_db and db_crud:
-            # Create user in SQLite path (simplified test)
-            test_username = "sqlite_test_user"
-            test_password = "test_password"
-            hashed_password = auth.get_password_hash(test_password)
-            
-            # Test that SQLite lookup path exists
-            auth_data = {
-                "user": {"name": test_username},
-                "secret": {"password": test_password}
-            }
-            response = client.put("/authenticate", json=auth_data)
-            # Should fail (user doesn't exist) but tests the path
-            assert response.status_code == 401
+        # Test that SQLite lookup path exists (user doesn't exist, so should fail)
+        test_username = "sqlite_test_user"
+        if test_username in users_db:
+            del users_db[test_username]
+        
+        auth_data = {
+            "user": {"name": test_username},
+            "secret": {"password": "test_password"}
+        }
+        response = client.put("/authenticate", json=auth_data)
+        # Should fail (user doesn't exist) but tests the SQLite lookup path
+        assert response.status_code == 401
 
 
 class TestResetEndpoint:
