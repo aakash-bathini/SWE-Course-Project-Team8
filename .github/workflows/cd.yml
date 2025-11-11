@@ -18,6 +18,8 @@ jobs:
   deploy:
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:
       - uses: actions/checkout@v5
 
@@ -138,7 +140,7 @@ jobs:
             --handler app.handler \
             --timeout 60 \
             --memory-size 1024 \
-            --environment "Variables={USE_S3=1,S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }},USE_SQLITE=0,ENVIRONMENT=production,LOG_LEVEL=INFO}"
+            --environment "Variables={USE_S3=1,S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }},USE_SQLITE=0,ENVIRONMENT=production,LOG_LEVEL=INFO,GH_TOKEN=${GH_TOKEN}}"
           
           # Wait for configuration update to complete
           echo "Waiting for Lambda function configuration update to complete..."
