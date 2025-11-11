@@ -7,6 +7,7 @@ Main application entry point with REST API endpoints matching OpenAPI spec v3.4.
 import logging
 import os
 import sys
+from urllib.parse import unquote
 
 # Configure logging first
 logging.basicConfig(
@@ -2179,8 +2180,8 @@ async def artifact_create(
             pass  # Use in-memory count if S3 fails
     artifact_id = f"{artifact_type.value}-{type_count + 1}-{int(datetime.now().timestamp())}"
 
-    # Extract name from URL (handle trailing slashes)
-    artifact_name = artifact_data.url.rstrip("/").split("/")[-1] if artifact_data.url else "unknown"
+    # Extract name from URL (handle trailing slashes and URL encoding)
+    artifact_name = unquote(artifact_data.url.rstrip("/").split("/")[-1]) if artifact_data.url else "unknown"
 
     # For HuggingFace URLs, try to scrape and store hf_data for regex search
     hf_data: Optional[List[Dict[str, Any]]] = None
