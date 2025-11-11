@@ -1,3 +1,4 @@
+# fmt: off
 import pytest
 import sys
 import os
@@ -45,13 +46,20 @@ def test_good_model_ingest_and_rate_passes_threshold(model_name):
     }
 
     # Ensure project root on sys.path for `import app`
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+    sys.path.insert(
+        0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    )
     from fastapi.testclient import TestClient
     from app import app
     from src.auth.jwt_auth import auth
 
     # Valid admin+upload token
-    token = auth.create_access_token({"sub": "tester", "permissions": ["upload", "search", "download", "admin"]})
+    token = auth.create_access_token(
+        {
+            "sub": "tester",
+            "permissions": ["upload", "search", "download", "admin"],
+        }
+    )
     headers = {"X-Authorization": f"bearer {token}"}
 
     with patch("app.scrape_hf_url", return_value=(hf_data, "model")), patch(
@@ -80,5 +88,4 @@ def test_good_model_ingest_and_rate_passes_threshold(model_name):
             # Only check non-negative metrics; sentinel negatives are allowed for N/A
             if isinstance(rating[key], (int, float)) and rating[key] >= 0.0:
                 assert rating[key] >= 0.5
-
-
+# fmt: on
