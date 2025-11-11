@@ -3,7 +3,9 @@ JWT Authentication Module for Phase 2
 Handles token generation, validation, and user authentication
 """
 
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
+
+UTC = timezone.utc  # Python 3.9 compatibility
 from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 from passlib.context import CryptContext

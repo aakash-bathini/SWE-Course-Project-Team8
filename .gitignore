@@ -40,6 +40,9 @@ htmlcov/
 .hypothesis/
 .tox/
 .nox/
+test_results.txt
+*.test-results
+test-results/
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -161,5 +164,8 @@ chromedriver
 config.local.*
 settings.local.*
 
-# OpenAPI spec file (autograder file, not needed in git)
+# OpenAPI specification (not needed in repo)
 ece461_fall_2025_openapi_spec.yaml
+
+# Local verification docs (not needed in repo)
+REQUIREMENTS_VERIFICATION.md

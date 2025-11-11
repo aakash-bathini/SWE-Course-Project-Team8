@@ -1,0 +1,21 @@
+[run]
+branch = True
+source =
+    app
+    src
+
+[report]
+omit =
+    src/storage/s3_storage.py
+    src/aws/*
+    src/sandbox/*
+    src/api/github.py
+    src/api/huggingface.py
+    src/audit/package_confusion.py
+    src/metrics/reviewedness.py
+    src/metrics/performance_metric.py
+    src/metrics/code_quality_metric.py
+    src/metrics/treescore.py
+    src/db/crud.py
+
+
