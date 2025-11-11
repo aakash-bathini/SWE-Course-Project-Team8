@@ -1953,7 +1953,7 @@ async def artifact_by_name(
         # Also check in-memory for same-request artifacts (Lambda cold start protection)
         for artifact_id, artifact_data in artifacts_db.items():
             stored_name = artifact_data["metadata"]["name"]
-            if stored_name == name:
+            if stored_name.lower() == search_name_lc:
                 # Check if already in matches
                 if not any(m.id == artifact_id for m in matches):
                     matches.append(
@@ -1965,7 +1965,7 @@ async def artifact_by_name(
                     )
             elif "hf_model_name" in artifact_data:
                 hf_model_name = artifact_data["hf_model_name"]
-                if hf_model_name == name:
+                if hf_model_name.lower() == search_name_lc:
                     if not any(m.id == artifact_id for m in matches):
                         matches.append(
                             ArtifactMetadata(
@@ -2328,10 +2328,17 @@ async def artifact_retrieve(
                 f"Artifact type mismatch: stored={stored_type}, requested={artifact_type.value}"
             )
             raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+
+        # Extract URL with proper null checking
+        artifact_url = artifact_data.get("data", {}).get("url") or ""
+        if not artifact_url:
+            logger.error(f"❌ Artifact {id} has no URL in data")
+            raise HTTPException(status_code=500, detail="Artifact data is malformed.")
+
         download_url = generate_download_url(artifact_type.value, id, request)
         return Artifact(
             metadata=ArtifactMetadata(**artifact_data["metadata"]),
-            data=ArtifactData(url=artifact_data["data"]["url"], download_url=download_url),
+            data=ArtifactData(url=artifact_url, download_url=download_url),
         )
     elif USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
