@@ -1983,11 +1983,13 @@ async def artifact_by_name(
                     matches.append(
                         ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type))
                     )
-    else:
-        # In-memory fallback
-        for artifact_id, artifact_data in artifacts_db.items():
-            stored_name = str(artifact_data["metadata"]["name"]).strip()
-            if stored_name.lower() == search_name_lc:
+    
+    # Always search in-memory as well (captures just-created items and ensures consistency)
+    for artifact_id, artifact_data in artifacts_db.items():
+        stored_name = str(artifact_data["metadata"]["name"]).strip()
+        if stored_name.lower() == search_name_lc:
+            # Check if already in matches
+            if not any(m.id == artifact_id for m in matches):
                 matches.append(
                     ArtifactMetadata(
                         name=stored_name,
@@ -1995,9 +1997,10 @@ async def artifact_by_name(
                         type=ArtifactType(artifact_data["metadata"]["type"]),
                     )
                 )
-            elif "hf_model_name" in artifact_data:
-                hf_model_name = str(artifact_data["hf_model_name"]).strip()
-                if hf_model_name.lower() == search_name_lc:
+        elif "hf_model_name" in artifact_data:
+            hf_model_name = str(artifact_data["hf_model_name"]).strip()
+            if hf_model_name.lower() == search_name_lc:
+                if not any(m.id == artifact_id for m in matches):
                     matches.append(
                         ArtifactMetadata(
                             name=stored_name,
@@ -2063,65 +2066,73 @@ async def artifact_by_regex(
             items = db_crud.list_by_regex(_db, regex.regex)
             for a in items:
                 matches.append(ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type)))
-    # Always search in-memory as a final fallback (captures just-created items)
-    if not USE_S3 and not USE_SQLITE or True:
-        # Search in-memory artifacts: check both name and README content
-        for artifact_id, artifact_data in artifacts_db.items():
-            name = artifact_data["metadata"]["name"]
-            readme_text = ""
+    
+    # Always search in-memory as well (captures just-created items and in-memory-only deployments)
+    # Search in-memory artifacts: check both name and README content
+    for artifact_id, artifact_data in artifacts_db.items():
+        name = artifact_data["metadata"]["name"]
+        readme_text = ""
 
-            # Extract README text from hf_data if available
-            if "hf_data" in artifact_data.get("data", {}):
-                hf_data = artifact_data["data"].get("hf_data", [])
-                if isinstance(hf_data, list) and len(hf_data) > 0:
-                    readme_text = (
-                        hf_data[0].get("readme_text", "") if isinstance(hf_data[0], dict) else ""
-                    )
-            elif "hf_model_name" in artifact_data:
-                # For ingested models, try to get README from HuggingFace
-                try:
-                    if scrape_hf_url is not None:
-                        url = artifact_data["data"]["url"]
-                        if isinstance(url, str) and "huggingface.co" in url.lower():
-                            hf_data, _ = scrape_hf_url(url)
-                            readme_text = (
-                                hf_data.get("readme_text", "") if isinstance(hf_data, dict) else ""
-                            )
-                except Exception:
-                    pass  # If we can't get README, just search name
-
-            # Search in both name and README, and also include hf_model_name for exact matches
-            # Include hf_model_name to allow searching by full HuggingFace model name
-            hf_model_name = artifact_data.get("hf_model_name", "")
-
-            # For exact matches (patterns like ^name$), check name and hf_model_name individually
-            # For partial matches, search in the concatenated text
-            # This ensures exact match regexes work correctly
-            name_matches = pattern.search(name) or pattern.fullmatch(name)
-            hf_name_matches = (
-                (pattern.search(hf_model_name) or pattern.fullmatch(hf_model_name))
-                if hf_model_name
-                else False
-            )
-            readme_matches = pattern.search(readme_text) if readme_text else False
-
-            # Also check concatenated text for partial matches
-            search_text = f"{name} {hf_model_name} {readme_text}"
-            concatenated_matches = pattern.search(search_text)
-
-            # Match if any component matches
-            if name_matches or hf_name_matches or readme_matches or concatenated_matches:
-                matches.append(
-                    ArtifactMetadata(
-                        name=name,
-                        id=artifact_id,
-                        type=ArtifactType(artifact_data["metadata"]["type"]),
-                    )
+        # Extract README text from hf_data if available
+        if "hf_data" in artifact_data.get("data", {}):
+            hf_data = artifact_data["data"].get("hf_data", [])
+            if isinstance(hf_data, list) and len(hf_data) > 0:
+                readme_text = (
+                    hf_data[0].get("readme_text", "") if isinstance(hf_data[0], dict) else ""
                 )
+        elif "hf_model_name" in artifact_data:
+            # For ingested models, try to get README from HuggingFace
+            try:
+                if scrape_hf_url is not None:
+                    url = artifact_data.get("data", {}).get("url")
+                    if isinstance(url, str) and "huggingface.co" in url.lower():
+                        hf_data, _ = scrape_hf_url(url)
+                        readme_text = (
+                            hf_data.get("readme_text", "") if isinstance(hf_data, dict) else ""
+                        )
+            except Exception:
+                pass  # If we can't get README, just search name
 
-    if not matches:
+        # Search in both name and README, and also include hf_model_name for exact matches
+        # Include hf_model_name to allow searching by full HuggingFace model name
+        hf_model_name = artifact_data.get("hf_model_name", "")
+
+        # For exact matches (patterns like ^name$), check name and hf_model_name individually
+        # For partial matches, search in the concatenated text
+        # This ensures exact match regexes work correctly
+        name_matches = pattern.search(name) or pattern.fullmatch(name)
+        hf_name_matches = (
+            (pattern.search(hf_model_name) or pattern.fullmatch(hf_model_name))
+            if hf_model_name
+            else False
+        )
+        readme_matches = pattern.search(readme_text) if readme_text else False
+
+        # Also check concatenated text for partial matches
+        search_text = f"{name} {hf_model_name} {readme_text}"
+        concatenated_matches = pattern.search(search_text)
+
+        # Match if any component matches
+        if name_matches or hf_name_matches or readme_matches or concatenated_matches:
+            matches.append(
+                ArtifactMetadata(
+                    name=name,
+                    id=artifact_id,
+                    type=ArtifactType(artifact_data["metadata"]["type"]),
+                )
+            )
+
+    # Deduplicate by artifact ID
+    seen_ids = set()
+    unique_matches = []
+    for match in matches:
+        if match.id not in seen_ids:
+            seen_ids.add(match.id)
+            unique_matches.append(match)
+    
+    if not unique_matches:
         raise HTTPException(status_code=404, detail="No artifact found under this regex.")
-    return matches
+    return unique_matches
 
 
 @app.post("/artifact/{artifact_type}", response_model=Artifact, status_code=201)
@@ -2309,10 +2320,14 @@ async def artifact_retrieve(
                 stored_type = artifact_data["metadata"]["type"]
                 if stored_type != artifact_type.value:
                     raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+                artifact_url = artifact_data.get("data", {}).get("url") or ""
+                if not artifact_url:
+                    logger.error(f"❌ Artifact {id} has no URL in in-memory data")
+                    raise HTTPException(status_code=500, detail="Artifact data is malformed.")
                 download_url = generate_download_url(artifact_type.value, id, request)
                 return Artifact(
                     metadata=ArtifactMetadata(**artifact_data["metadata"]),
-                    data=ArtifactData(url=artifact_data["data"]["url"], download_url=download_url),
+                    data=ArtifactData(url=artifact_url, download_url=download_url),
                 )
             logger.error(
                 f"❌ Artifact not found in S3 or in-memory: id={id}, type={artifact_type.value}"
@@ -2344,7 +2359,22 @@ async def artifact_retrieve(
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
             if not art:
-                logger.warning(f"Artifact not found in SQLite: id={id}")
+                # Fallback to in-memory for same-request compatibility
+                if id in artifacts_db:
+                    artifact_data = artifacts_db[id]
+                    stored_type = artifact_data["metadata"]["type"]
+                    if stored_type != artifact_type.value:
+                        raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+                    artifact_url = artifact_data.get("data", {}).get("url") or ""
+                    if not artifact_url:
+                        logger.error(f"❌ Artifact {id} has no URL in in-memory data")
+                        raise HTTPException(status_code=500, detail="Artifact data is malformed.")
+                    download_url = generate_download_url(artifact_type.value, id, request)
+                    return Artifact(
+                        metadata=ArtifactMetadata(**artifact_data["metadata"]),
+                        data=ArtifactData(url=artifact_url, download_url=download_url),
+                    )
+                logger.warning(f"Artifact not found in SQLite or in-memory: id={id}")
                 raise HTTPException(status_code=404, detail="Artifact does not exist.")
             if art.type != artifact_type.value:
                 logger.warning(
@@ -2368,10 +2398,14 @@ async def artifact_retrieve(
                 f"Artifact type mismatch: stored={stored_type}, requested={artifact_type.value}"
             )
             raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+        artifact_url = artifact_data.get("data", {}).get("url") or ""
+        if not artifact_url:
+            logger.error(f"❌ Artifact {id} has no URL in in-memory data")
+            raise HTTPException(status_code=500, detail="Artifact data is malformed.")
         download_url = generate_download_url(artifact_type.value, id, request)
         return Artifact(
             metadata=ArtifactMetadata(**artifact_data["metadata"]),
-            data=ArtifactData(url=artifact_data["data"]["url"], download_url=download_url),
+            data=ArtifactData(url=artifact_url, download_url=download_url),
         )
 
 
