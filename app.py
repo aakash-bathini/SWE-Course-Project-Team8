@@ -79,6 +79,7 @@ security = HTTPBearer()
 # Import Phase 2 components (after app initialization to avoid circular imports)
 try:
     from src.api.huggingface import scrape_hf_url  # noqa: E402
+    from src.api.github import scrape_github_url  # noqa: E402
     from src.metrics.phase2_adapter import (  # noqa: E402
         create_eval_context_from_model_data,
         calculate_phase2_metrics,
@@ -89,6 +90,7 @@ except Exception as e:
     logger.warning(f"Optional imports failed (may not be available in this environment): {e}")
     # Set to None to prevent errors - use type: ignore for mypy compatibility
     scrape_hf_url = None  # type: ignore[assignment]
+    scrape_github_url = None  # type: ignore[assignment]
     create_eval_context_from_model_data = None  # type: ignore[assignment]
     calculate_phase2_metrics = None  # type: ignore[assignment]
     calculate_phase2_net_score = None  # type: ignore[assignment]
@@ -1346,7 +1348,23 @@ async def models_ingest(
                 status_code=501, detail="HuggingFace ingestion not available in this environment."
             )
         hf_data, repo_type = scrape_hf_url(hf_url)
-        model_data = {"url": hf_url, "hf_data": [hf_data], "gh_data": []}
+        
+        # Fetch GitHub data if GitHub link is available in HF data
+        gh_data = []
+        github_links = hf_data.get("github_links", [])
+        if github_links and isinstance(github_links, list) and len(github_links) > 0:
+            # Use the first GitHub link found
+            github_url = github_links[0]
+            if scrape_github_url is not None:
+                try:
+                    logger.info(f"Fetching GitHub data from: {github_url}")
+                    gh_profile = scrape_github_url(github_url)
+                    gh_data = [gh_profile]
+                except Exception as gh_err:
+                    logger.warning(f"Failed to scrape GitHub URL {github_url}: {gh_err}")
+                    gh_data = []
+        
+        model_data = {"url": hf_url, "hf_data": [hf_data], "gh_data": gh_data}
 
         # Calculate all metrics
         metrics = await calculate_phase2_metrics(model_data)
