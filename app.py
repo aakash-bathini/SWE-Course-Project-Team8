@@ -1983,7 +1983,7 @@ async def artifact_by_name(
                     matches.append(
                         ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type))
                     )
-    
+
     # Always search in-memory as well (captures just-created items and ensures consistency)
     for artifact_id, artifact_data in artifacts_db.items():
         stored_name = str(artifact_data["metadata"]["name"]).strip()
@@ -2066,7 +2066,7 @@ async def artifact_by_regex(
             items = db_crud.list_by_regex(_db, regex.regex)
             for a in items:
                 matches.append(ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type)))
-    
+
     # Always search in-memory as well (captures just-created items and in-memory-only deployments)
     # Search in-memory artifacts: check both name and README content
     for artifact_id, artifact_data in artifacts_db.items():
@@ -2129,7 +2129,7 @@ async def artifact_by_regex(
         if match.id not in seen_ids:
             seen_ids.add(match.id)
             unique_matches.append(match)
-    
+
     if not unique_matches:
         raise HTTPException(status_code=404, detail="No artifact found under this regex.")
     return unique_matches
