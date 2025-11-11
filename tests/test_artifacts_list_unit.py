@@ -26,7 +26,9 @@ def test_artifacts_list_and_by_name_and_models_enumerate():
 
     # Create a couple of artifacts
     m = client.post("/artifact/model", json={"url": "https://example.org/model-a"}, headers=headers)
-    d = client.post("/artifact/dataset", json={"url": "https://example.org/dataset-a"}, headers=headers)
+    d = client.post(
+        "/artifact/dataset", json={"url": "https://example.org/dataset-a"}, headers=headers
+    )
 
     if m.status_code == 201 and d.status_code == 201:
         mid = m.json()["metadata"]["id"]
@@ -47,5 +49,3 @@ def test_artifacts_list_and_by_name_and_models_enumerate():
         assert enum.status_code == 200
         body = enum.json()
         assert "items" in body and isinstance(body["items"], list)
-
-

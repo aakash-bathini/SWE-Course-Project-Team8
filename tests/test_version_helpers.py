@@ -108,4 +108,3 @@ class TestVersionParsing:
         assert result2 is False or result2 is True  # May handle differently
         result3 = matches_version_query("", "")
         assert result3 is False or result3 is True  # May handle differently
-

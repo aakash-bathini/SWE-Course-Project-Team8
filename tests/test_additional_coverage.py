@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 def _get_auth_token():
     """Helper to get auth token"""
     from src.auth.jwt_auth import auth
+
     token_data = {
         "sub": "ece30861defaultadminuser",
         "permissions": ["upload", "search", "download", "admin"],
@@ -34,6 +35,7 @@ class TestRootEndpoint:
     def test_root_endpoint(self):
         """Test root endpoint"""
         from app import app
+
         client = TestClient(app)
         response = client.get("/")
         assert response.status_code == 200
@@ -46,6 +48,7 @@ class TestVerifyTokenEndpoint:
     def test_verify_token_endpoint_501(self):
         """Test verify token endpoint returns 501"""
         from app import app
+
         client = TestClient(app)
         response = client.get("/verify-token")
         assert response.status_code == 501
@@ -57,12 +60,14 @@ class TestGenerateDownloadURL:
     def test_generate_download_url_non_model(self):
         """Test generate_download_url for non-model"""
         from app import generate_download_url
+
         result = generate_download_url("dataset", "test_id", None)
         assert result is None
 
     def test_generate_download_url_model_no_request(self):
         """Test generate_download_url for model without request"""
         from app import generate_download_url
+
         with patch.dict(os.environ, {}, clear=True):
             result = generate_download_url("model", "test_id", None)
             assert result == "/models/test_id/download"
@@ -70,6 +75,7 @@ class TestGenerateDownloadURL:
     def test_generate_download_url_model_with_env(self):
         """Test generate_download_url with environment variable"""
         from app import generate_download_url
+
         with patch.dict(os.environ, {"API_GATEWAY_URL": "https://api.example.com"}):
             result = generate_download_url("model", "test_id", None)
             assert result == "https://api.example.com/models/test_id/download"
@@ -79,7 +85,7 @@ class TestGenerateDownloadURL:
         from app import generate_download_url
         from fastapi import Request
         from unittest.mock import Mock
-        
+
         mock_request = Mock(spec=Request)
         mock_request.base_url = "https://example.com/"
         result = generate_download_url("model", "test_id", mock_request)
@@ -92,6 +98,7 @@ class TestCheckPermission:
     def test_check_permission_has_permission(self):
         """Test check_permission when user has permission"""
         from app import check_permission
+
         user = {"username": "test", "permissions": ["upload", "search"]}
         assert check_permission(user, "upload") is True
         assert check_permission(user, "search") is True
@@ -99,6 +106,7 @@ class TestCheckPermission:
     def test_check_permission_no_permission(self):
         """Test check_permission when user lacks permission"""
         from app import check_permission
+
         user = {"username": "test", "permissions": ["upload"]}
         assert check_permission(user, "download") is False
         assert check_permission(user, "admin") is False
@@ -106,6 +114,7 @@ class TestCheckPermission:
     def test_check_permission_missing_permissions_key(self):
         """Test check_permission when permissions key is missing"""
         from app import check_permission
+
         user = {"username": "test"}
         assert check_permission(user, "upload") is False
 
@@ -116,10 +125,9 @@ class TestUserModels:
     def test_user_registration_request(self):
         """Test UserRegistrationRequest model"""
         from app import UserRegistrationRequest
+
         req = UserRegistrationRequest(
-            username="newuser",
-            password="password123",
-            permissions=["upload"]
+            username="newuser", password="password123", permissions=["upload"]
         )
         assert req.username == "newuser"
         assert req.password == "password123"
@@ -128,6 +136,7 @@ class TestUserModels:
     def test_user_permissions_update_request(self):
         """Test UserPermissionsUpdateRequest model"""
         from app import UserPermissionsUpdateRequest
+
         req = UserPermissionsUpdateRequest(permissions=["upload", "search", "download"])
         assert req.permissions == ["upload", "search", "download"]
 
@@ -138,6 +147,7 @@ class TestTracksEndpoint:
     def test_get_tracks(self):
         """Test GET /tracks endpoint"""
         from app import app
+
         client = TestClient(app)
         response = client.get("/tracks")
         assert response.status_code == 200
@@ -153,10 +163,10 @@ class TestHealthEndpoints:
         """Test health check exception handling"""
         from app import app, artifacts_db
         from unittest.mock import patch
-        
+
         client = TestClient(app)
         # Mock artifacts_db to raise exception
-        with patch('app.artifacts_db', side_effect=Exception("Test error")):
+        with patch("app.artifacts_db", side_effect=Exception("Test error")):
             response = client.get("/health")
             assert response.status_code == 200
             data = response.json()
@@ -165,6 +175,7 @@ class TestHealthEndpoints:
     def test_health_components_min_window(self):
         """Test health components with minimum window"""
         from app import app
+
         client = TestClient(app)
         response = client.get("/health/components?windowMinutes=5")
         assert response.status_code == 200
@@ -174,6 +185,7 @@ class TestHealthEndpoints:
     def test_health_components_max_window(self):
         """Test health components with maximum window"""
         from app import app
+
         client = TestClient(app)
         response = client.get("/health/components?windowMinutes=1440")
         assert response.status_code == 200
@@ -185,6 +197,7 @@ class TestArtifactEndpoints:
     def test_artifact_retrieve_not_found(self):
         """Test artifact retrieve when not found"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         response = client.get("/artifacts/model/nonexistent_999", headers=headers)
@@ -193,18 +206,22 @@ class TestArtifactEndpoints:
     def test_artifact_update_not_found(self):
         """Test artifact update when not found"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         artifact_data = {
             "metadata": {"name": "test", "id": "nonexistent_999", "type": "model"},
-            "data": {"url": "https://example.com/test"}
+            "data": {"url": "https://example.com/test"},
         }
-        response = client.put("/artifacts/model/nonexistent_999", json=artifact_data, headers=headers)
+        response = client.put(
+            "/artifacts/model/nonexistent_999", json=artifact_data, headers=headers
+        )
         assert response.status_code == 404
 
     def test_artifact_delete_not_found(self):
         """Test artifact delete when not found"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         response = client.delete("/artifacts/model/nonexistent_999", headers=headers)
@@ -217,12 +234,14 @@ class TestAuthenticationPaths:
     def test_verify_token_empty_string(self):
         """Test verify_token with empty string"""
         from app import verify_token
+
         with pytest.raises(Exception):  # Should raise HTTPException
             verify_token(x_authorization="", authorization=None)
 
     def test_verify_token_whitespace(self):
         """Test verify_token with whitespace only"""
         from app import verify_token
+
         with pytest.raises(Exception):  # Should raise HTTPException
             verify_token(x_authorization="   ", authorization=None)
 
@@ -230,10 +249,10 @@ class TestAuthenticationPaths:
         """Test verify_token with lowercase bearer"""
         from app import verify_token
         from src.auth.jwt_auth import auth
-        
+
         token_data = {"sub": "testuser", "permissions": ["upload"]}
         token = auth.create_access_token(token_data)
-        
+
         result = verify_token(x_authorization=f"bearer {token}")
         assert result["username"] == "testuser"
 
@@ -241,10 +260,10 @@ class TestAuthenticationPaths:
         """Test verify_token with uppercase bearer"""
         from app import verify_token
         from src.auth.jwt_auth import auth
-        
+
         token_data = {"sub": "testuser", "permissions": ["upload"]}
         token = auth.create_access_token(token_data)
-        
+
         result = verify_token(x_authorization=f"Bearer {token}")
         assert result["username"] == "testuser"
 
@@ -252,10 +271,10 @@ class TestAuthenticationPaths:
         """Test verify_token with Authorization header"""
         from app import verify_token
         from src.auth.jwt_auth import auth
-        
+
         token_data = {"sub": "testuser", "permissions": ["upload"]}
         token = auth.create_access_token(token_data)
-        
+
         result = verify_token(authorization=f"Bearer {token}")
         assert result["username"] == "testuser"
 
@@ -264,23 +283,28 @@ class TestAuthenticationPaths:
         from app import verify_token, token_call_counts
         from src.auth.jwt_auth import auth
         import hashlib
-        
-        token_data = {"sub": "testuser", "permissions": ["upload"], "call_count": 0, "max_calls": 1000}
+
+        token_data = {
+            "sub": "testuser",
+            "permissions": ["upload"],
+            "call_count": 0,
+            "max_calls": 1000,
+        }
         token = auth.create_access_token(token_data)
         token_hash = hashlib.sha256(token.encode()).hexdigest()
-        
+
         # Clear any existing count
         if token_hash in token_call_counts:
             del token_call_counts[token_hash]
-        
+
         # First call
         result1 = verify_token(x_authorization=token)
         assert result1["username"] == "testuser"
-        
+
         # Second call (should increment)
         result2 = verify_token(x_authorization=token)
         assert result2["username"] == "testuser"
-        
+
         # Verify count was incremented
         assert token_call_counts.get(token_hash, 0) >= 1
 
@@ -291,6 +315,7 @@ class TestModelRatingEdgeCases:
     def test_model_rating_nonexistent(self):
         """Test model rating for non-existent artifact"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         response = client.get("/artifact/model/nonexistent_999/rate", headers=headers)
@@ -299,6 +324,7 @@ class TestModelRatingEdgeCases:
     def test_model_rating_non_model_type(self):
         """Test model rating for non-model artifact"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         # Try to rate a dataset as a model
@@ -313,6 +339,7 @@ class TestArtifactCostEdgeCases:
     def test_artifact_cost_nonexistent(self):
         """Test artifact cost for non-existent artifact"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         response = client.get("/artifact/model/nonexistent_999/cost", headers=headers)
@@ -321,9 +348,12 @@ class TestArtifactCostEdgeCases:
     def test_artifact_cost_without_dependencies(self):
         """Test artifact cost without dependencies"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
-        response = client.get("/artifact/model/nonexistent_999/cost?dependency=false", headers=headers)
+        response = client.get(
+            "/artifact/model/nonexistent_999/cost?dependency=false", headers=headers
+        )
         assert response.status_code in [404, 400, 500]
 
 
@@ -333,6 +363,7 @@ class TestSearchEndpoints:
     def test_search_models_empty_query(self):
         """Test search models with empty query"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         response = client.get("/models/search?query=", headers=headers)
@@ -342,7 +373,7 @@ class TestSearchEndpoints:
         """Test search models without permission"""
         from app import app
         from src.auth.jwt_auth import auth
-        
+
         # Create token without search permission
         token_data = {
             "sub": "limiteduser",
@@ -350,7 +381,7 @@ class TestSearchEndpoints:
         }
         token = auth.create_access_token(token_data)
         headers = {"X-Authorization": f"bearer {token}"}
-        
+
         client = TestClient(app)
         response = client.get("/models/search?query=test", headers=headers)
         assert response.status_code == 401
@@ -359,7 +390,7 @@ class TestSearchEndpoints:
         """Test search models by version without permission"""
         from app import app
         from src.auth.jwt_auth import auth
-        
+
         # Create token without search permission
         token_data = {
             "sub": "limiteduser",
@@ -367,7 +398,7 @@ class TestSearchEndpoints:
         }
         token = auth.create_access_token(token_data)
         headers = {"X-Authorization": f"bearer {token}"}
-        
+
         client = TestClient(app)
         response = client.get("/models/search/version?query=1.2.3", headers=headers)
         assert response.status_code == 401
@@ -379,6 +410,7 @@ class TestUserManagement:
     def test_list_users(self):
         """Test list users endpoint"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         response = client.get("/users", headers=headers)
@@ -389,6 +421,7 @@ class TestUserManagement:
     def test_delete_user_nonexistent(self):
         """Test delete user that doesn't exist"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         response = client.delete("/user/nonexistent_user_999", headers=headers)
@@ -398,12 +431,13 @@ class TestUserManagement:
     def test_update_user_permissions_nonexistent(self):
         """Test update user permissions for non-existent user"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         response = client.put(
             "/user/nonexistent_user_999/permissions",
             json={"permissions": ["upload"]},
-            headers=headers
+            headers=headers,
         )
         # May be 404 or 200 depending on implementation
         assert response.status_code in [200, 404, 400]
@@ -415,6 +449,7 @@ class TestArtifactAudit:
     def test_artifact_audit_nonexistent(self):
         """Test artifact audit for non-existent artifact"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         response = client.get("/artifact/model/nonexistent_999/audit", headers=headers)
@@ -427,6 +462,7 @@ class TestArtifactLineage:
     def test_artifact_lineage_nonexistent(self):
         """Test artifact lineage for non-existent artifact"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         response = client.get("/artifact/model/nonexistent_999/lineage", headers=headers)
@@ -439,12 +475,13 @@ class TestArtifactLicenseCheck:
     def test_license_check_nonexistent(self):
         """Test license check for non-existent artifact"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         response = client.post(
             "/artifact/model/nonexistent_999/license-check",
             json={"github_url": "https://github.com/test/repo"},
-            headers=headers
+            headers=headers,
         )
         assert response.status_code in [404, 400, 500, 502]
 
@@ -456,7 +493,7 @@ class TestSensitiveModels:
         """Test upload sensitive model without permission"""
         from app import app
         from src.auth.jwt_auth import auth
-        
+
         # Create token without upload permission
         token_data = {
             "sub": "limiteduser",
@@ -464,12 +501,12 @@ class TestSensitiveModels:
         }
         token = auth.create_access_token(token_data)
         headers = {"X-Authorization": f"bearer {token}"}
-        
+
         client = TestClient(app)
         # Create a dummy file
         files = {"file": ("test.zip", b"dummy content", "application/zip")}
         data = {"model_name": "test_model", "js_program_id": None}
-        
+
         response = client.post("/sensitive-models/upload", files=files, data=data, headers=headers)
         # May fail due to permission or other reasons
         assert response.status_code in [403, 401, 500, 201]
@@ -477,6 +514,7 @@ class TestSensitiveModels:
     def test_download_sensitive_model_nonexistent(self):
         """Test download sensitive model that doesn't exist"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         response = client.get("/sensitive-models/nonexistent_999/download", headers=headers)
@@ -485,6 +523,7 @@ class TestSensitiveModels:
     def test_get_js_program_nonexistent(self):
         """Test get JS program that doesn't exist"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         response = client.get("/js-programs/nonexistent_999", headers=headers)
@@ -493,6 +532,7 @@ class TestSensitiveModels:
     def test_get_download_history_nonexistent(self):
         """Test get download history for non-existent model"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         response = client.get("/download-history/nonexistent_999", headers=headers)
@@ -505,6 +545,7 @@ class TestPackageConfusionAudit:
     def test_package_confusion_audit_no_models(self):
         """Test package confusion audit with no models"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         response = client.get("/audit/package-confusion", headers=headers)
@@ -516,10 +557,10 @@ class TestPackageConfusionAudit:
     def test_package_confusion_audit_with_model_id(self):
         """Test package confusion audit with specific model ID"""
         from app import app
+
         headers = _get_headers()
         client = TestClient(app)
         response = client.get("/audit/package-confusion?model_id=nonexistent_999", headers=headers)
         assert response.status_code == 200
         data = response.json()
         assert "status" in data
-

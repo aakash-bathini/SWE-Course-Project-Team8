@@ -72,13 +72,17 @@ def test_models_license_check_alias_success():
     headers = {"X-Authorization": auth.json()}
 
     # Create a model
-    created = client.post("/artifact/model", json={"url": "https://huggingface.co/test-model"}, headers=headers)
+    created = client.post(
+        "/artifact/model", json={"url": "https://huggingface.co/test-model"}, headers=headers
+    )
     if created.status_code != 201:
         return
     mid = created.json()["metadata"]["id"]
 
     # License check alias with a dummy github url
-    r = client.post(f"/models/{mid}/license-check", json={"github_url": "https://github.com/test/repo"}, headers=headers)
+    r = client.post(
+        f"/models/{mid}/license-check",
+        json={"github_url": "https://github.com/test/repo"},
+        headers=headers,
+    )
     assert r.status_code in [200, 500]  # permissive: metric may fail in CI without network
-
-

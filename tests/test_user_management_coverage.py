@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 def _get_admin_token():
     """Helper to get admin auth token"""
     from src.auth.jwt_auth import auth
+
     token_data = {
         "sub": "ece30861defaultadminuser",
         "permissions": ["upload", "search", "download", "admin"],
@@ -30,6 +31,7 @@ def _get_admin_headers():
 def _get_user_token():
     """Helper to get regular user token"""
     from src.auth.jwt_auth import auth
+
     token_data = {
         "sub": "regularuser",
         "permissions": ["upload", "search"],
@@ -49,15 +51,16 @@ class TestUserRegistration:
     def test_register_user_success(self):
         """Test successful user registration"""
         from app import app, users_db
+
         headers = _get_admin_headers()
         client = TestClient(app)
-        
+
         user_data = {
             "username": "newuser123",
             "password": "password123",
-            "permissions": ["upload", "search"]
+            "permissions": ["upload", "search"],
         }
-        
+
         try:
             response = client.post("/register", json=user_data, headers=headers)
             assert response.status_code in [200, 201]
@@ -71,21 +74,22 @@ class TestUserRegistration:
     def test_register_user_already_exists(self):
         """Test registering user that already exists"""
         from app import app, users_db
+
         headers = _get_admin_headers()
         client = TestClient(app)
-        
+
         # Create user first
         users_db["existinguser"] = {
             "username": "existinguser",
             "password": "hashed_password",
-            "permissions": ["upload"]
+            "permissions": ["upload"],
         }
-        
+
         try:
             user_data = {
                 "username": "existinguser",
                 "password": "newpassword",
-                "permissions": ["upload", "search"]
+                "permissions": ["upload", "search"],
             }
             response = client.post("/register", json=user_data, headers=headers)
             assert response.status_code in [400, 409]
@@ -96,14 +100,11 @@ class TestUserRegistration:
     def test_register_user_no_admin_permission(self):
         """Test registering user without admin permission"""
         from app import app
+
         headers = _get_user_headers()
         client = TestClient(app)
-        
-        user_data = {
-            "username": "newuser",
-            "password": "password123",
-            "permissions": ["upload"]
-        }
+
+        user_data = {"username": "newuser", "password": "password123", "permissions": ["upload"]}
         response = client.post("/register", json=user_data, headers=headers)
         assert response.status_code == 401
 
@@ -114,16 +115,17 @@ class TestUserDeletion:
     def test_delete_user_success(self):
         """Test successful user deletion"""
         from app import app, users_db
+
         headers = _get_admin_headers()
         client = TestClient(app)
-        
+
         # Create user first
         users_db["todelete"] = {
             "username": "todelete",
             "password": "hashed_password",
-            "permissions": ["upload"]
+            "permissions": ["upload"],
         }
-        
+
         try:
             response = client.delete("/user/todelete", headers=headers)
             assert response.status_code in [200, 404]
@@ -136,18 +138,20 @@ class TestUserDeletion:
     def test_delete_user_nonexistent(self):
         """Test deleting non-existent user"""
         from app import app
+
         headers = _get_admin_headers()
         client = TestClient(app)
-        
+
         response = client.delete("/user/nonexistent_user_999", headers=headers)
         assert response.status_code in [200, 404, 400]
 
     def test_delete_user_no_admin_permission(self):
         """Test deleting user without admin permission"""
         from app import app
+
         headers = _get_user_headers()
         client = TestClient(app)
-        
+
         response = client.delete("/user/someuser", headers=headers)
         assert response.status_code == 401
 
@@ -158,16 +162,17 @@ class TestUserPermissionsUpdate:
     def test_update_permissions_success(self):
         """Test successful permissions update"""
         from app import app, users_db
+
         headers = _get_admin_headers()
         client = TestClient(app)
-        
+
         # Create user first
         users_db["toupdate"] = {
             "username": "toupdate",
             "password": "hashed_password",
-            "permissions": ["upload"]
+            "permissions": ["upload"],
         }
-        
+
         try:
             update_data = {"permissions": ["upload", "search", "download"]}
             response = client.put("/user/toupdate/permissions", json=update_data, headers=headers)
@@ -182,19 +187,23 @@ class TestUserPermissionsUpdate:
     def test_update_permissions_nonexistent_user(self):
         """Test updating permissions for non-existent user"""
         from app import app
+
         headers = _get_admin_headers()
         client = TestClient(app)
-        
+
         update_data = {"permissions": ["upload", "search"]}
-        response = client.put("/user/nonexistent_999/permissions", json=update_data, headers=headers)
+        response = client.put(
+            "/user/nonexistent_999/permissions", json=update_data, headers=headers
+        )
         assert response.status_code in [200, 404, 400]
 
     def test_update_permissions_no_admin_permission(self):
         """Test updating permissions without admin permission"""
         from app import app
+
         headers = _get_user_headers()
         client = TestClient(app)
-        
+
         update_data = {"permissions": ["upload", "search"]}
         response = client.put("/user/someuser/permissions", json=update_data, headers=headers)
         assert response.status_code == 401
@@ -206,13 +215,14 @@ class TestListUsers:
     def test_list_users_success(self):
         """Test successful user listing"""
         from app import app, users_db
+
         headers = _get_admin_headers()
         client = TestClient(app)
-        
+
         # Add some test users
         users_db["user1"] = {"username": "user1", "permissions": ["upload"]}
         users_db["user2"] = {"username": "user2", "permissions": ["search"]}
-        
+
         try:
             response = client.get("/users", headers=headers)
             assert response.status_code == 200
@@ -229,9 +239,10 @@ class TestListUsers:
     def test_list_users_sqlite_path(self):
         """Test list users with SQLite storage"""
         from app import app, get_db, db_crud
+
         headers = _get_admin_headers()
         client = TestClient(app)
-        
+
         with patch.dict(os.environ, {"USE_SQLITE": "1"}):
             if get_db and db_crud:
                 # Test that SQLite path exists (may not work without actual DB)
@@ -242,13 +253,16 @@ class TestListUsers:
     def test_list_users_s3_path(self):
         """Test list users with S3 storage"""
         from app import app, s3_storage
+
         headers = _get_admin_headers()
         client = TestClient(app)
-        
+
         if s3_storage:
-            with patch.object(s3_storage, 'list_users', return_value=[
-                {"username": "s3_user", "permissions": ["upload"]}
-            ]):
+            with patch.object(
+                s3_storage,
+                "list_users",
+                return_value=[{"username": "s3_user", "permissions": ["upload"]}],
+            ):
                 response = client.get("/users", headers=headers)
                 assert response.status_code == 200
 
@@ -259,18 +273,19 @@ class TestAuthentication:
     def test_authenticate_success(self):
         """Test successful authentication"""
         from app import app, users_db, DEFAULT_ADMIN
+
         client = TestClient(app)
-        
+
         # Ensure default admin exists (password is stored as plain text per code)
         admin_username = DEFAULT_ADMIN["username"]
         admin_password = DEFAULT_ADMIN["password"]
         users_db[admin_username] = DEFAULT_ADMIN.copy()
-        
+
         auth_data = {
             "user": {"name": admin_username, "is_admin": True},
-            "secret": {"password": admin_password}
+            "secret": {"password": admin_password},
         }
-        
+
         response = client.put("/authenticate", json=auth_data)
         assert response.status_code == 200
         token = response.json()
@@ -281,54 +296,57 @@ class TestAuthentication:
     def test_authenticate_invalid_password(self):
         """Test authentication with invalid password"""
         from app import app, users_db, DEFAULT_ADMIN
+
         client = TestClient(app)
-        
+
         admin_username = DEFAULT_ADMIN["username"]
         users_db[admin_username] = DEFAULT_ADMIN.copy()
-        
+
         auth_data = {
             "user": {"name": admin_username, "is_admin": True},
-            "secret": {"password": "wrong_password"}
+            "secret": {"password": "wrong_password"},
         }
-        
+
         response = client.put("/authenticate", json=auth_data)
         assert response.status_code == 401
 
     def test_authenticate_nonexistent_user(self):
         """Test authentication with non-existent user"""
         from app import app, users_db
+
         client = TestClient(app)
-        
+
         # Ensure user doesn't exist
         if "nonexistent_user_999" in users_db:
             del users_db["nonexistent_user_999"]
-        
+
         auth_data = {
             "user": {"name": "nonexistent_user_999", "is_admin": False},
-            "secret": {"password": "password123"}
+            "secret": {"password": "password123"},
         }
-        
+
         response = client.put("/authenticate", json=auth_data)
         assert response.status_code == 401
 
     def test_authenticate_s3_user_lookup(self):
         """Test authentication with S3 user lookup"""
         from app import app, s3_storage, users_db
+
         client = TestClient(app)
-        
+
         if s3_storage:
             mock_user = {
                 "username": "s3_user",
                 "password": "hashed_password",
-                "permissions": ["upload"]
+                "permissions": ["upload"],
             }
-            
-            with patch.object(s3_storage, 'get_user', return_value=mock_user):
+
+            with patch.object(s3_storage, "get_user", return_value=mock_user):
                 # Mock password verification
-                with patch('src.auth.jwt_auth.auth.verify_password', return_value=True):
+                with patch("src.auth.jwt_auth.auth.verify_password", return_value=True):
                     auth_data = {
                         "user": {"name": "s3_user", "is_admin": False},
-                        "secret": {"password": "password123"}
+                        "secret": {"password": "password123"},
                     }
                     response = client.put("/authenticate", json=auth_data)
                     # May succeed or fail based on password verification
@@ -337,16 +355,17 @@ class TestAuthentication:
     def test_authenticate_sqlite_user_lookup(self):
         """Test authentication with SQLite user lookup"""
         from app import app, get_db, db_crud, users_db
+
         client = TestClient(app)
-        
+
         # Test that SQLite lookup path exists (user doesn't exist, so should fail)
         test_username = "sqlite_test_user"
         if test_username in users_db:
             del users_db[test_username]
-        
+
         auth_data = {
             "user": {"name": test_username, "is_admin": False},
-            "secret": {"password": "test_password"}
+            "secret": {"password": "test_password"},
         }
         response = client.put("/authenticate", json=auth_data)
         # Should fail (user doesn't exist) but tests the SQLite lookup path
@@ -359,14 +378,15 @@ class TestResetEndpoint:
     def test_reset_success(self):
         """Test successful reset"""
         from app import app, artifacts_db, users_db, audit_log
+
         headers = _get_admin_headers()
         client = TestClient(app)
-        
+
         # Add some test data
         artifacts_db["test_artifact"] = {"metadata": {"id": "test_artifact"}}
         users_db["test_user"] = {"username": "test_user"}
         audit_log.append({"action": "CREATE"})
-        
+
         try:
             response = client.delete("/reset", headers=headers)
             assert response.status_code == 200
@@ -376,26 +396,28 @@ class TestResetEndpoint:
         finally:
             # Restore default admin
             from app import DEFAULT_ADMIN
+
             users_db[DEFAULT_ADMIN["username"]] = DEFAULT_ADMIN.copy()
 
     def test_reset_no_admin_permission(self):
         """Test reset without admin permission"""
         from app import app
+
         headers = _get_user_headers()
         client = TestClient(app)
-        
+
         response = client.delete("/reset", headers=headers)
         assert response.status_code == 401
 
     def test_reset_sqlite_path(self):
         """Test reset with SQLite storage"""
         from app import app, get_db, db_crud
+
         headers = _get_admin_headers()
         client = TestClient(app)
-        
+
         with patch.dict(os.environ, {"USE_SQLITE": "1"}):
             # Test that SQLite reset path exists
             response = client.delete("/reset", headers=headers)
             # Should succeed or fail gracefully
             assert response.status_code in [200, 500]
-

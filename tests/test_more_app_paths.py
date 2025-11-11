@@ -36,7 +36,9 @@ def test_artifact_audit_path():
     headers = _auth_headers(client)
 
     # Create model
-    created = client.post("/artifact/model", json={"url": "https://example.org/model-b"}, headers=headers)
+    created = client.post(
+        "/artifact/model", json={"url": "https://example.org/model-b"}, headers=headers
+    )
     if created.status_code != 201:
         return
     mid = created.json()["metadata"]["id"]
@@ -46,5 +48,3 @@ def test_artifact_audit_path():
     assert audit.status_code in [200, 404]
     if audit.status_code == 200:
         assert isinstance(audit.json(), list)
-
-

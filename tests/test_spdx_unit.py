@@ -34,5 +34,3 @@ def test_find_spdx_ids_from_text():
     ids = readme_parser.find_spdx_ids(text)
     assert any(i.lower() == "mit" for i in ids)
     assert any(i.lower() == "apache-2.0" for i in ids)
-
-

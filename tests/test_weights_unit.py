@@ -42,5 +42,3 @@ def test_calculate_net_score_ignores_missing_and_negative_values():
         + included["ramp_up_time"] * w["ramp_up_time"]
     ) / (w["size_score"] + w["license"] + w["ramp_up_time"])
     assert abs(score - expected) < 1e-12
-
-

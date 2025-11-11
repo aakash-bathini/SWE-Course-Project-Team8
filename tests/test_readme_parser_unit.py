@@ -3,7 +3,11 @@ Unit tests for readme_parser helper functions to increase meaningful coverage.
 """
 
 import re
-from src.config_parsers_nlp.readme_parser import extract_license_block, extract_section, find_spdx_ids
+from src.config_parsers_nlp.readme_parser import (
+    extract_license_block,
+    extract_section,
+    find_spdx_ids,
+)
 
 
 def test_extract_license_block_and_section():
@@ -32,5 +36,3 @@ def test_find_spdx_ids_mixed_text():
     ids = find_spdx_ids(text)
     lowered = [i.lower() for i in ids]
     assert "mit" in lowered and "gpl-3.0-only" in lowered
-
-

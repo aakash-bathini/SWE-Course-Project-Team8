@@ -14,5 +14,3 @@ def test_best_device_tie_prefers_pi():
         "aws_server": 0.8,
     }
     assert _best_device(scores) == "raspberry_pi"
-
-

@@ -2956,6 +2956,7 @@ async def model_cost_alias(
     """
     return await artifact_cost(ArtifactType.MODEL, id, dependency, user)  # type: ignore[arg-type]
 
+
 @app.get("/tracks")
 async def get_tracks() -> Dict[str, List[str]]:
     """Get the list of tracks a student has planned to implement"""

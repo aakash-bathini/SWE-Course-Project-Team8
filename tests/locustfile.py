@@ -14,19 +14,17 @@ import json
 
 class RegistryUser(HttpUser):
     """Simulates a typical user interacting with the registry"""
+
     wait_time = between(1, 3)  # Wait 1-3 seconds between tasks
-    
+
     def on_start(self):
         """Authenticate user on start"""
         # Use default admin credentials
         auth_payload = {
-            "user": {
-                "name": "ece30861defaultadminuser",
-                "is_admin": True
-            },
+            "user": {"name": "ece30861defaultadminuser", "is_admin": True},
             "secret": {
                 "password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"
-            }
+            },
         }
         response = self.client.put("/authenticate", json=auth_payload)
         if response.status_code == 200:
@@ -34,7 +32,7 @@ class RegistryUser(HttpUser):
             self.headers = {
                 "X-Authorization": self.token,
                 "Authorization": f"Bearer {self.token}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             }
         else:
             self.token = None
@@ -71,7 +69,9 @@ class RegistryUser(HttpUser):
         if not self.token:
             return
         payload = {"regex": ".*"}
-        self.client.post("/artifact/byRegEx", json=payload, headers=self.headers, name="POST /artifact/byRegEx")
+        self.client.post(
+            "/artifact/byRegEx", json=payload, headers=self.headers, name="POST /artifact/byRegEx"
+        )
 
     @task(1)
     def get_model_lineage(self):
@@ -79,14 +79,22 @@ class RegistryUser(HttpUser):
         if not self.token:
             return
         # Use a test ID - may return 404 but tests the endpoint
-        self.client.get("/artifact/model/test_id/lineage", headers=self.headers, name="GET /artifact/model/{id}/lineage")
+        self.client.get(
+            "/artifact/model/test_id/lineage",
+            headers=self.headers,
+            name="GET /artifact/model/{id}/lineage",
+        )
 
     @task(1)
     def get_artifact_cost(self):
         """Get artifact cost"""
         if not self.token:
             return
-        self.client.get("/artifact/model/test_id/cost", headers=self.headers, name="GET /artifact/{type}/{id}/cost")
+        self.client.get(
+            "/artifact/model/test_id/cost",
+            headers=self.headers,
+            name="GET /artifact/{type}/{id}/cost",
+        )
 
     @task(1)
     def license_check(self):
@@ -94,7 +102,12 @@ class RegistryUser(HttpUser):
         if not self.token:
             return
         payload = {"github_url": "https://github.com/test/repo"}
-        self.client.post("/artifact/model/test_id/license-check", json=payload, headers=self.headers, name="POST /artifact/model/{id}/license-check")
+        self.client.post(
+            "/artifact/model/test_id/license-check",
+            json=payload,
+            headers=self.headers,
+            name="POST /artifact/model/{id}/license-check",
+        )
 
     @task(1)
     def enumerate_models(self):
@@ -111,6 +124,7 @@ class RegistryUser(HttpUser):
 
 class ReadOnlyUser(HttpUser):
     """Simulates read-only operations (no authentication required for some)"""
+
     wait_time = between(2, 5)
     weight = 2  # More read-only users than authenticated users
 
@@ -123,4 +137,3 @@ class ReadOnlyUser(HttpUser):
     def get_tracks(self):
         """Get tracks - public"""
         self.client.get("/tracks", name="GET /tracks (read-only)")
-

@@ -31,7 +31,9 @@ def test_models_alias_endpoints_smoke():
     client = TestClient(app)
 
     # Create a model artifact to reference
-    create = client.post("/artifact/model", json={"url": "https://huggingface.co/test-model"}, headers=headers)
+    create = client.post(
+        "/artifact/model", json={"url": "https://huggingface.co/test-model"}, headers=headers
+    )
     if create.status_code != 201:
         # If creation failed for any reason, skip alias checks gracefully
         return
@@ -49,5 +51,3 @@ def test_models_alias_endpoints_smoke():
     # /models/{id}/license-check alias (with missing github_url to exercise validation)
     r3 = client.post(f"/models/{model_id}/license-check", json={}, headers=headers)
     assert r3.status_code in [400, 422]
-
-

@@ -4,6 +4,7 @@ Handles token generation, validation, and user authentication
 """
 
 from datetime import datetime, timedelta, timezone
+
 UTC = timezone.utc  # Python 3.9 compatibility
 from typing import Optional, Dict, Any
 from jose import JWTError, jwt
