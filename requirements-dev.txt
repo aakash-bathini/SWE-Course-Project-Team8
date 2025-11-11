@@ -9,3 +9,4 @@ mypy
 types-requests
 pydantic
 selenium
+locust

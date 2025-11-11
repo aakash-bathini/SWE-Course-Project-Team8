@@ -267,7 +267,7 @@ class TestAuthentication:
         users_db[admin_username] = DEFAULT_ADMIN.copy()
         
         auth_data = {
-            "user": {"name": admin_username},
+            "user": {"name": admin_username, "is_admin": True},
             "secret": {"password": admin_password}
         }
         
@@ -287,7 +287,7 @@ class TestAuthentication:
         users_db[admin_username] = DEFAULT_ADMIN.copy()
         
         auth_data = {
-            "user": {"name": admin_username},
+            "user": {"name": admin_username, "is_admin": True},
             "secret": {"password": "wrong_password"}
         }
         
@@ -304,7 +304,7 @@ class TestAuthentication:
             del users_db["nonexistent_user_999"]
         
         auth_data = {
-            "user": {"name": "nonexistent_user_999"},
+            "user": {"name": "nonexistent_user_999", "is_admin": False},
             "secret": {"password": "password123"}
         }
         
@@ -327,7 +327,7 @@ class TestAuthentication:
                 # Mock password verification
                 with patch('src.auth.jwt_auth.auth.verify_password', return_value=True):
                     auth_data = {
-                        "user": {"name": "s3_user"},
+                        "user": {"name": "s3_user", "is_admin": False},
                         "secret": {"password": "password123"}
                     }
                     response = client.put("/authenticate", json=auth_data)
@@ -345,7 +345,7 @@ class TestAuthentication:
             del users_db[test_username]
         
         auth_data = {
-            "user": {"name": test_username},
+            "user": {"name": test_username, "is_admin": False},
             "secret": {"password": "test_password"}
         }
         response = client.put("/authenticate", json=auth_data)

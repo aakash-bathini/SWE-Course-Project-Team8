@@ -2666,6 +2666,17 @@ async def artifact_lineage(
     return ArtifactLineageGraph(nodes=nodes, edges=edges)
 
 
+@app.get("/models/{id}/lineage")
+async def model_lineage_alias(
+    id: str, user: Dict[str, Any] = Depends(verify_token)
+) -> ArtifactLineageGraph:
+    """
+    Alias route for lineage to match spec examples.
+    Delegates to /artifact/model/{id}/lineage.
+    """
+    return await artifact_lineage(id, user)  # type: ignore[arg-type]
+
+
 @app.post("/artifact/model/{id}/license-check")
 async def artifact_license_check(
     id: str, request: SimpleLicenseCheckRequest, user: Dict[str, Any] = Depends(verify_token)
@@ -2699,6 +2710,17 @@ async def artifact_license_check(
 
     license_score = await license_metric(ctx)
     return bool(license_score >= 0.5)
+
+
+@app.post("/models/{id}/license-check")
+async def model_license_check_alias(
+    id: str, request: SimpleLicenseCheckRequest, user: Dict[str, Any] = Depends(verify_token)
+) -> bool:
+    """
+    Alias route for license check to match spec examples.
+    Delegates to /artifact/model/{id}/license-check.
+    """
+    return await artifact_license_check(id, request, user)  # type: ignore[arg-type]
 
 
 @app.get("/artifact/model/{id}/rate", response_model=ModelRating)
@@ -2921,6 +2943,18 @@ async def artifact_cost(
         result[id].standalone_cost = standalone_cost
     return result
 
+
+@app.get("/models/{id}/cost", response_model=Dict[str, ArtifactCost])
+async def model_cost_alias(
+    id: str,
+    dependency: bool = Query(False),
+    user: Dict[str, Any] = Depends(verify_token),
+) -> Dict[str, ArtifactCost]:
+    """
+    Alias route for cost to match spec examples.
+    Delegates to /artifact/{artifact_type}/{id}/cost with artifact_type='model'.
+    """
+    return await artifact_cost(ArtifactType.MODEL, id, dependency, user)  # type: ignore[arg-type]
 
 @app.get("/tracks")
 async def get_tracks() -> Dict[str, List[str]]:
