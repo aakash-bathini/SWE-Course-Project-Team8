@@ -268,7 +268,8 @@ def test_token_call_count_available(client: TestClient, admin_headers: Dict[str,
 def test_token_expiration_enforced(client: TestClient):
     """Token expiration is checked"""
     from src.auth.jwt_auth import auth as jwt_auth
-    from datetime import datetime, timedelta, UTC
+    from datetime import datetime, timedelta, timezone
+    UTC = timezone.utc  # Python 3.9 compatibility
 
     # Create token that's already expired
     payload = {
