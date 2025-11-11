@@ -164,4 +164,5 @@ chromedriver
 config.local.*
 settings.local.*
 
-# Note: ece461_fall_2025_openapi_spec.yaml is kept in git as it's required for the project
+# OpenAPI specification (not needed in repo)
+ece461_fall_2025_openapi_spec.yaml
