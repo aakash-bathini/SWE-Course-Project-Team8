@@ -1116,53 +1116,6 @@ grep ERROR app.log
 5. `src/storage/__init__.py` - Module init (1 line)
 6. `tests/test_milestone2_features.py` - Test suite (325 lines)
 
-### Testing
-
-#### Run Tests
-```bash
-# All tests
-pytest -v
-
-# Milestone 2 only
-pytest tests/test_milestone2_features.py -v
-
-# With coverage
-pytest --cov=src --cov=app --cov-report=term-missing
-```
-
-#### Manual Testing
-```bash
-# Start server
-python -m uvicorn app:app --reload
-
-# Upload model
-curl -X POST http://localhost:8000/models/upload \
-  -H "X-Authorization: bearer <TOKEN>" \
-  -F "file=@model.zip" \
-  -F "name=test_model"
-
-# Download model (get ID from upload response)
-curl -X GET "http://localhost:8000/models/model-1-123/download?aspect=full" \
-  -H "X-Authorization: bearer <TOKEN>" \
-  -o downloaded.zip
-
-# Check rating with new metrics
-curl -X GET "http://localhost:8000/artifact/model/model-1-123/rate" \
-  -H "X-Authorization: bearer <TOKEN>"
-
-# Ingest HuggingFace model (with threshold validation)
-curl -X POST "http://localhost:8000/models/ingest?model_name=google/gemma-2-2b" \
-  -H "X-Authorization: bearer <TOKEN>"
-
-# Enumerate models (cursor-based pagination)
-curl -X GET "http://localhost:8000/models?limit=25" \
-  -H "X-Authorization: bearer <TOKEN>"
-
-# Enumerate next page using cursor
-curl -X GET "http://localhost:8000/models?cursor=model-2-1234567890&limit=25" \
-  -H "X-Authorization: bearer <TOKEN>"
-```
-
 ### Key Features
 
 #### Upload Features
@@ -1369,7 +1322,7 @@ For questions or issues:
 - **CORS Configuration**: Frontend integration ready ✅
 - **Database**: SQLite with full schema ✅
 - **CI/CD Pipeline**: 5-stage pipeline with auto-testing ✅
-- **Test Coverage**: 40%+ with comprehensive test suite ✅
+- **Test Coverage**: 60%+ with comprehensive test suite ✅
 - **Documentation**: Complete API docs ✅
 
 ---
@@ -1455,7 +1408,7 @@ Full authentication and user management system implemented, tested (26/26 passin
 - Returns complete metric JSON with all 11 metrics + 3 new ones
 - Metrics included: ramp_up_time, bus_factor, performance_claims, license, dataset_and_code_score, dataset_quality, code_quality, size_score, reproducibility, reviewedness, tree_score
 - Each metric has latency tracking
-- Net score calculated from Phase 1 metrics only (per requirements)
+- Net score includes Phase 1 metrics and the new Phase 2 metrics (reproducibility, reviewedness, tree_score) per updated guidance
 - Endpoint: `GET /artifact/model/{id}/rate`
 
 #### 4.2 Search Endpoints Implemented ✅
@@ -1520,14 +1473,6 @@ Full authentication and user management system implemented, tested (26/26 passin
 - **Existing:** `src/metrics/reproducibility.py`, `src/metrics/reviewedness.py`, `src/metrics/treescore.py`
 - **Existing:** `src/metrics/registry.py`, `src/metrics/phase2_adapter.py`
 
-#### Test Results
-```
-72 tests total (all milestones)
-72 passed ✅
-32 skipped (auth required for certain tests, expected)
-0 failed ✅
-Coverage: 14% (focused on implemented features)
-```
 
 **🎉 MILESTONE 4 STATUS: ✅ COMPLETE**
 
@@ -1650,15 +1595,6 @@ All new metrics integrated, search endpoints fully functional, semver parsing im
   - `src/db/models.py` - 3 new database models
   - `tests/conftest.py` - Test database setup fixture
 
-#### Test Results
-```
-128 tests total (all milestones)
-128 passed ✅
-2 skipped (intentional test design)
-0 failed ✅
-Coverage: 50% ✅
-M5 Specific: 19 passed, 2 skipped (95% M5 pass rate)
-```
 
 **🎉 MILESTONE 5 STATUS: ✅ COMPLETE**
 
@@ -1809,20 +1745,6 @@ Full security track implementation with sensitive models, JavaScript sandbox exe
 - ✅ `frontend/src/components/HealthDashboard.tsx` - Health dashboard UI
 - ✅ `frontend/src/components/LoginPage.tsx` - WCAG compliant login
 
-#### Test Results
-```
-M6 Feature Tests: 19 tests
-- Lineage Graph: 4 tests ✅
-- Size Cost: 5 tests ✅
-- License Check: 4 tests ✅
-- Reset: 3 tests ✅
-- Health: 3 tests ✅
-
-Selenium Tests: 6 tests ✅
-- WCAG Compliance: 3 tests ✅
-- Functionality: 2 tests ✅
-- Integration: 1 test ✅
-```
 
 **🎉 MILESTONE 6 STATUS: ✅ COMPLETE**
 

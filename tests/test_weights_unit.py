@@ -9,9 +9,12 @@ def test_get_weights_sum_and_nonnegative():
     weights = get_weights()
     assert isinstance(weights, dict)
     assert weights  # not empty
-    # Weights should sum to approximately 1.0 per project plan comment
+    # Weights are normalized in calculation; sum need not be 1.0, but must be > 0
     total = sum(weights.values())
-    assert abs(total - 1.0) < 1e-9
+    assert total > 0
+    # Ensure Phase 2 metrics are present in weighting
+    for k in ("reproducibility", "reviewedness", "tree_score"):
+        assert k in weights and weights[k] >= 0
     # All weights should be non-negative
     assert all(v >= 0 for v in weights.values())
 
