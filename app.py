@@ -1348,7 +1348,7 @@ async def models_ingest(
                 status_code=501, detail="HuggingFace ingestion not available in this environment."
             )
         hf_data, repo_type = scrape_hf_url(hf_url)
-        
+
         # Fetch GitHub data if GitHub link is available in HF data
         gh_data = []
         github_links = hf_data.get("github_links", [])
@@ -1363,7 +1363,7 @@ async def models_ingest(
                 except Exception as gh_err:
                     logger.warning(f"Failed to scrape GitHub URL {github_url}: {gh_err}")
                     gh_data = []
-        
+
         model_data = {"url": hf_url, "hf_data": [hf_data], "gh_data": gh_data}
 
         # Calculate all metrics
