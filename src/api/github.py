@@ -81,7 +81,7 @@ def _gh_headers() -> Dict[str, str]:
     # request header
     hdr = {"Accept": "application/vnd.github+json", "User-Agent": "swe-proj-bot"}
     # optionally include token
-    token = os.environ.get("GITHUB_TOKEN")
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     if token:
         hdr["Authorization"] = f"Bearer {token}"
     return hdr

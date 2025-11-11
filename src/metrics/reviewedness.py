@@ -122,7 +122,7 @@ def _calculate_review_fraction(owner: str, repo: str) -> float:
     """
     try:
         # Get GitHub token if available (optional)
-        github_token = os.environ.get("GITHUB_TOKEN")
+        github_token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
         headers = {"Accept": "application/vnd.github.v3+json"}
         if github_token:
             headers["Authorization"] = f"token {github_token}"
