@@ -1936,7 +1936,7 @@ async def search_models_by_version(
     }
 
 
-@app.get("/artifact/byName/{name}")
+@app.get("/artifact/byName/{name:path}")
 async def artifact_by_name(
     name: str, user: Dict[str, Any] = Depends(verify_token)
 ) -> List[ArtifactMetadata]:
@@ -1944,7 +1944,8 @@ async def artifact_by_name(
     if not check_permission(user, "search"):
         raise HTTPException(status_code=401, detail="You do not have permission to search.")
     matches: List[ArtifactMetadata] = []
-    search_name = (name or "").strip()
+    # Accept names that include slashes and URL-encoded characters
+    search_name = unquote(name or "").strip()
     search_name_lc = search_name.lower()
 
     # Priority: S3 (production) > SQLite (local) > in-memory
@@ -2112,6 +2113,9 @@ async def artifact_by_regex(
             except Exception:
                 pass  # If we can't get README, just search name
 
+        # Mitigate catastrophic backtracking by limiting searchable text length
+        if isinstance(readme_text, str) and len(readme_text) > 10000:
+            readme_text = readme_text[:10000]
         # Search in both name and README, and also include hf_model_name for exact matches
         # Include hf_model_name to allow searching by full HuggingFace model name
         hf_model_name = artifact_data.get("hf_model_name", "")
@@ -2129,6 +2133,8 @@ async def artifact_by_regex(
 
         # Also check concatenated text for partial matches
         search_text = f"{name} {hf_model_name} {readme_text}"
+        if len(search_text) > 20000:
+            search_text = search_text[:20000]
         concatenated_matches = pattern.search(search_text)
 
         # Match if any component matches
@@ -2742,12 +2748,46 @@ async def model_license_check_alias(
 
 
 @app.get("/artifact/model/{id}/rate", response_model=ModelRating)
-async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_token)) -> ModelRating:
+async def model_artifact_rate(id: str, response: Response, user: Dict[str, Any] = Depends(verify_token)) -> ModelRating:
     """Get ratings for this model artifact (BASELINE)"""
-    # Support async ingest semantics (v3.4.4): 404 if artifact is pending or invalidated
+    # Support async ingest semantics (v3.4.4): return 202 if artifact is pending processing
     status = artifact_status.get(id)
-    if status in ("PENDING", "INVALID"):
-        raise HTTPException(status_code=404, detail="Artifact does not exist.")
+    if status == "PENDING":
+        response.status_code = 202
+        # Return minimal placeholder rating while processing
+        return ModelRating(
+            name="pending",
+            category="unknown",
+            net_score=0.0,
+            net_score_latency=0.0,
+            ramp_up_time=0.0,
+            ramp_up_time_latency=0.0,
+            bus_factor=0.0,
+            bus_factor_latency=0.0,
+            performance_claims=0.0,
+            performance_claims_latency=0.0,
+            license=0.0,
+            license_latency=0.0,
+            dataset_and_code_score=0.0,
+            dataset_and_code_score_latency=0.0,
+            dataset_quality=0.0,
+            dataset_quality_latency=0.0,
+            code_quality=0.0,
+            code_quality_latency=0.0,
+            reproducibility=0.0,
+            reproducibility_latency=0.0,
+            reviewedness=0.0,
+            reviewedness_latency=0.0,
+            tree_score=0.0,
+            tree_score_latency=0.0,
+            size_score={
+                "raspberry_pi": 0.0,
+                "jetson_nano": 0.0,
+                "desktop_pc": 0.0,
+                "aws_server": 0.0,
+            },
+            size_score_latency=0.0,
+        )
     # Check if artifact exists - Priority: S3 (production) > SQLite (local) > in-memory
     url = None
     artifact_name = None
@@ -2840,28 +2880,10 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
         if (metrics and calculate_phase2_net_score is not None)
         else 0.0
     )
-    # If rating completed, update status; if it fails threshold, invalidate and optionally remove
+    # If rating completed, update status (do not invalidate/delete here; thresholding is enforced in /models/ingest)
     try:
         if id in artifact_status and artifact_status.get(id) == "PENDING":
-            if net_score >= 0.5:
-                artifact_status[id] = "READY"
-            else:
-                artifact_status[id] = "INVALID"
-                # Best-effort removal of intermediate records while keeping tombstone
-                try:
-                    if id in artifacts_db:
-                        del artifacts_db[id]
-                except Exception:
-                    pass
-                if USE_SQLITE:
-                    try:
-                        with next(get_db()) as _db:  # type: ignore[misc]
-                            from src.db import crud as db_crud
-                            db_crud.delete_artifact(_db, id)
-                    except Exception:
-                        pass
-                # For S3, we intentionally do not delete here; tombstone causes 404s
-                raise HTTPException(status_code=404, detail="Artifact does not exist.")
+            artifact_status[id] = "READY"
     except HTTPException:
         # Propagate 404 for invalidated artifacts
         raise
