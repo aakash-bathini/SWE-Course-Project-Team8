@@ -2796,46 +2796,12 @@ async def model_license_check_alias(
 
 
 @app.get("/artifact/model/{id}/rate", response_model=ModelRating)
-async def model_artifact_rate(id: str, response: Response, user: Dict[str, Any] = Depends(verify_token)) -> ModelRating:
+async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_token)) -> ModelRating:
     """Get ratings for this model artifact (BASELINE)"""
-    # Support async ingest semantics (v3.4.4): return 202 if artifact is pending processing
+    # Support async ingest semantics (v3.4.4): return 404 until rating exists when pending/invalid
     status = artifact_status.get(id)
-    if status == "PENDING":
-        response.status_code = 202
-        # Return minimal placeholder rating while processing
-        return ModelRating(
-            name="pending",
-            category="unknown",
-            net_score=0.0,
-            net_score_latency=0.0,
-            ramp_up_time=0.0,
-            ramp_up_time_latency=0.0,
-            bus_factor=0.0,
-            bus_factor_latency=0.0,
-            performance_claims=0.0,
-            performance_claims_latency=0.0,
-            license=0.0,
-            license_latency=0.0,
-            dataset_and_code_score=0.0,
-            dataset_and_code_score_latency=0.0,
-            dataset_quality=0.0,
-            dataset_quality_latency=0.0,
-            code_quality=0.0,
-            code_quality_latency=0.0,
-            reproducibility=0.0,
-            reproducibility_latency=0.0,
-            reviewedness=0.0,
-            reviewedness_latency=0.0,
-            tree_score=0.0,
-            tree_score_latency=0.0,
-            size_score={
-                "raspberry_pi": 0.0,
-                "jetson_nano": 0.0,
-                "desktop_pc": 0.0,
-                "aws_server": 0.0,
-            },
-            size_score_latency=0.0,
-        )
+    if status in ("PENDING", "INVALID"):
+        raise HTTPException(status_code=404, detail="Artifact does not exist.")
     # Check if artifact exists - Priority: S3 (production) > SQLite (local) > in-memory
     url = None
     artifact_name = None
@@ -2899,18 +2865,7 @@ async def model_artifact_rate(id: str, response: Response, user: Dict[str, Any] 
                         if isinstance(hf_data_list, list) and len(hf_data_list) > 0:
                             hf_data = hf_data_list[0] if isinstance(hf_data_list[0], dict) else None
 
-            # If hf_data not found in stored data, try scraping from URL
-            if hf_data is None and isinstance(url, str) and "huggingface.co" in url.lower():
-                if scrape_hf_url is not None:
-                    try:
-                        hf_data, _ = scrape_hf_url(url)
-                        if isinstance(hf_data.get("pipeline_tag"), str):
-                            category = str(hf_data.get("pipeline_tag"))
-                    except Exception as scrape_err:
-                        logger.warning(
-                            f"Failed to scrape HuggingFace URL for metrics: {scrape_err}"
-                        )
-                        hf_data = None
+            # Avoid external scraping here to keep rating fast and robust under concurrency
 
         model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
         metrics = await calculate_phase2_metrics(model_data)
