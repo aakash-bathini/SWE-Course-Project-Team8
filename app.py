@@ -2798,9 +2798,10 @@ async def model_license_check_alias(
 @app.get("/artifact/model/{id}/rate", response_model=ModelRating)
 async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_token)) -> ModelRating:
     """Get ratings for this model artifact (BASELINE)"""
-    # Support async ingest semantics (v3.4.4): return 404 until rating exists when pending/invalid
+    # Support async ingest semantics (v3.4.4): if INVALID, return 404 forever.
+    # If PENDING, compute metrics now (lazy evaluation approach 3) and mark READY.
     status = artifact_status.get(id)
-    if status in ("PENDING", "INVALID"):
+    if status == "INVALID":
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
     # Check if artifact exists - Priority: S3 (production) > SQLite (local) > in-memory
     url = None
