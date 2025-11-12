@@ -1936,7 +1936,7 @@ async def search_models_by_version(
     }
 
 
-@app.get("/artifact/byName/{name}")
+@app.get("/artifact/byName/{name:path}")
 async def artifact_by_name(
     name: str, user: Dict[str, Any] = Depends(verify_token)
 ) -> List[ArtifactMetadata]:
@@ -1944,7 +1944,8 @@ async def artifact_by_name(
     if not check_permission(user, "search"):
         raise HTTPException(status_code=401, detail="You do not have permission to search.")
     matches: List[ArtifactMetadata] = []
-    search_name = (name or "").strip()
+    # Accept names that include slashes and URL-encoded characters
+    search_name = unquote(name or "").strip()
     search_name_lc = search_name.lower()
 
     # Priority: S3 (production) > SQLite (local) > in-memory
@@ -2066,19 +2067,67 @@ async def artifact_by_regex(
 
     # Priority: S3 (production) > SQLite (local) > in-memory
     if USE_S3 and s3_storage:
-        s3_artifacts = s3_storage.list_artifacts_by_regex(regex.regex)
-        for art_data in s3_artifacts:
-            metadata = art_data.get("metadata", {})
-            matches.append(
-                ArtifactMetadata(
-                    name=metadata.get("name", ""),
-                    id=metadata.get("id", ""),
-                    type=ArtifactType(metadata.get("type", "")),
-                )
+        # Avoid potentially expensive S3-side regex scans that can time out in Lambda.
+        # Instead, fetch a bounded metadata list and apply our safe, truncated regex locally.
+        import time as _time
+        start_ts = _time.monotonic()
+        TIME_BUDGET_SEC = 1.5
+        MAX_ITEMS = 1000
+        try:
+            s3_artifacts_all = s3_storage.list_artifacts_by_queries(
+                [{"name": "*", "types": ["model", "dataset", "code"]}]
             )
-        # S3 can be eventually consistent; fall back to local stores if empty
+        except Exception:
+            s3_artifacts_all = []
+        scanned = 0
+        for art_data in s3_artifacts_all:
+            if scanned >= MAX_ITEMS or (_time.monotonic() - start_ts) > TIME_BUDGET_SEC:
+                break
+            scanned += 1
+            metadata = art_data.get("metadata", {})
+            stored_type = str(metadata.get("type", "") or "")
+            stored_name = str(metadata.get("name", "") or "")
+            # Check name first (fast path)
+            name_matches = pattern.search(stored_name) or pattern.fullmatch(stored_name)
+            if name_matches:
+                matches.append(
+                    ArtifactMetadata(
+                        name=stored_name,
+                        id=str(metadata.get("id", "") or ""),
+                        type=ArtifactType(stored_type),
+                    )
+                )
+                continue
+            # Check README in stored hf_data if present; do NOT fetch/scrape in Lambda path
+            readme_text = ""
+            data_block = art_data.get("data", {})
+            if isinstance(data_block, dict):
+                hf_list = data_block.get("hf_data", [])
+                if isinstance(hf_list, list) and hf_list:
+                    first = hf_list[0]
+                    if isinstance(first, dict):
+                        readme_text = str(first.get("readme_text", "") or "")
+            if readme_text:
+                if len(readme_text) > 10000:
+                    readme_text = readme_text[:10000]
+                if pattern.search(readme_text):
+                    matches.append(
+                        ArtifactMetadata(
+                            name=stored_name,
+                            id=str(metadata.get("id", "") or ""),
+                            type=ArtifactType(stored_type),
+                        )
+                    )
+        # If we found matches via safe scan, return early. Otherwise, continue to other stores.
         if matches:
-            return matches
+            # Deduplicate before returning
+            seen_ids = set()
+            unique_matches = []
+            for match in matches:
+                if match.id not in seen_ids:
+                    seen_ids.add(match.id)
+                    unique_matches.append(match)
+            return unique_matches
 
     if USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
@@ -2112,6 +2161,9 @@ async def artifact_by_regex(
             except Exception:
                 pass  # If we can't get README, just search name
 
+        # Mitigate catastrophic backtracking by limiting searchable text length
+        if isinstance(readme_text, str) and len(readme_text) > 10000:
+            readme_text = readme_text[:10000]
         # Search in both name and README, and also include hf_model_name for exact matches
         # Include hf_model_name to allow searching by full HuggingFace model name
         hf_model_name = artifact_data.get("hf_model_name", "")
@@ -2129,6 +2181,8 @@ async def artifact_by_regex(
 
         # Also check concatenated text for partial matches
         search_text = f"{name} {hf_model_name} {readme_text}"
+        if len(search_text) > 20000:
+            search_text = search_text[:20000]
         concatenated_matches = pattern.search(search_text)
 
         # Match if any component matches
@@ -2744,9 +2798,10 @@ async def model_license_check_alias(
 @app.get("/artifact/model/{id}/rate", response_model=ModelRating)
 async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_token)) -> ModelRating:
     """Get ratings for this model artifact (BASELINE)"""
-    # Support async ingest semantics (v3.4.4): 404 if artifact is pending or invalidated
+    # Support async ingest semantics (v3.4.4): if INVALID, return 404 forever.
+    # If PENDING, compute metrics now (lazy evaluation approach 3) and mark READY.
     status = artifact_status.get(id)
-    if status in ("PENDING", "INVALID"):
+    if status == "INVALID":
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
     # Check if artifact exists - Priority: S3 (production) > SQLite (local) > in-memory
     url = None
@@ -2811,18 +2866,7 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
                         if isinstance(hf_data_list, list) and len(hf_data_list) > 0:
                             hf_data = hf_data_list[0] if isinstance(hf_data_list[0], dict) else None
 
-            # If hf_data not found in stored data, try scraping from URL
-            if hf_data is None and isinstance(url, str) and "huggingface.co" in url.lower():
-                if scrape_hf_url is not None:
-                    try:
-                        hf_data, _ = scrape_hf_url(url)
-                        if isinstance(hf_data.get("pipeline_tag"), str):
-                            category = str(hf_data.get("pipeline_tag"))
-                    except Exception as scrape_err:
-                        logger.warning(
-                            f"Failed to scrape HuggingFace URL for metrics: {scrape_err}"
-                        )
-                        hf_data = None
+            # Avoid external scraping here to keep rating fast and robust under concurrency
 
         model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
         metrics = await calculate_phase2_metrics(model_data)
@@ -2840,28 +2884,10 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
         if (metrics and calculate_phase2_net_score is not None)
         else 0.0
     )
-    # If rating completed, update status; if it fails threshold, invalidate and optionally remove
+    # If rating completed, update status (do not invalidate/delete here; thresholding is enforced in /models/ingest)
     try:
         if id in artifact_status and artifact_status.get(id) == "PENDING":
-            if net_score >= 0.5:
-                artifact_status[id] = "READY"
-            else:
-                artifact_status[id] = "INVALID"
-                # Best-effort removal of intermediate records while keeping tombstone
-                try:
-                    if id in artifacts_db:
-                        del artifacts_db[id]
-                except Exception:
-                    pass
-                if USE_SQLITE:
-                    try:
-                        with next(get_db()) as _db:  # type: ignore[misc]
-                            from src.db import crud as db_crud
-                            db_crud.delete_artifact(_db, id)
-                    except Exception:
-                        pass
-                # For S3, we intentionally do not delete here; tombstone causes 404s
-                raise HTTPException(status_code=404, detail="Artifact does not exist.")
+            artifact_status[id] = "READY"
     except HTTPException:
         # Propagate 404 for invalidated artifacts
         raise
