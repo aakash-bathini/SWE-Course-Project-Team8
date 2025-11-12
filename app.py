@@ -2067,19 +2067,67 @@ async def artifact_by_regex(
 
     # Priority: S3 (production) > SQLite (local) > in-memory
     if USE_S3 and s3_storage:
-        s3_artifacts = s3_storage.list_artifacts_by_regex(regex.regex)
-        for art_data in s3_artifacts:
-            metadata = art_data.get("metadata", {})
-            matches.append(
-                ArtifactMetadata(
-                    name=metadata.get("name", ""),
-                    id=metadata.get("id", ""),
-                    type=ArtifactType(metadata.get("type", "")),
-                )
+        # Avoid potentially expensive S3-side regex scans that can time out in Lambda.
+        # Instead, fetch a bounded metadata list and apply our safe, truncated regex locally.
+        import time as _time
+        start_ts = _time.monotonic()
+        TIME_BUDGET_SEC = 1.5
+        MAX_ITEMS = 1000
+        try:
+            s3_artifacts_all = s3_storage.list_artifacts_by_queries(
+                [{"name": "*", "types": ["model", "dataset", "code"]}]
             )
-        # S3 can be eventually consistent; fall back to local stores if empty
+        except Exception:
+            s3_artifacts_all = []
+        scanned = 0
+        for art_data in s3_artifacts_all:
+            if scanned >= MAX_ITEMS or (_time.monotonic() - start_ts) > TIME_BUDGET_SEC:
+                break
+            scanned += 1
+            metadata = art_data.get("metadata", {})
+            stored_type = str(metadata.get("type", "") or "")
+            stored_name = str(metadata.get("name", "") or "")
+            # Check name first (fast path)
+            name_matches = pattern.search(stored_name) or pattern.fullmatch(stored_name)
+            if name_matches:
+                matches.append(
+                    ArtifactMetadata(
+                        name=stored_name,
+                        id=str(metadata.get("id", "") or ""),
+                        type=ArtifactType(stored_type),
+                    )
+                )
+                continue
+            # Check README in stored hf_data if present; do NOT fetch/scrape in Lambda path
+            readme_text = ""
+            data_block = art_data.get("data", {})
+            if isinstance(data_block, dict):
+                hf_list = data_block.get("hf_data", [])
+                if isinstance(hf_list, list) and hf_list:
+                    first = hf_list[0]
+                    if isinstance(first, dict):
+                        readme_text = str(first.get("readme_text", "") or "")
+            if readme_text:
+                if len(readme_text) > 10000:
+                    readme_text = readme_text[:10000]
+                if pattern.search(readme_text):
+                    matches.append(
+                        ArtifactMetadata(
+                            name=stored_name,
+                            id=str(metadata.get("id", "") or ""),
+                            type=ArtifactType(stored_type),
+                        )
+                    )
+        # If we found matches via safe scan, return early. Otherwise, continue to other stores.
         if matches:
-            return matches
+            # Deduplicate before returning
+            seen_ids = set()
+            unique_matches = []
+            for match in matches:
+                if match.id not in seen_ids:
+                    seen_ids.add(match.id)
+                    unique_matches.append(match)
+            return unique_matches
 
     if USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
