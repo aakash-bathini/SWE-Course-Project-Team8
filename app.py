@@ -2813,12 +2813,19 @@ async def artifact_license_check(
             raise HTTPException(status_code=400, detail="Not a model artifact.")
 
     # Use license metric score where 0.5+ means compatible enough
-    model_data = {"url": request.github_url, "hf_data": [], "gh_data": []}
-    ctx = create_eval_context_from_model_data(model_data)
-    from src.metrics.license_check import metric as license_metric  # local import to avoid cycles
-
-    license_score = await license_metric(ctx)
-    return bool(license_score >= 0.5)
+    try:
+        model_data = {"url": request.github_url, "hf_data": [], "gh_data": []}
+        if create_eval_context_from_model_data is None:
+            raise RuntimeError("License evaluation unavailable")
+        ctx = create_eval_context_from_model_data(model_data)
+        from src.metrics.license_check import metric as license_metric  # local import to avoid cycles
+        license_score = await license_metric(ctx)
+        return bool(license_score >= 0.5)
+    except HTTPException:
+        raise
+    except Exception:
+        # Per spec: 502 when external license information could not be retrieved
+        raise HTTPException(status_code=502, detail="External license information could not be retrieved.")
 
 
 @app.post("/models/{id}/license-check")
