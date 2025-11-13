@@ -7,6 +7,7 @@ Main application entry point with REST API endpoints matching OpenAPI spec v3.4.
 import logging
 import os
 import sys
+import re
 from urllib.parse import unquote
 
 # Configure logging first
@@ -296,6 +297,24 @@ class ArtifactAuditEntry(BaseModel):
     date: str
     artifact: ArtifactMetadata
     action: str
+
+
+# ----------------------------
+# Input validation helpers
+# ----------------------------
+_ARTIFACT_ID_ALLOWED_RE = re.compile(r"^[A-Za-z0-9\\-]+$")
+
+
+def _validate_artifact_id_or_400(artifact_id: str) -> None:
+    """
+    Validate ArtifactID per OpenAPI pattern '^[a-zA-Z0-9\\-]+$'.
+    Raise HTTP 400 if invalid.
+    """
+    if not isinstance(artifact_id, str) or not _ARTIFACT_ID_ALLOWED_RE.fullmatch(artifact_id or ""):
+        raise HTTPException(
+            status_code=400,
+            detail="There is missing field(s) in the artifact_id or it is formed improperly, or is invalid.",
+        )
 
 
 class ArtifactLineageNode(BaseModel):
@@ -1890,7 +1909,6 @@ async def search_models_by_version(
                     continue
 
                 # Try to extract version from artifact name (e.g., "model-v1.0.0")
-                import re
                 version_match = re.search(r'v?(\d+\.\d+(?:\.\d+)?)', str(art.name), re.IGNORECASE)
                 if version_match:
                     version = version_match.group(1)
@@ -1903,7 +1921,6 @@ async def search_models_by_version(
                         })
     else:
         # In-memory fallback
-        import re
         for artifact_id, artifact_data in artifacts_db.items():
             if artifact_data["metadata"]["type"] != "model":
                 continue
@@ -1947,6 +1964,12 @@ async def artifact_by_name(
     # Accept names that include slashes and URL-encoded characters
     search_name = unquote(name or "").strip()
     search_name_lc = search_name.lower()
+    # Per spec, '*' is reserved for enumeration; treat it as invalid here
+    if not search_name or search_name == "*":
+        raise HTTPException(
+            status_code=400,
+            detail="There is missing field(s) in the artifact_name or it is formed improperly, or is invalid.",
+        )
 
     # Priority: S3 (production) > SQLite (local) > in-memory
     # In production, S3 is primary source; fallback to in-memory for same-request compatibility
@@ -2061,7 +2084,10 @@ async def artifact_by_regex(
         # The regex is validated here and only used for matching, not for execution.
         # CodeQL warnings about regex injection are expected - this is intentional functionality.
         # ReDoS risk is mitigated through length limits above.
-        pattern = _re.compile(regex.regex, _re.IGNORECASE)
+        raw_pattern = (regex.regex or "").strip()
+        pattern = _re.compile(raw_pattern, _re.IGNORECASE)
+        # If the user provided an exact-match style pattern (^name$), restrict matching to names only.
+        name_only = raw_pattern.startswith("^") and raw_pattern.endswith("$")
     except _re.error as e:
         raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
 
@@ -2099,6 +2125,9 @@ async def artifact_by_regex(
                 )
                 continue
             # Check README in stored hf_data if present; do NOT fetch/scrape in Lambda path
+            if name_only:
+                # Skip README matching for exact-name regexes
+                continue
             readme_text = ""
             data_block = art_data.get("data", {})
             if isinstance(data_block, dict):
@@ -2141,25 +2170,26 @@ async def artifact_by_regex(
         name = artifact_data["metadata"]["name"]
         readme_text = ""
 
-        # Extract README text from hf_data if available
-        if "hf_data" in artifact_data.get("data", {}):
-            hf_data = artifact_data["data"].get("hf_data", [])
-            if isinstance(hf_data, list) and len(hf_data) > 0:
-                readme_text = (
-                    hf_data[0].get("readme_text", "") if isinstance(hf_data[0], dict) else ""
-                )
-        elif "hf_model_name" in artifact_data:
-            # For ingested models, try to get README from HuggingFace
-            try:
-                if scrape_hf_url is not None:
-                    url = artifact_data.get("data", {}).get("url")
-                    if isinstance(url, str) and "huggingface.co" in url.lower():
-                        hf_data, _ = scrape_hf_url(url)
-                        readme_text = (
-                            hf_data.get("readme_text", "") if isinstance(hf_data, dict) else ""
-                        )
-            except Exception:
-                pass  # If we can't get README, just search name
+        if not name_only:
+            # Extract README text from hf_data if available
+            if "hf_data" in artifact_data.get("data", {}):
+                hf_data = artifact_data["data"].get("hf_data", [])
+                if isinstance(hf_data, list) and len(hf_data) > 0:
+                    readme_text = (
+                        hf_data[0].get("readme_text", "") if isinstance(hf_data[0], dict) else ""
+                    )
+            elif "hf_model_name" in artifact_data:
+                # For ingested models, try to get README from HuggingFace
+                try:
+                    if scrape_hf_url is not None:
+                        url = artifact_data.get("data", {}).get("url")
+                        if isinstance(url, str) and "huggingface.co" in url.lower():
+                            hf_data, _ = scrape_hf_url(url)
+                            readme_text = (
+                                hf_data.get("readme_text", "") if isinstance(hf_data, dict) else ""
+                            )
+                except Exception:
+                    pass  # If we can't get README, just search name
 
         # Mitigate catastrophic backtracking by limiting searchable text length
         if isinstance(readme_text, str) and len(readme_text) > 10000:
@@ -2177,10 +2207,10 @@ async def artifact_by_regex(
             if hf_model_name
             else False
         )
-        readme_matches = pattern.search(readme_text) if readme_text else False
+        readme_matches = (pattern.search(readme_text) if readme_text else False) if not name_only else False
 
         # Also check concatenated text for partial matches
-        search_text = f"{name} {hf_model_name} {readme_text}"
+        search_text = f"{name} {hf_model_name} {readme_text}" if not name_only else name
         if len(search_text) > 20000:
             search_text = search_text[:20000]
         concatenated_matches = pattern.search(search_text)
@@ -2371,6 +2401,7 @@ async def artifact_retrieve(
     user: Dict[str, Any] = Depends(verify_token),
 ) -> Artifact:
     """Interact with the artifact with this id (BASELINE)"""
+    _validate_artifact_id_or_400(id)
     if not check_permission(user, "search"):
         raise HTTPException(status_code=401, detail="You do not have permission to search.")
     logger.info(f"Retrieving artifact: type={artifact_type.value}, id={id}")
@@ -2505,6 +2536,7 @@ async def artifact_update(
     user: Dict[str, Any] = Depends(verify_token),
 ):
     """Update this content of the artifact (BASELINE)"""
+    _validate_artifact_id_or_400(id)
     if id not in artifacts_db:
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
 
@@ -2559,6 +2591,7 @@ async def artifact_delete(
     artifact_type: ArtifactType, id: str, user: Dict[str, Any] = Depends(verify_token)
 ):
     """Delete this artifact (NON-BASELINE)"""
+    _validate_artifact_id_or_400(id)
     # Check if artifact exists and get metadata
     artifact_metadata = None
     if USE_S3 and s3_storage:
@@ -2614,6 +2647,7 @@ async def artifact_audit(
     artifact_type: ArtifactType, id: str, user: Dict[str, Any] = Depends(verify_token)
 ) -> List[ArtifactAuditEntry]:
     """Get audit trail for an artifact (BASELINE)"""
+    _validate_artifact_id_or_400(id)
     # Check if artifact exists
     if USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
@@ -2661,6 +2695,7 @@ async def artifact_lineage(
     id: str, user: Dict[str, Any] = Depends(verify_token)
 ) -> ArtifactLineageGraph:
     """Get lineage graph for a model artifact (BASELINE)"""
+    _validate_artifact_id_or_400(id)
     # Check if artifact exists and get URL
     url = None
     artifact_name = None
@@ -2746,6 +2781,7 @@ async def model_lineage_alias(
     Alias route for lineage to match spec examples.
     Delegates to /artifact/model/{id}/lineage.
     """
+    _validate_artifact_id_or_400(id)
     return await artifact_lineage(id, user)  # type: ignore[arg-type]
 
 
@@ -2754,6 +2790,7 @@ async def artifact_license_check(
     id: str, request: SimpleLicenseCheckRequest, user: Dict[str, Any] = Depends(verify_token)
 ) -> bool:
     """Check license compatibility between model and GitHub repo (BASELINE)"""
+    _validate_artifact_id_or_400(id)
     # Check if artifact exists
     if USE_S3 and s3_storage:
         existing_data = s3_storage.get_artifact_metadata(id)
@@ -2800,6 +2837,7 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
     """Get ratings for this model artifact (BASELINE)"""
     # Support async ingest semantics (v3.4.4): if INVALID, return 404 forever.
     # If PENDING, compute metrics now (lazy evaluation approach 3) and mark READY.
+    _validate_artifact_id_or_400(id)
     status = artifact_status.get(id)
     if status == "INVALID":
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
@@ -2937,6 +2975,7 @@ async def artifact_cost(
     user: Dict[str, Any] = Depends(verify_token),
 ) -> Dict[str, ArtifactCost]:
     """Get the cost of an artifact (BASELINE)"""
+    _validate_artifact_id_or_400(id)
     if not check_permission(user, "search"):
         raise HTTPException(status_code=401, detail="You do not have permission to search.")
     # Check if artifact exists - Priority: S3 (production) > SQLite (local) > in-memory
@@ -2998,6 +3037,7 @@ async def model_cost_alias(
     Alias route for cost to match spec examples.
     Delegates to /artifact/{artifact_type}/{id}/cost with artifact_type='model'.
     """
+    _validate_artifact_id_or_400(id)
     return await artifact_cost(ArtifactType.MODEL, id, dependency, user)  # type: ignore[arg-type]
 
 
