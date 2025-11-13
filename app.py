@@ -8,6 +8,7 @@ import logging
 import os
 import sys
 import re
+import threading
 from urllib.parse import unquote
 
 # Configure logging first
@@ -37,7 +38,7 @@ try:
     from fastapi.security import HTTPBearer
     from fastapi.responses import FileResponse
     from pydantic import BaseModel
-    from typing import List, Optional, Dict, Any
+    from typing import List, Optional, Dict, Any, Tuple, Callable
     from datetime import datetime
     from enum import Enum
     from mangum import Mangum
@@ -315,6 +316,79 @@ def _validate_artifact_id_or_400(artifact_id: str) -> None:
             status_code=400,
             detail="There is missing field(s) in the artifact_id or it is formed improperly, or is invalid.",
         )
+
+
+# ----------------------------
+# Regex safety helpers
+# ----------------------------
+_DANGEROUS_REGEX_SNIPPETS: List[re.Pattern[str]] = [
+    # Classic catastrophic backtracking forms: nested quantifiers
+    re.compile(r"\((?:[^()\\]|\\.)+\)[*+]\s*[*+]+"),  # e.g., (.+)+, (.*)+, (\w+)+
+    re.compile(r"\(\?:\.\+\)\+"),  # (?:.+)+ (explicit non-capturing)
+    re.compile(r"\(\?:\.\*\)\+"),  # (?:.*)+
+    # Greedy ambiguous repeats anchored end-to-end (common bombs)
+    re.compile(r"^\((?:[^()\\]|\\.)+\)\+$"),  # ^(a+)+$-like
+]
+
+
+def _is_dangerous_regex(raw_pattern: str) -> bool:
+    """
+    Heuristic detector for catastrophic-backtracking-prone patterns.
+    We prefer to fail fast with HTTP 400 than risk Lambda timeouts.
+    """
+    text = (raw_pattern or "").strip()
+    if not text:
+        return False
+    # Very long patterns are already rejected elsewhere; here detect nested quantifiers
+    for bomb in _DANGEROUS_REGEX_SNIPPETS:
+        if bomb.search(text):
+            return True
+    return False
+
+
+def _safe_eval_with_timeout(fn: Callable[[], Any], timeout_ms: int) -> Tuple[bool, Optional[Any]]:
+    """
+    Execute a callable in a background thread with a timeout.
+    Returns (completed, result). If not completed, (False, None).
+    """
+    result_holder: Dict[str, Any] = {}
+    done_flag = {"done": False}
+
+    def _runner() -> None:
+        try:
+            result_holder["value"] = fn()
+        finally:
+            done_flag["done"] = True
+
+    t = threading.Thread(target=_runner, daemon=True)
+    t.start()
+    t.join(timeout=timeout_ms / 1000.0)
+    if not done_flag["done"]:
+        return False, None
+    return True, result_holder.get("value")
+
+
+def _safe_name_match(pattern: Any, candidate: str) -> bool:
+    """
+    Safely evaluate name match using short timeout.
+    """
+    if not candidate:
+        return False
+    ok, res = _safe_eval_with_timeout(
+        lambda: (pattern.search(candidate) is not None) or (pattern.fullmatch(candidate) is not None),
+        timeout_ms=20,
+    )
+    return bool(ok and res)
+
+
+def _safe_text_search(pattern: Any, text: str) -> bool:
+    """
+    Safely evaluate text search (README etc.) with slightly higher timeout.
+    """
+    if not text:
+        return False
+    ok, res = _safe_eval_with_timeout(lambda: pattern.search(text) is not None, timeout_ms=35)
+    return bool(ok and res)
 
 
 class ArtifactLineageNode(BaseModel):
@@ -2091,6 +2165,13 @@ async def artifact_by_regex(
     except _re.error as e:
         raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
 
+    # Additional safety: reject patterns that are likely to cause catastrophic backtracking
+    if _is_dangerous_regex(raw_pattern):
+        raise HTTPException(
+            status_code=400,
+            detail="Regex pattern too complex and may cause excessive backtracking.",
+        )
+
     # Priority: S3 (production) > SQLite (local) > in-memory
     if USE_S3 and s3_storage:
         # Avoid potentially expensive S3-side regex scans that can time out in Lambda.
@@ -2114,7 +2195,7 @@ async def artifact_by_regex(
             stored_type = str(metadata.get("type", "") or "")
             stored_name = str(metadata.get("name", "") or "")
             # Check name first (fast path)
-            name_matches = pattern.search(stored_name) or pattern.fullmatch(stored_name)
+            name_matches = _safe_name_match(pattern, stored_name)
             if name_matches:
                 matches.append(
                     ArtifactMetadata(
@@ -2139,7 +2220,7 @@ async def artifact_by_regex(
             if readme_text:
                 if len(readme_text) > 10000:
                     readme_text = readme_text[:10000]
-                if pattern.search(readme_text):
+                if _safe_text_search(pattern, readme_text):
                     matches.append(
                         ArtifactMetadata(
                             name=stored_name,
@@ -2201,19 +2282,19 @@ async def artifact_by_regex(
         # For exact matches (patterns like ^name$), check name and hf_model_name individually
         # For partial matches, search in the concatenated text
         # This ensures exact match regexes work correctly
-        name_matches = pattern.search(name) or pattern.fullmatch(name)
+        name_matches = _safe_name_match(pattern, name)
         hf_name_matches = (
-            (pattern.search(hf_model_name) or pattern.fullmatch(hf_model_name))
+            _safe_name_match(pattern, hf_model_name)
             if hf_model_name
             else False
         )
-        readme_matches = (pattern.search(readme_text) if readme_text else False) if not name_only else False
+        readme_matches = (_safe_text_search(pattern, readme_text) if readme_text else False) if not name_only else False
 
         # Also check concatenated text for partial matches
         search_text = f"{name} {hf_model_name} {readme_text}" if not name_only else name
         if len(search_text) > 20000:
             search_text = search_text[:20000]
-        concatenated_matches = pattern.search(search_text)
+        concatenated_matches = _safe_text_search(pattern, search_text)
 
         # Match if any component matches
         if name_matches or hf_name_matches or readme_matches or concatenated_matches:
@@ -2642,6 +2723,40 @@ async def artifact_delete(
     return {"message": "Artifact is deleted."}
 
 
+@app.get("/package/{id}", response_model=Artifact)
+async def package_retrieve_alias(
+    id: str, request: Request, user: Dict[str, Any] = Depends(verify_token)
+) -> Artifact:
+    """
+    Alias route to support autograder calling /package/{id}.
+    Delegates to /artifacts/{artifact_type}/{id} after discovering the artifact type.
+    """
+    _validate_artifact_id_or_400(id)
+    if not check_permission(user, "search"):
+        raise HTTPException(status_code=401, detail="You do not have permission to search.")
+    # Discover artifact type
+    stored_type = None
+    if USE_S3 and s3_storage:
+        existing_data = s3_storage.get_artifact_metadata(id)
+        if existing_data:
+            stored_type = existing_data.get("metadata", {}).get("type")
+    elif USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            art = db_crud.get_artifact(_db, id)
+            if art:
+                stored_type = art.type
+    else:
+        if id in artifacts_db:
+            stored_type = artifacts_db[id].get("metadata", {}).get("type")
+    if not stored_type:
+        raise HTTPException(status_code=404, detail="Artifact does not exist.")
+    try:
+        artifact_type = ArtifactType(stored_type)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+    return await artifact_retrieve(artifact_type, id, request, user)  # type: ignore[arg-type]
+
+
 @app.get("/artifact/{artifact_type}/{id}/audit")
 async def artifact_audit(
     artifact_type: ArtifactType, id: str, user: Dict[str, Any] = Depends(verify_token)
@@ -2972,6 +3087,35 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
         size_score=size_scores,
         size_score_latency=0.0,
     )
+
+
+@app.get("/package/{id}/rate", response_model=ModelRating)
+async def package_rate_alias(id: str, user: Dict[str, Any] = Depends(verify_token)) -> ModelRating:
+    """
+    Alias route to support autograder calling /package/{id}/rate.
+    Delegates to /artifact/model/{id}/rate after verifying the ID refers to a model.
+    """
+    _validate_artifact_id_or_400(id)
+    # Verify the artifact exists and is a model; then delegate
+    if USE_S3 and s3_storage:
+        existing_data = s3_storage.get_artifact_metadata(id)
+        if not existing_data:
+            raise HTTPException(status_code=404, detail="Artifact does not exist.")
+        if existing_data.get("metadata", {}).get("type") != "model":
+            raise HTTPException(status_code=400, detail="Not a model artifact.")
+    elif USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            art = db_crud.get_artifact(_db, id)
+            if not art:
+                raise HTTPException(status_code=404, detail="Artifact does not exist.")
+            if art.type != "model":
+                raise HTTPException(status_code=400, detail="Not a model artifact.")
+    else:
+        if id not in artifacts_db:
+            raise HTTPException(status_code=404, detail="Artifact does not exist.")
+        if artifacts_db[id]["metadata"]["type"] != "model":
+            raise HTTPException(status_code=400, detail="Not a model artifact.")
+    return await model_artifact_rate(id, user)  # type: ignore[arg-type]
 
 
 @app.get("/artifact/{artifact_type}/{id}/cost", response_model=Dict[str, ArtifactCost])
