@@ -131,10 +131,10 @@ class TestArtifactUpdate:
         client = TestClient(app)
 
         update_data = {
-            "metadata": {"name": "test", "id": "nonexistent_999", "type": "model"},
+            "metadata": {"name": "test", "id": "nonexistent-999", "type": "model"},
             "data": {"url": "https://example.com/test"},
         }
-        response = client.put("/artifacts/model/nonexistent_999", json=update_data, headers=headers)
+        response = client.put("/artifacts/model/nonexistent-999", json=update_data, headers=headers)
         assert response.status_code == 404
 
     def test_update_artifact_type_mismatch(self):
@@ -190,7 +190,7 @@ class TestArtifactDelete:
         headers = _get_headers()
         client = TestClient(app)
 
-        response = client.delete("/artifacts/model/nonexistent_999", headers=headers)
+        response = client.delete("/artifacts/model/nonexistent-999", headers=headers)
         assert response.status_code == 404
 
 
@@ -343,7 +343,7 @@ class TestArtifactLineage:
         headers = _get_headers()
         client = TestClient(app)
 
-        response = client.get("/artifact/model/nonexistent_999/lineage", headers=headers)
+        response = client.get("/artifact/model/nonexistent-999/lineage", headers=headers)
         assert response.status_code in [404, 400, 500]
 
     def test_artifact_lineage_non_model(self):
@@ -375,7 +375,7 @@ class TestArtifactLicenseCheck:
         client = TestClient(app)
 
         response = client.post(
-            "/artifact/model/nonexistent_999/license-check",
+            "/artifact/model/nonexistent-999/license-check",
             json={"github_url": "https://github.com/test/repo"},
             headers=headers,
         )
@@ -413,7 +413,7 @@ class TestArtifactAudit:
         client = TestClient(app)
 
         # Create an artifact and add audit entry
-        test_id = "test_audit_123"
+        test_id = "test-audit-123"
         artifacts_db[test_id] = {
             "metadata": {"name": "test", "id": test_id, "type": "model"},
             "data": {"url": "https://example.com/test"},
