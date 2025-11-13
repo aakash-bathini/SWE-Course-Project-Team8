@@ -302,7 +302,7 @@ class ArtifactAuditEntry(BaseModel):
 # ----------------------------
 # Input validation helpers
 # ----------------------------
-_ARTIFACT_ID_ALLOWED_RE = re.compile(r"^[A-Za-z0-9_\\-]+$")
+_ARTIFACT_ID_ALLOWED_RE = re.compile(r"^[A-Za-z0-9\\-]+$")
 
 
 def _validate_artifact_id_or_400(artifact_id: str) -> None:
