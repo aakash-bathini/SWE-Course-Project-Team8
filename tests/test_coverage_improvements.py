@@ -341,7 +341,7 @@ class TestModelRatingEdgeCases:
         client = TestClient(app)
 
         # Set artifact to PENDING
-        test_id = "test_pending_123"
+        test_id = "test-pending-123"
         artifact_status[test_id] = "PENDING"
 
         response = client.get(f"/artifact/model/{test_id}/rate", headers=headers)
@@ -367,7 +367,7 @@ class TestModelRatingEdgeCases:
         client = TestClient(app)
 
         # Set artifact to INVALID
-        test_id = "test_invalid_123"
+        test_id = "test-invalid-123"
         artifact_status[test_id] = "INVALID"
 
         response = client.get(f"/artifact/model/{test_id}/rate", headers=headers)
@@ -462,7 +462,7 @@ class TestErrorResponses:
 
         client = TestClient(app)
 
-        response = client.get("/artifacts/model/nonexistent_id_999", headers=headers)
+        response = client.get("/artifacts/model/nonexistent-id-999", headers=headers)
         assert response.status_code == 404
 
     def test_artifact_type_mismatch_400(self):

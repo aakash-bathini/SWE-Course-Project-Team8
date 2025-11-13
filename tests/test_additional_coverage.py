@@ -200,7 +200,7 @@ class TestArtifactEndpoints:
 
         headers = _get_headers()
         client = TestClient(app)
-        response = client.get("/artifacts/model/nonexistent_999", headers=headers)
+        response = client.get("/artifacts/model/nonexistent-999", headers=headers)
         assert response.status_code == 404
 
     def test_artifact_update_not_found(self):
@@ -210,11 +210,11 @@ class TestArtifactEndpoints:
         headers = _get_headers()
         client = TestClient(app)
         artifact_data = {
-            "metadata": {"name": "test", "id": "nonexistent_999", "type": "model"},
+            "metadata": {"name": "test", "id": "nonexistent-999", "type": "model"},
             "data": {"url": "https://example.com/test"},
         }
         response = client.put(
-            "/artifacts/model/nonexistent_999", json=artifact_data, headers=headers
+            "/artifacts/model/nonexistent-999", json=artifact_data, headers=headers
         )
         assert response.status_code == 404
 
@@ -224,7 +224,7 @@ class TestArtifactEndpoints:
 
         headers = _get_headers()
         client = TestClient(app)
-        response = client.delete("/artifacts/model/nonexistent_999", headers=headers)
+        response = client.delete("/artifacts/model/nonexistent-999", headers=headers)
         assert response.status_code == 404
 
 
@@ -318,7 +318,7 @@ class TestModelRatingEdgeCases:
 
         headers = _get_headers()
         client = TestClient(app)
-        response = client.get("/artifact/model/nonexistent_999/rate", headers=headers)
+        response = client.get("/artifact/model/nonexistent-999/rate", headers=headers)
         assert response.status_code in [404, 500]
 
     def test_model_rating_non_model_type(self):
@@ -342,7 +342,7 @@ class TestArtifactCostEdgeCases:
 
         headers = _get_headers()
         client = TestClient(app)
-        response = client.get("/artifact/model/nonexistent_999/cost", headers=headers)
+        response = client.get("/artifact/model/nonexistent-999/cost", headers=headers)
         assert response.status_code in [404, 400, 500]
 
     def test_artifact_cost_without_dependencies(self):
@@ -352,7 +352,7 @@ class TestArtifactCostEdgeCases:
         headers = _get_headers()
         client = TestClient(app)
         response = client.get(
-            "/artifact/model/nonexistent_999/cost?dependency=false", headers=headers
+            "/artifact/model/nonexistent-999/cost?dependency=false", headers=headers
         )
         assert response.status_code in [404, 400, 500]
 
@@ -452,7 +452,7 @@ class TestArtifactAudit:
 
         headers = _get_headers()
         client = TestClient(app)
-        response = client.get("/artifact/model/nonexistent_999/audit", headers=headers)
+        response = client.get("/artifact/model/nonexistent-999/audit", headers=headers)
         assert response.status_code == 404
 
 
@@ -465,7 +465,7 @@ class TestArtifactLineage:
 
         headers = _get_headers()
         client = TestClient(app)
-        response = client.get("/artifact/model/nonexistent_999/lineage", headers=headers)
+        response = client.get("/artifact/model/nonexistent-999/lineage", headers=headers)
         assert response.status_code in [404, 400, 500]
 
 
@@ -479,7 +479,7 @@ class TestArtifactLicenseCheck:
         headers = _get_headers()
         client = TestClient(app)
         response = client.post(
-            "/artifact/model/nonexistent_999/license-check",
+            "/artifact/model/nonexistent-999/license-check",
             json={"github_url": "https://github.com/test/repo"},
             headers=headers,
         )
@@ -517,7 +517,7 @@ class TestSensitiveModels:
 
         headers = _get_headers()
         client = TestClient(app)
-        response = client.get("/sensitive-models/nonexistent_999/download", headers=headers)
+        response = client.get("/sensitive-models/nonexistent-999/download", headers=headers)
         assert response.status_code == 404
 
     def test_get_js_program_nonexistent(self):
@@ -526,7 +526,7 @@ class TestSensitiveModels:
 
         headers = _get_headers()
         client = TestClient(app)
-        response = client.get("/js-programs/nonexistent_999", headers=headers)
+        response = client.get("/js-programs/nonexistent-999", headers=headers)
         assert response.status_code == 404
 
     def test_get_download_history_nonexistent(self):
@@ -535,7 +535,7 @@ class TestSensitiveModels:
 
         headers = _get_headers()
         client = TestClient(app)
-        response = client.get("/download-history/nonexistent_999", headers=headers)
+        response = client.get("/download-history/nonexistent-999", headers=headers)
         assert response.status_code in [404, 200, 500]
 
 

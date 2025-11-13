@@ -238,7 +238,7 @@ class TestArtifactUpdateStoragePaths:
         client = TestClient(app)
 
         # Create an artifact first
-        test_id = "test_update_sqlite_123"
+        test_id = "test-update-sqlite-123"
         artifacts_db[test_id] = {
             "metadata": {"name": "test", "id": test_id, "type": "model"},
             "data": {"url": "https://example.com/test"},
@@ -281,13 +281,13 @@ class TestArtifactDeleteStoragePaths:
         if s3_storage:
             # Mock S3 to return artifact
             mock_artifact = {
-                "metadata": {"name": "test", "id": "test_s3_123", "type": "model"},
+                "metadata": {"name": "test", "id": "test-s3-123", "type": "model"},
                 "data": {"url": "https://example.com/test"},
             }
             with patch.object(s3_storage, "get_artifact_metadata", return_value=mock_artifact):
                 with patch.object(s3_storage, "delete_artifact_metadata", return_value=None):
                     with patch.object(s3_storage, "delete_artifact_files", return_value=None):
-                        response = client.delete("/artifacts/model/test_s3_123", headers=headers)
+                        response = client.delete("/artifacts/model/test-s3-123", headers=headers)
                         assert response.status_code in [200, 404, 500]
 
     def test_artifact_delete_sqlite_path(self):
@@ -306,7 +306,7 @@ class TestArtifactDeleteStoragePaths:
         client = TestClient(app)
 
         # Create an artifact
-        test_id = "test_delete_sqlite_123"
+        test_id = "test-delete-sqlite-123"
         artifacts_db[test_id] = {
             "metadata": {"name": "test", "id": test_id, "type": "model"},
             "data": {"url": "https://example.com/test"},

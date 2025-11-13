@@ -79,7 +79,7 @@ class TestLineageGraph:
         headers = _get_headers()
         client = TestClient(app)
 
-        response = client.get("/artifact/model/nonexistent_999/lineage", headers=headers)
+        response = client.get("/artifact/model/nonexistent-999/lineage", headers=headers)
         assert response.status_code in [404, 403]
 
     def test_lineage_non_model_artifact(self):
@@ -186,7 +186,7 @@ class TestSizeCost:
         headers = _get_headers()
         client = TestClient(app)
 
-        response = client.get("/artifact/model/nonexistent_999/cost", headers=headers)
+        response = client.get("/artifact/model/nonexistent-999/cost", headers=headers)
         assert response.status_code in [404, 403]
 
     def test_cost_type_mismatch(self):
@@ -266,7 +266,7 @@ class TestLicenseCheck:
 
         payload = {"github_url": "https://github.com/test/repo"}
         response = client.post(
-            "/artifact/model/nonexistent_999/license-check", json=payload, headers=headers
+            "/artifact/model/nonexistent-999/license-check", json=payload, headers=headers
         )
         assert response.status_code in [404, 403]
 
