@@ -9,7 +9,7 @@ import os
 import sys
 import re
 import threading
-from urllib.parse import unquote
+from urllib.parse import unquote, urlparse
 
 # Configure logging first
 logging.basicConfig(
@@ -2364,7 +2364,22 @@ async def artifact_create(
     artifact_id = f"{artifact_type.value}-{type_count + 1}-{int(datetime.now().timestamp())}"
 
     # Extract name from URL (handle trailing slashes and URL encoding)
-    artifact_name = unquote(artifact_data.url.rstrip("/").split("/")[-1]) if artifact_data.url else "unknown"
+    # For HuggingFace URLs, preserve full path (e.g., "org/model-name")
+    # For other URLs, use last segment
+    if artifact_data.url:
+        url_clean = artifact_data.url.rstrip("/")
+        if "huggingface.co" in url_clean.lower():
+            # Extract everything after huggingface.co/
+            try:
+                parsed = urlparse(url_clean)
+                path = parsed.path.lstrip("/")
+                artifact_name = unquote(path) if path else "unknown"
+            except Exception:
+                artifact_name = unquote(url_clean.split("/")[-1])
+        else:
+            artifact_name = unquote(url_clean.split("/")[-1])
+    else:
+        artifact_name = "unknown"
 
     # For HuggingFace URLs, try to scrape and store hf_data for regex search
     hf_data: Optional[List[Dict[str, Any]]] = None
