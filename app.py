@@ -303,7 +303,7 @@ class ArtifactAuditEntry(BaseModel):
 # ----------------------------
 # Input validation helpers
 # ----------------------------
-_ARTIFACT_ID_ALLOWED_RE = re.compile(r"^[A-Za-z0-9\\-]+$")
+_ARTIFACT_ID_ALLOWED_RE = re.compile(r"^[A-Za-z0-9\-]+$")
 
 
 def _validate_artifact_id_or_400(artifact_id: str) -> None:
@@ -2057,9 +2057,9 @@ async def artifact_by_name(
             s3_artifacts = []
         for art_data in s3_artifacts:
             metadata = art_data.get("metadata", {})
-            stored_name = str(metadata.get("name", ""))
-            hf_model_name = str(art_data.get("hf_model_name", ""))
-            if stored_name.lower() == search_name_lc or hf_model_name.lower() == search_name_lc:
+            stored_name = str(metadata.get("name", "")).strip()
+            # Per spec, byName matches on the stored name only (case-insensitive)
+            if stored_name.lower() == search_name_lc:
                 matches.append(
                     ArtifactMetadata(
                         name=stored_name,
@@ -2069,7 +2069,8 @@ async def artifact_by_name(
                 )
         # Also check in-memory for same-request artifacts (Lambda cold start protection)
         for artifact_id, artifact_data in artifacts_db.items():
-            stored_name = artifact_data["metadata"]["name"]
+            stored_name = str(artifact_data["metadata"]["name"]).strip()
+            # Per spec, byName matches on the stored name only (case-insensitive)
             if stored_name.lower() == search_name_lc:
                 # Check if already in matches
                 if not any(m.id == artifact_id for m in matches):
@@ -2080,17 +2081,6 @@ async def artifact_by_name(
                             type=ArtifactType(artifact_data["metadata"]["type"]),
                         )
                     )
-            elif "hf_model_name" in artifact_data:
-                hf_model_name = artifact_data["hf_model_name"]
-                if hf_model_name.lower() == search_name_lc:
-                    if not any(m.id == artifact_id for m in matches):
-                        matches.append(
-                            ArtifactMetadata(
-                                name=stored_name,
-                                id=artifact_id,
-                                type=ArtifactType(artifact_data["metadata"]["type"]),
-                            )
-                        )
     elif USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             items = db_crud.list_by_name(_db, search_name)
@@ -2104,6 +2094,7 @@ async def artifact_by_name(
     # Always search in-memory as well (captures just-created items and ensures consistency)
     for artifact_id, artifact_data in artifacts_db.items():
         stored_name = str(artifact_data["metadata"]["name"]).strip()
+        # Per spec, byName matches on the stored name only (case-insensitive)
         if stored_name.lower() == search_name_lc:
             # Check if already in matches
             if not any(m.id == artifact_id for m in matches):
@@ -2114,17 +2105,6 @@ async def artifact_by_name(
                         type=ArtifactType(artifact_data["metadata"]["type"]),
                     )
                 )
-        elif "hf_model_name" in artifact_data:
-            hf_model_name = str(artifact_data["hf_model_name"]).strip()
-            if hf_model_name.lower() == search_name_lc:
-                if not any(m.id == artifact_id for m in matches):
-                    matches.append(
-                        ArtifactMetadata(
-                            name=stored_name,
-                            id=artifact_id,
-                            type=ArtifactType(artifact_data["metadata"]["type"]),
-                        )
-                    )
 
     if not matches:
         raise HTTPException(status_code=404, detail="No such artifact.")
@@ -2275,36 +2255,40 @@ async def artifact_by_regex(
         # Mitigate catastrophic backtracking by limiting searchable text length
         if isinstance(readme_text, str) and len(readme_text) > 10000:
             readme_text = readme_text[:10000]
-        # Search in both name and README, and also include hf_model_name for exact matches
-        # Include hf_model_name to allow searching by full HuggingFace model name
-        hf_model_name = artifact_data.get("hf_model_name", "")
-
-        # For exact matches (patterns like ^name$), check name and hf_model_name individually
-        # For partial matches, search in the concatenated text
-        # This ensures exact match regexes work correctly
+        # For exact matches (patterns like ^name$), only check the stored name per spec
+        # For partial matches, search in name and README content
         name_matches = _safe_name_match(pattern, name)
-        hf_name_matches = (
-            _safe_name_match(pattern, hf_model_name)
-            if hf_model_name
-            else False
-        )
-        readme_matches = (_safe_text_search(pattern, readme_text) if readme_text else False) if not name_only else False
 
-        # Also check concatenated text for partial matches
-        search_text = f"{name} {hf_model_name} {readme_text}" if not name_only else name
-        if len(search_text) > 20000:
-            search_text = search_text[:20000]
-        concatenated_matches = _safe_text_search(pattern, search_text)
-
-        # Match if any component matches
-        if name_matches or hf_name_matches or readme_matches or concatenated_matches:
-            matches.append(
-                ArtifactMetadata(
-                    name=name,
-                    id=artifact_id,
-                    type=ArtifactType(artifact_data["metadata"]["type"]),
+        if name_only:
+            # Exact match: only check stored name (per spec, byRegEx searches "artifact names and READMEs"
+            # but exact match patterns like ^name$ should only match the name)
+            if name_matches:
+                matches.append(
+                    ArtifactMetadata(
+                        name=name,
+                        id=artifact_id,
+                        type=ArtifactType(artifact_data["metadata"]["type"]),
+                    )
                 )
-            )
+        else:
+            # Partial match: search in name and README
+            readme_matches = _safe_text_search(pattern, readme_text) if readme_text else False
+
+            # Also check concatenated text for partial matches
+            search_text = f"{name} {readme_text}"
+            if len(search_text) > 20000:
+                search_text = search_text[:20000]
+            concatenated_matches = _safe_text_search(pattern, search_text)
+
+            # Match if name or README matches
+            if name_matches or readme_matches or concatenated_matches:
+                matches.append(
+                    ArtifactMetadata(
+                        name=name,
+                        id=artifact_id,
+                        type=ArtifactType(artifact_data["metadata"]["type"]),
+                    )
+                )
 
     # Deduplicate by artifact ID
     seen_ids = set()
