@@ -2364,33 +2364,46 @@ async def artifact_create(
     artifact_id = f"{artifact_type.value}-{type_count + 1}-{int(datetime.now().timestamp())}"
 
     # Extract name from URL (handle trailing slashes and URL encoding)
-    # For HuggingFace URLs, preserve full path (e.g., "org/model-name")
-    # For other URLs, use last segment
+    # For HuggingFace URLs, try to use repo_id from scraped data (canonical name)
+    # Otherwise, extract from URL path
+    artifact_name = "unknown"
+    hf_data: Optional[List[Dict[str, Any]]] = None
+
     if artifact_data.url:
         url_clean = artifact_data.url.rstrip("/")
         if "huggingface.co" in url_clean.lower():
-            # Extract everything after huggingface.co/
+            # Try to scrape HF data first to get canonical repo_id
             try:
-                parsed = urlparse(url_clean)
-                path = parsed.path.lstrip("/")
-                artifact_name = unquote(path) if path else "unknown"
+                if scrape_hf_url is not None:
+                    hf_data_result, _ = scrape_hf_url(artifact_data.url)
+                    if hf_data_result and isinstance(hf_data_result, dict):
+                        # Use repo_id from HF API (canonical name, e.g., "org/model-name")
+                        repo_id = hf_data_result.get("repo_id")
+                        if repo_id and isinstance(repo_id, str):
+                            artifact_name = repo_id
+                            hf_data = [hf_data_result]
+                        else:
+                            # Fallback to URL extraction if repo_id missing
+                            parsed = urlparse(url_clean)
+                            path = parsed.path.lstrip("/")
+                            artifact_name = unquote(path) if path else "unknown"
+                            hf_data = [hf_data_result]
+                    else:
+                        # Scraping failed, extract from URL
+                        parsed = urlparse(url_clean)
+                        path = parsed.path.lstrip("/")
+                        artifact_name = unquote(path) if path else "unknown"
             except Exception:
-                artifact_name = unquote(url_clean.split("/")[-1])
+                # If scraping fails, extract from URL path
+                try:
+                    parsed = urlparse(url_clean)
+                    path = parsed.path.lstrip("/")
+                    artifact_name = unquote(path) if path else "unknown"
+                except Exception:
+                    artifact_name = unquote(url_clean.split("/")[-1])
         else:
+            # Non-HF URLs: use last segment
             artifact_name = unquote(url_clean.split("/")[-1])
-    else:
-        artifact_name = "unknown"
-
-    # For HuggingFace URLs, try to scrape and store hf_data for regex search
-    hf_data: Optional[List[Dict[str, Any]]] = None
-    if "huggingface.co" in artifact_data.url.lower():
-        try:
-            if scrape_hf_url is not None:
-                hf_data_result, _ = scrape_hf_url(artifact_data.url)
-                hf_data = [hf_data_result] if hf_data_result else []
-        except Exception:
-            # If scraping fails, continue without hf_data
-            hf_data = None
 
     # Create artifact entry
     artifact_entry = {
