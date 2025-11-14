@@ -11,7 +11,7 @@ This script tests the exact scenarios that the autograder tests.
 import sys
 import os
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Dict, Any
+from typing import Dict, Any
 from urllib.parse import quote
 
 # Add project root to path
@@ -53,7 +53,7 @@ def run_by_name_tests(client: TestClient, headers: Dict[str, str]):
             art_id = data["metadata"]["id"]
             stored_name = data["metadata"]["name"]
             created_artifacts[stored_name] = art_id
-            print(f"✓ Created: {name} -> stored as '{stored_name}' (id: {art_id})")
+            print(f"✓ Created: {name} -> stored as {stored_name!r} (id: {art_id})")
         else:
             print(f"✗ Failed to create {name}: {resp.status_code} - {resp.text[:200]}")
 
@@ -76,7 +76,7 @@ def run_by_name_tests(client: TestClient, headers: Dict[str, str]):
             data = response.json()
             print(f"  Results: {len(data)} matches")
             for item in data:
-                print(f"    - {item['name']} ({item['id']})")
+                print(f"    - {item['name']} (id: {item['id']})")
             if should_exist:
                 # Check if we found the expected artifact
                 found = any(item["name"].lower() == query_name.lower() for item in data)
@@ -87,7 +87,7 @@ def run_by_name_tests(client: TestClient, headers: Dict[str, str]):
                         f"  ✗ Expected to find '{query_name}' but got: {[i['name'] for i in data]}"
                     )
             else:
-                print(f"  ✗ Unexpected: found artifacts when should return 404")
+                print("  ✗ Unexpected: found artifacts when should return 404")
         elif response.status_code == 404:
             if should_exist:
                 print(f"  ✗ Failed: Expected to find '{query_name}' but got 404")
