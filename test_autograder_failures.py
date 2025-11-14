@@ -47,7 +47,7 @@ def run_by_name_tests(client: TestClient, headers: Dict[str, str]):
 
     created_artifacts = {}  # name -> id mapping
     for name, url in test_cases:
-        resp = client.post(f"/artifact/model", json={"url": url}, headers=headers)
+        resp = client.post("/artifact/model", json={"url": url}, headers=headers)
         if resp.status_code in (200, 201, 202):
             data = resp.json()
             art_id = data["metadata"]["id"]
@@ -81,7 +81,7 @@ def run_by_name_tests(client: TestClient, headers: Dict[str, str]):
                 # Check if we found the expected artifact
                 found = any(item["name"].lower() == query_name.lower() for item in data)
                 if found:
-                    print(f"  ✓ Correctly found artifact")
+                    print("  ✓ Correctly found artifact")
                 else:
                     print(
                         f"  ✗ Expected to find '{query_name}' but got: {[i['name'] for i in data]}"
@@ -92,7 +92,7 @@ def run_by_name_tests(client: TestClient, headers: Dict[str, str]):
             if should_exist:
                 print(f"  ✗ Failed: Expected to find '{query_name}' but got 404")
             else:
-                print(f"  ✓ Correctly returned 404 (not found)")
+                print("  ✓ Correctly returned 404 (not found)")
         else:
             print(f"  ✗ Unexpected status: {response.text[:200]}")
 
