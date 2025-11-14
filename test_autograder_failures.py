@@ -58,7 +58,7 @@ def run_by_name_tests(client: TestClient, headers: Dict[str, str]):
             print(f"✗ Failed to create {name}: {resp.status_code} - {resp.text[:200]}")
 
     # Test ByName queries - test various name formats
-    # Per OpenAPI spec: URL "https://huggingface.co/google-bert/bert-base-uncased" 
+    # Per OpenAPI spec: URL "https://huggingface.co/google-bert/bert-base-uncased"
     # stores name as "bert-base-uncased" (last segment only)
     test_queries = [
         ("simple-model", True),  # Should find
