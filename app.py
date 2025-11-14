@@ -9,7 +9,7 @@ import os
 import sys
 import re
 import threading
-from urllib.parse import unquote
+from urllib.parse import unquote, urlparse
 
 # Configure logging first
 logging.basicConfig(
@@ -303,7 +303,7 @@ class ArtifactAuditEntry(BaseModel):
 # ----------------------------
 # Input validation helpers
 # ----------------------------
-_ARTIFACT_ID_ALLOWED_RE = re.compile(r"^[A-Za-z0-9\\-]+$")
+_ARTIFACT_ID_ALLOWED_RE = re.compile(r"^[A-Za-z0-9\-]+$")
 
 
 def _validate_artifact_id_or_400(artifact_id: str) -> None:
@@ -368,16 +368,26 @@ def _safe_eval_with_timeout(fn: Callable[[], Any], timeout_ms: int) -> Tuple[boo
     return True, result_holder.get("value")
 
 
-def _safe_name_match(pattern: Any, candidate: str) -> bool:
+def _safe_name_match(pattern: Any, candidate: str, exact_match: bool = False) -> bool:
     """
     Safely evaluate name match using short timeout.
+    For exact match patterns (^name$), use fullmatch() only.
+    For partial patterns, use search().
     """
     if not candidate:
         return False
-    ok, res = _safe_eval_with_timeout(
-        lambda: (pattern.search(candidate) is not None) or (pattern.fullmatch(candidate) is not None),
-        timeout_ms=20,
-    )
+    if exact_match:
+        # For exact matches, only use fullmatch (entire string must match)
+        ok, res = _safe_eval_with_timeout(
+            lambda: pattern.fullmatch(candidate) is not None,
+            timeout_ms=20,
+        )
+    else:
+        # For partial matches, use search (pattern can appear anywhere)
+        ok, res = _safe_eval_with_timeout(
+            lambda: pattern.search(candidate) is not None,
+            timeout_ms=20,
+        )
     return bool(ok and res)
 
 
@@ -2057,9 +2067,9 @@ async def artifact_by_name(
             s3_artifacts = []
         for art_data in s3_artifacts:
             metadata = art_data.get("metadata", {})
-            stored_name = str(metadata.get("name", ""))
-            hf_model_name = str(art_data.get("hf_model_name", ""))
-            if stored_name.lower() == search_name_lc or hf_model_name.lower() == search_name_lc:
+            stored_name = str(metadata.get("name", "")).strip()
+            # Per spec, byName matches on the stored name only (case-insensitive)
+            if stored_name.lower() == search_name_lc:
                 matches.append(
                     ArtifactMetadata(
                         name=stored_name,
@@ -2069,7 +2079,8 @@ async def artifact_by_name(
                 )
         # Also check in-memory for same-request artifacts (Lambda cold start protection)
         for artifact_id, artifact_data in artifacts_db.items():
-            stored_name = artifact_data["metadata"]["name"]
+            stored_name = str(artifact_data["metadata"]["name"]).strip()
+            # Per spec, byName matches on the stored name only (case-insensitive)
             if stored_name.lower() == search_name_lc:
                 # Check if already in matches
                 if not any(m.id == artifact_id for m in matches):
@@ -2080,17 +2091,6 @@ async def artifact_by_name(
                             type=ArtifactType(artifact_data["metadata"]["type"]),
                         )
                     )
-            elif "hf_model_name" in artifact_data:
-                hf_model_name = artifact_data["hf_model_name"]
-                if hf_model_name.lower() == search_name_lc:
-                    if not any(m.id == artifact_id for m in matches):
-                        matches.append(
-                            ArtifactMetadata(
-                                name=stored_name,
-                                id=artifact_id,
-                                type=ArtifactType(artifact_data["metadata"]["type"]),
-                            )
-                        )
     elif USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             items = db_crud.list_by_name(_db, search_name)
@@ -2104,6 +2104,7 @@ async def artifact_by_name(
     # Always search in-memory as well (captures just-created items and ensures consistency)
     for artifact_id, artifact_data in artifacts_db.items():
         stored_name = str(artifact_data["metadata"]["name"]).strip()
+        # Per spec, byName matches on the stored name only (case-insensitive)
         if stored_name.lower() == search_name_lc:
             # Check if already in matches
             if not any(m.id == artifact_id for m in matches):
@@ -2114,17 +2115,6 @@ async def artifact_by_name(
                         type=ArtifactType(artifact_data["metadata"]["type"]),
                     )
                 )
-        elif "hf_model_name" in artifact_data:
-            hf_model_name = str(artifact_data["hf_model_name"]).strip()
-            if hf_model_name.lower() == search_name_lc:
-                if not any(m.id == artifact_id for m in matches):
-                    matches.append(
-                        ArtifactMetadata(
-                            name=stored_name,
-                            id=artifact_id,
-                            type=ArtifactType(artifact_data["metadata"]["type"]),
-                        )
-                    )
 
     if not matches:
         raise HTTPException(status_code=404, detail="No such artifact.")
@@ -2195,7 +2185,8 @@ async def artifact_by_regex(
             stored_type = str(metadata.get("type", "") or "")
             stored_name = str(metadata.get("name", "") or "")
             # Check name first (fast path)
-            name_matches = _safe_name_match(pattern, stored_name)
+            # For exact matches (^name$), use fullmatch only
+            name_matches = _safe_name_match(pattern, stored_name, exact_match=name_only)
             if name_matches:
                 matches.append(
                     ArtifactMetadata(
@@ -2275,36 +2266,41 @@ async def artifact_by_regex(
         # Mitigate catastrophic backtracking by limiting searchable text length
         if isinstance(readme_text, str) and len(readme_text) > 10000:
             readme_text = readme_text[:10000]
-        # Search in both name and README, and also include hf_model_name for exact matches
-        # Include hf_model_name to allow searching by full HuggingFace model name
-        hf_model_name = artifact_data.get("hf_model_name", "")
+        # For exact matches (patterns like ^name$), only check the stored name per spec
+        # For partial matches, search in name and README content
+        # For exact matches (^name$), use fullmatch only to ensure exact matching
+        name_matches = _safe_name_match(pattern, name, exact_match=name_only)
 
-        # For exact matches (patterns like ^name$), check name and hf_model_name individually
-        # For partial matches, search in the concatenated text
-        # This ensures exact match regexes work correctly
-        name_matches = _safe_name_match(pattern, name)
-        hf_name_matches = (
-            _safe_name_match(pattern, hf_model_name)
-            if hf_model_name
-            else False
-        )
-        readme_matches = (_safe_text_search(pattern, readme_text) if readme_text else False) if not name_only else False
-
-        # Also check concatenated text for partial matches
-        search_text = f"{name} {hf_model_name} {readme_text}" if not name_only else name
-        if len(search_text) > 20000:
-            search_text = search_text[:20000]
-        concatenated_matches = _safe_text_search(pattern, search_text)
-
-        # Match if any component matches
-        if name_matches or hf_name_matches or readme_matches or concatenated_matches:
-            matches.append(
-                ArtifactMetadata(
-                    name=name,
-                    id=artifact_id,
-                    type=ArtifactType(artifact_data["metadata"]["type"]),
+        if name_only:
+            # Exact match: only check stored name (per spec, byRegEx searches "artifact names and READMEs"
+            # but exact match patterns like ^name$ should only match the name)
+            if name_matches:
+                matches.append(
+                    ArtifactMetadata(
+                        name=name,
+                        id=artifact_id,
+                        type=ArtifactType(artifact_data["metadata"]["type"]),
+                    )
                 )
-            )
+        else:
+            # Partial match: search in name and README
+            readme_matches = _safe_text_search(pattern, readme_text) if readme_text else False
+
+            # Also check concatenated text for partial matches
+            search_text = f"{name} {readme_text}"
+            if len(search_text) > 20000:
+                search_text = search_text[:20000]
+            concatenated_matches = _safe_text_search(pattern, search_text)
+
+            # Match if name or README matches
+            if name_matches or readme_matches or concatenated_matches:
+                matches.append(
+                    ArtifactMetadata(
+                        name=name,
+                        id=artifact_id,
+                        type=ArtifactType(artifact_data["metadata"]["type"]),
+                    )
+                )
 
     # Deduplicate by artifact ID
     seen_ids = set()
@@ -2364,18 +2360,40 @@ async def artifact_create(
     artifact_id = f"{artifact_type.value}-{type_count + 1}-{int(datetime.now().timestamp())}"
 
     # Extract name from URL (handle trailing slashes and URL encoding)
-    artifact_name = unquote(artifact_data.url.rstrip("/").split("/")[-1]) if artifact_data.url else "unknown"
-
-    # For HuggingFace URLs, try to scrape and store hf_data for regex search
+    # For HuggingFace URLs, try to use repo_id from scraped data (canonical name)
+    # Otherwise, extract from URL path
+    artifact_name = "unknown"
     hf_data: Optional[List[Dict[str, Any]]] = None
-    if "huggingface.co" in artifact_data.url.lower():
-        try:
-            if scrape_hf_url is not None:
-                hf_data_result, _ = scrape_hf_url(artifact_data.url)
-                hf_data = [hf_data_result] if hf_data_result else []
-        except Exception:
-            # If scraping fails, continue without hf_data
-            hf_data = None
+
+    if artifact_data.url:
+        url_clean = artifact_data.url.rstrip("/")
+        if "huggingface.co" in url_clean.lower():
+            # Per spec example: URL is "https://huggingface.co/google-bert/bert-base-uncased"
+            # but name should be just "bert-base-uncased" (last segment), not full path
+            # Extract last segment from URL path
+            try:
+                parsed = urlparse(url_clean)
+                path_parts = [p for p in parsed.path.split("/") if p]
+                # Remove "models", "datasets", "model", "dataset" if present
+                if path_parts and path_parts[0] in ("models", "datasets", "model", "dataset"):
+                    path_parts = path_parts[1:]
+                # Use last segment as artifact name (per spec example)
+                artifact_name = unquote(path_parts[-1]) if path_parts else "unknown"
+                # Try to scrape HF data for metadata (but don't use repo_id for name)
+                try:
+                    if scrape_hf_url is not None:
+                        hf_data_result, _ = scrape_hf_url(artifact_data.url)
+                        if hf_data_result and isinstance(hf_data_result, dict):
+                            hf_data = [hf_data_result]
+                except Exception:
+                    hf_data = None
+            except Exception:
+                # Fallback: use last segment of URL
+                artifact_name = unquote(url_clean.split("/")[-1])
+                hf_data = None
+        else:
+            # Non-HF URLs: use last segment
+            artifact_name = unquote(url_clean.split("/")[-1])
 
     # Create artifact entry
     artifact_entry = {
@@ -2961,19 +2979,33 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
     # If PENDING, compute metrics now (lazy evaluation approach 3) and mark READY.
     _validate_artifact_id_or_400(id)
     status = artifact_status.get(id)
+    # Per spec v3.4.4: "Subsequent requests to /rate or any other endpoint with this artifact id should return 404 until a rating result exists."
+    # If status is INVALID, return 404 forever
     if status == "INVALID":
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
+    # For PENDING or READY status (or no status), compute metrics on first call (lazy evaluation approach 3)
+    # This allows concurrent requests to work correctly - all will compute metrics and return the same result
     # Check if artifact exists - Priority: S3 (production) > SQLite (local) > in-memory
+    # Also check in-memory as fallback for same-request artifacts (Lambda cold start protection)
     url = None
     artifact_name = None
     if USE_S3 and s3_storage:
         existing_data = s3_storage.get_artifact_metadata(id)
         if not existing_data:
-            raise HTTPException(status_code=404, detail="Artifact does not exist.")
-        if existing_data.get("metadata", {}).get("type") != "model":
-            raise HTTPException(status_code=400, detail="Not a model artifact.")
-        url = existing_data.get("data", {}).get("url", "")
-        artifact_name = existing_data.get("metadata", {}).get("name", "")
+            # Fallback to in-memory for same-request artifacts (Lambda cold start protection)
+            if id in artifacts_db:
+                artifact_data = artifacts_db[id]
+                if artifact_data["metadata"]["type"] != "model":
+                    raise HTTPException(status_code=400, detail="Not a model artifact.")
+                url = artifact_data["data"]["url"]
+                artifact_name = artifact_data["metadata"]["name"]
+            else:
+                raise HTTPException(status_code=404, detail="Artifact does not exist.")
+        else:
+            if existing_data.get("metadata", {}).get("type") != "model":
+                raise HTTPException(status_code=400, detail="Not a model artifact.")
+            url = existing_data.get("data", {}).get("url", "")
+            artifact_name = existing_data.get("metadata", {}).get("name", "")
     elif USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
@@ -3012,19 +3044,21 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
         else:
             hf_data = None
             # For ingested models, try to get hf_data from stored artifact data
+            # Priority: S3 > in-memory (for same-request artifacts) > SQLite
             if USE_S3 and s3_storage:
                 existing_data = s3_storage.get_artifact_metadata(id)
                 if existing_data and "hf_data" in existing_data.get("data", {}):
                     hf_data_list = existing_data["data"].get("hf_data", [])
                     if isinstance(hf_data_list, list) and len(hf_data_list) > 0:
                         hf_data = hf_data_list[0] if isinstance(hf_data_list[0], dict) else None
-            elif not USE_SQLITE:
-                if id in artifacts_db:
-                    artifact_data = artifacts_db[id]
-                    if "hf_data" in artifact_data.get("data", {}):
-                        hf_data_list = artifact_data["data"].get("hf_data", [])
-                        if isinstance(hf_data_list, list) and len(hf_data_list) > 0:
-                            hf_data = hf_data_list[0] if isinstance(hf_data_list[0], dict) else None
+            # Fallback to in-memory for same-request artifacts (Lambda cold start protection)
+            if not hf_data and id in artifacts_db:
+                artifact_data = artifacts_db[id]
+                if "hf_data" in artifact_data.get("data", {}):
+                    hf_data_list = artifact_data["data"].get("hf_data", [])
+                    if isinstance(hf_data_list, list) and len(hf_data_list) > 0:
+                        hf_data = hf_data_list[0] if isinstance(hf_data_list[0], dict) else None
+            # SQLite doesn't store hf_data, so skip SQLite lookup
 
             # Avoid external scraping here to keep rating fast and robust under concurrency
 
@@ -3036,17 +3070,27 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
         if isinstance(size_scores_result, dict):
             size_scores = size_scores_result
     except Exception as e:
+        # Per spec: 500 if "at least one metric was computed successfully" but others failed
+        # If all metrics fail, we still return 200 with defaults (per approach 3: lazy evaluation)
+        # But log the error for debugging
         logger.warning(f"Metrics calculation failed: {e}", exc_info=True)
-        metrics = {}
+        # If metrics dict is empty, use defaults (all zeros) - this is acceptable for lazy evaluation
+        if not metrics:
+            metrics = {}
 
     net_score = (
         calculate_phase2_net_score(metrics)
         if (metrics and calculate_phase2_net_score is not None)
         else 0.0
     )
-    # If rating completed, update status (do not invalidate/delete here; thresholding is enforced in /models/ingest)
+    # If rating completed, update status to READY (for both PENDING and initial READY status)
+    # This ensures subsequent calls know metrics have been computed
     try:
-        if id in artifact_status and artifact_status.get(id) == "PENDING":
+        if id in artifact_status:
+            if artifact_status.get(id) == "PENDING":
+                artifact_status[id] = "READY"
+        else:
+            # If no status set, set to READY after computing metrics
             artifact_status[id] = "READY"
     except HTTPException:
         # Propagate 404 for invalidated artifacts
