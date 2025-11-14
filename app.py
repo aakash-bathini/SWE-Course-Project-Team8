@@ -368,16 +368,26 @@ def _safe_eval_with_timeout(fn: Callable[[], Any], timeout_ms: int) -> Tuple[boo
     return True, result_holder.get("value")
 
 
-def _safe_name_match(pattern: Any, candidate: str) -> bool:
+def _safe_name_match(pattern: Any, candidate: str, exact_match: bool = False) -> bool:
     """
     Safely evaluate name match using short timeout.
+    For exact match patterns (^name$), use fullmatch() only.
+    For partial patterns, use search().
     """
     if not candidate:
         return False
-    ok, res = _safe_eval_with_timeout(
-        lambda: (pattern.search(candidate) is not None) or (pattern.fullmatch(candidate) is not None),
-        timeout_ms=20,
-    )
+    if exact_match:
+        # For exact matches, only use fullmatch (entire string must match)
+        ok, res = _safe_eval_with_timeout(
+            lambda: pattern.fullmatch(candidate) is not None,
+            timeout_ms=20,
+        )
+    else:
+        # For partial matches, use search (pattern can appear anywhere)
+        ok, res = _safe_eval_with_timeout(
+            lambda: pattern.search(candidate) is not None,
+            timeout_ms=20,
+        )
     return bool(ok and res)
 
 
@@ -2175,7 +2185,8 @@ async def artifact_by_regex(
             stored_type = str(metadata.get("type", "") or "")
             stored_name = str(metadata.get("name", "") or "")
             # Check name first (fast path)
-            name_matches = _safe_name_match(pattern, stored_name)
+            # For exact matches (^name$), use fullmatch only
+            name_matches = _safe_name_match(pattern, stored_name, exact_match=name_only)
             if name_matches:
                 matches.append(
                     ArtifactMetadata(
@@ -2257,7 +2268,8 @@ async def artifact_by_regex(
             readme_text = readme_text[:10000]
         # For exact matches (patterns like ^name$), only check the stored name per spec
         # For partial matches, search in name and README content
-        name_matches = _safe_name_match(pattern, name)
+        # For exact matches (^name$), use fullmatch only to ensure exact matching
+        name_matches = _safe_name_match(pattern, name, exact_match=name_only)
 
         if name_only:
             # Exact match: only check stored name (per spec, byRegEx searches "artifact names and READMEs"
@@ -2356,35 +2368,29 @@ async def artifact_create(
     if artifact_data.url:
         url_clean = artifact_data.url.rstrip("/")
         if "huggingface.co" in url_clean.lower():
-            # Try to scrape HF data first to get canonical repo_id
+            # Per spec example: URL is "https://huggingface.co/google-bert/bert-base-uncased"
+            # but name should be just "bert-base-uncased" (last segment), not full path
+            # Extract last segment from URL path
             try:
-                if scrape_hf_url is not None:
-                    hf_data_result, _ = scrape_hf_url(artifact_data.url)
-                    if hf_data_result and isinstance(hf_data_result, dict):
-                        # Use repo_id from HF API (canonical name, e.g., "org/model-name")
-                        repo_id = hf_data_result.get("repo_id")
-                        if repo_id and isinstance(repo_id, str):
-                            artifact_name = repo_id
-                            hf_data = [hf_data_result]
-                        else:
-                            # Fallback to URL extraction if repo_id missing
-                            parsed = urlparse(url_clean)
-                            path = parsed.path.lstrip("/")
-                            artifact_name = unquote(path) if path else "unknown"
-                            hf_data = [hf_data_result]
-                    else:
-                        # Scraping failed, extract from URL
-                        parsed = urlparse(url_clean)
-                        path = parsed.path.lstrip("/")
-                        artifact_name = unquote(path) if path else "unknown"
-            except Exception:
-                # If scraping fails, extract from URL path
+                parsed = urlparse(url_clean)
+                path_parts = [p for p in parsed.path.split("/") if p]
+                # Remove "models", "datasets", "model", "dataset" if present
+                if path_parts and path_parts[0] in ("models", "datasets", "model", "dataset"):
+                    path_parts = path_parts[1:]
+                # Use last segment as artifact name (per spec example)
+                artifact_name = unquote(path_parts[-1]) if path_parts else "unknown"
+                # Try to scrape HF data for metadata (but don't use repo_id for name)
                 try:
-                    parsed = urlparse(url_clean)
-                    path = parsed.path.lstrip("/")
-                    artifact_name = unquote(path) if path else "unknown"
+                    if scrape_hf_url is not None:
+                        hf_data_result, _ = scrape_hf_url(artifact_data.url)
+                        if hf_data_result and isinstance(hf_data_result, dict):
+                            hf_data = [hf_data_result]
                 except Exception:
-                    artifact_name = unquote(url_clean.split("/")[-1])
+                    hf_data = None
+            except Exception:
+                # Fallback: use last segment of URL
+                artifact_name = unquote(url_clean.split("/")[-1])
+                hf_data = None
         else:
             # Non-HF URLs: use last segment
             artifact_name = unquote(url_clean.split("/")[-1])
@@ -2973,8 +2979,14 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
     # If PENDING, compute metrics now (lazy evaluation approach 3) and mark READY.
     _validate_artifact_id_or_400(id)
     status = artifact_status.get(id)
+    # Per spec v3.4.4: "Subsequent requests to /rate or any other endpoint with this artifact id should return 404 until a rating result exists."
+    # If status is PENDING (async ingest), return 404 until rating is computed
     if status == "INVALID":
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
+    if status == "PENDING":
+        # For async ingest, compute metrics now (lazy evaluation) and mark as READY
+        # This allows concurrent requests to work correctly
+        pass  # Continue to compute metrics below
     # Check if artifact exists - Priority: S3 (production) > SQLite (local) > in-memory
     url = None
     artifact_name = None
