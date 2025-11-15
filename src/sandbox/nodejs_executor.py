@@ -4,7 +4,6 @@ Milestone 5.1 - Neal's component
 """
 
 import subprocess
-import json
 import tempfile
 import os
 from typing import Dict, Any
@@ -47,13 +46,18 @@ def execute_js_program(
         RuntimeError: If Node.js execution fails or times out
     """
     try:
-        # Create wrapper script that injects CLI arguments
+        # Create wrapper script that reads CLI arguments from process.argv
+        # process.argv[0] = node, process.argv[1] = script file
+        # process.argv[2] = MODEL_NAME
+        # process.argv[3] = UPLOADER_USERNAME
+        # process.argv[4] = DOWNLOADER_USERNAME
+        # process.argv[5] = ZIP_FILE_PATH
         wrapper_code = f"""
-// Injected CLI arguments
-const MODEL_NAME = {json.dumps(model_name)};
-const UPLOADER_USERNAME = {json.dumps(uploader_username)};
-const DOWNLOADER_USERNAME = {json.dumps(downloader_username)};
-const ZIP_FILE_PATH = {json.dumps(zip_file_path)};
+// Extract CLI arguments from process.argv
+const MODEL_NAME = process.argv[2];
+const UPLOADER_USERNAME = process.argv[3];
+const DOWNLOADER_USERNAME = process.argv[4];
+const ZIP_FILE_PATH = process.argv[5];
 
 // User's monitoring program
 {program_code}
@@ -67,9 +71,16 @@ const ZIP_FILE_PATH = {json.dumps(zip_file_path)};
             temp_js_file = f.name
 
         try:
-            # Execute JavaScript with timeout
+            # Execute JavaScript with timeout, passing CLI arguments
             result = subprocess.run(
-                [NODEJS_BIN, temp_js_file],
+                [
+                    NODEJS_BIN,
+                    temp_js_file,
+                    model_name,
+                    uploader_username,
+                    downloader_username,
+                    zip_file_path,
+                ],
                 capture_output=True,
                 text=True,
                 timeout=JS_EXECUTION_TIMEOUT,

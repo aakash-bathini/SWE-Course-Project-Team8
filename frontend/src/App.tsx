@@ -19,6 +19,7 @@ import {
   Search,
   Download,
   Dashboard,
+  Security,
 } from '@mui/icons-material';
 
 // Import components
@@ -30,6 +31,7 @@ import ModelDownloadPage from './components/ModelDownloadPage';
 import HealthDashboard from './components/HealthDashboard';
 import UserManagementPage from './components/UserManagementPage';
 import ModelEnumerationPage from './components/ModelEnumerationPage';
+import SensitiveModelsPage from './components/SensitiveModelsPage';
 
 // Import services
 import { authService } from './services/authService';
@@ -189,6 +191,15 @@ const App: React.FC = () => {
                 </Button>
               )}
               
+              <Button
+                color="inherit"
+                startIcon={<Security />}
+                href="/sensitive-models"
+                sx={{ mr: 2 }}
+              >
+                Sensitive Models
+              </Button>
+              
               <IconButton
                 size="large"
                 aria-label="account of current user"
@@ -330,6 +341,16 @@ const App: React.FC = () => {
             element={
               user && hasPermission('search') ? (
                 <ModelEnumerationPage user={user} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/sensitive-models"
+            element={
+              user ? (
+                <SensitiveModelsPage user={user} onNotification={showNotification} />
               ) : (
                 <Navigate to="/login" replace />
               )
