@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from typing import List, Optional, Dict, cast
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from . import models
 
@@ -99,7 +100,10 @@ def list_by_queries(db: Session, queries: List[Dict]) -> List[models.Artifact]:
 
 
 def list_by_name(db: Session, name: str) -> List[models.Artifact]:
-    return db.query(models.Artifact).filter(models.Artifact.name == name).all()
+    # Case-insensitive matching per spec
+    return (
+        db.query(models.Artifact).filter(func.lower(models.Artifact.name) == func.lower(name)).all()
+    )
 
 
 def list_by_regex(db: Session, regex: str) -> List[models.Artifact]:

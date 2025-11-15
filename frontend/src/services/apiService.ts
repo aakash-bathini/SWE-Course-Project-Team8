@@ -347,6 +347,71 @@ export const apiService = {
     const response = await apiClient.get('/tracks');
     return response.data;
   },
+
+  // Sensitive Models (Milestone 5)
+  async uploadSensitiveModel(file: File, modelName: string, jsProgramId?: string) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('model_name', modelName);
+    if (jsProgramId) {
+      formData.append('js_program_id', jsProgramId);
+    }
+    const response = await apiClient.post('/sensitive-models/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  async downloadSensitiveModel(modelId: string) {
+    const response = await apiClient.get(`/sensitive-models/${modelId}/download`);
+    return response.data;
+  },
+
+  async deleteSensitiveModel(modelId: string) {
+    const response = await apiClient.delete(`/sensitive-models/${modelId}`);
+    return response.data;
+  },
+
+  async getDownloadHistory(modelId: string) {
+    const response = await apiClient.get(`/download-history/${modelId}`);
+    return response.data;
+  },
+
+  // JS Programs (Milestone 5)
+  async createJSProgram(name: string, code: string) {
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('code', code);
+    const response = await apiClient.post('/js-programs', formData);
+    return response.data;
+  },
+
+  async getJSProgram(programId: string) {
+    const response = await apiClient.get(`/js-programs/${programId}`);
+    return response.data;
+  },
+
+  async updateJSProgram(programId: string, name?: string, code?: string) {
+    const formData = new FormData();
+    if (name) formData.append('name', name);
+    if (code) formData.append('code', code);
+    const response = await apiClient.put(`/js-programs/${programId}`, formData);
+    return response.data;
+  },
+
+  async deleteJSProgram(programId: string) {
+    const response = await apiClient.delete(`/js-programs/${programId}`);
+    return response.data;
+  },
+
+  // Package Confusion Audit (Milestone 5)
+  async getPackageConfusionAudit(modelId?: string) {
+    const params = modelId ? { model_id: modelId } : {};
+    const response = await apiClient.get('/audit/package-confusion', { params });
+    return response.data;
+  },
 };
 
 export default apiService;

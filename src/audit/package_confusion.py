@@ -220,15 +220,20 @@ def calculate_package_confusion_score(
         is_bot_farm = detect_bot_farm(download_history)
 
         # Calculate risk score
-        # Bot farm is strong signal (0.7 weight)
+        # Bot farm is strong signal (0.5 weight)
         # Low user diversity is concerning (0.15 weight)
         # High velocity is suspicious (0.15 weight)
+        # Low search presence is suspicious (0.2 weight) - confusion attacks are less popular
 
-        bot_farm_score = 0.7 if is_bot_farm else 0.0
+        bot_farm_score = 0.5 if is_bot_farm else 0.0
         diversity_score = (1.0 - user_diversity) * 0.15  # Inverted: low diversity = high risk
         velocity_score = min(velocity / 10.0, 1.0) * 0.15  # Normalized to 10+ downloads/hour
+        # Low search presence = higher risk (confusion attacks are less popular)
+        search_presence_score = (1.0 - search_presence) * 0.2
 
-        overall_score = min(bot_farm_score + diversity_score + velocity_score, 1.0)
+        overall_score = min(
+            bot_farm_score + diversity_score + velocity_score + search_presence_score, 1.0
+        )
 
         # Determine if suspicious based on score
         sensitivity_threshold = 0.7
@@ -242,6 +247,8 @@ def calculate_package_confusion_score(
             reasons.append("Low user diversity")
         if velocity > 5.0:
             reasons.append("High download velocity")
+        if search_presence < 0.01:  # Less than 1% search presence
+            reasons.append("Low search presence")
 
         reason = " | ".join(reasons) if reasons else "Clean"
 

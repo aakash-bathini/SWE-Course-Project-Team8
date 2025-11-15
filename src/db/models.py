@@ -92,3 +92,14 @@ class DownloadHistory(Base):
     js_stderr = Column(Text, nullable=True)
 
     sensitive_model = relationship("SensitiveModel", back_populates="download_history")
+
+
+class SearchHistory(Base):
+    """Search hit tracking for package confusion detection (M5.2)"""
+
+    __tablename__ = "search_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    artifact_id = Column(String, ForeignKey("artifacts.id"), nullable=False, index=True)
+    searched_at = Column(DateTime, default=datetime.utcnow, index=True)
+    search_type = Column(String, nullable=False)  # 'byName' or 'byRegEx'

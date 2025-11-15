@@ -552,7 +552,8 @@ class TestPackageConfusionAudit:
         assert response.status_code == 200
         data = response.json()
         assert "status" in data
-        assert "analysis" in data
+        assert "suspicious_packages" in data
+        assert isinstance(data["suspicious_packages"], list)
 
     def test_package_confusion_audit_with_model_id(self):
         """Test package confusion audit with specific model ID"""
