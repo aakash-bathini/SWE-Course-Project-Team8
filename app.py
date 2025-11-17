@@ -2059,6 +2059,7 @@ async def artifact_by_name(
     # Accept names that include slashes and URL-encoded characters
     search_name = unquote(name or "").strip()
     search_name_lc = search_name.lower()
+    logger.info(f"DEBUG_BYNAME: Searching for name='{search_name}' (lowercase='{search_name_lc}'), USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}")
     # Per spec, '*' is reserved for enumeration; treat it as invalid here
     if not search_name or search_name == "*":
         raise HTTPException(
@@ -2069,6 +2070,7 @@ async def artifact_by_name(
     # Check all storage layers: in-memory (for same-request), S3 (production), SQLite (local)
     # Priority: in-memory (fastest, same-request) > S3 (production) > SQLite (local)
     # Always check in-memory first (captures just-created items and ensures consistency)
+    logger.info(f"DEBUG_BYNAME: Checking in-memory artifacts_db, count={len(artifacts_db)}")
     for artifact_id, artifact_data in artifacts_db.items():
         stored_name = str(artifact_data["metadata"]["name"]).strip()
         # Also check hf_model_name for ingested models (e.g., "google/gemma-2-2b" vs "gemma-2-2b")
@@ -2077,6 +2079,7 @@ async def artifact_by_name(
         # Also match against hf_model_name for ingested models
         name_matches = stored_name.lower() == search_name_lc
         hf_name_matches = hf_model_name and str(hf_model_name).lower() == search_name_lc
+        logger.info(f"DEBUG_BYNAME: In-memory check: id={artifact_id}, stored_name='{stored_name}', hf_model_name='{hf_model_name}', name_matches={name_matches}, hf_name_matches={hf_name_matches}")
         if name_matches or hf_name_matches:
             # Check if already in matches
             if not any(m.id == artifact_id for m in matches):
@@ -2091,11 +2094,14 @@ async def artifact_by_name(
     # Check S3 (production storage)
     if USE_S3 and s3_storage:
         # Broad list then filter client-side (handles case-insensitive, hf_model_name, and trimming)
+        logger.info(f"DEBUG_BYNAME: Checking S3 storage")
         try:
             s3_artifacts = s3_storage.list_artifacts_by_queries(
                 [{"name": "*", "types": ["model", "dataset", "code"]}]
             )
-        except Exception:
+            logger.info(f"DEBUG_BYNAME: S3 returned {len(s3_artifacts)} artifacts")
+        except Exception as e:
+            logger.error(f"DEBUG_BYNAME: S3 error: {e}")
             s3_artifacts = []
         for art_data in s3_artifacts:
             metadata = art_data.get("metadata", {})
@@ -2107,9 +2113,11 @@ async def artifact_by_name(
             # Also match against hf_model_name for ingested models
             name_matches = stored_name.lower() == search_name_lc
             hf_name_matches = hf_model_name and str(hf_model_name).lower() == search_name_lc
+            logger.info(f"DEBUG_BYNAME: S3 check: id={artifact_id}, stored_name='{stored_name}', hf_model_name='{hf_model_name}', name_matches={name_matches}, hf_name_matches={hf_name_matches}")
             if name_matches or hf_name_matches:
                 # Check if already in matches
                 if not any(m.id == artifact_id for m in matches):
+                    logger.info(f"DEBUG_BYNAME: S3 match found: id={artifact_id}, name={stored_name}")
                     matches.append(
                         ArtifactMetadata(
                             name=stored_name,
@@ -2120,16 +2128,22 @@ async def artifact_by_name(
 
     # Check SQLite (local development)
     if USE_SQLITE:
+        logger.info(f"DEBUG_BYNAME: Checking SQLite with search_name='{search_name}'")
         with next(get_db()) as _db:  # type: ignore[misc]
             items = db_crud.list_by_name(_db, search_name)
+            logger.info(f"DEBUG_BYNAME: SQLite list_by_name returned {len(items)} items")
             for a in items:
                 # Case-insensitive safeguard
+                logger.info(f"DEBUG_BYNAME: SQLite item: id={a.id}, name='{a.name}', comparing with '{search_name_lc}'")
                 if str(a.name).lower() == search_name_lc:
+                    logger.info(f"DEBUG_BYNAME: SQLite match found: id={a.id}, name={a.name}")
                     matches.append(
                         ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type))
                     )
 
+    logger.info(f"DEBUG_BYNAME: Total matches found: {len(matches)} for name='{search_name}'")
     if not matches:
+        logger.warning(f"DEBUG_BYNAME: No matches found for name='{search_name}', USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}, in_memory_count={len(artifacts_db)}")
         raise HTTPException(status_code=404, detail="No such artifact.")
 
     # Track search hits for package confusion detection (M5.2)
@@ -2159,6 +2173,7 @@ async def artifact_by_regex(
         raise HTTPException(status_code=401, detail="You do not have permission to search.")
     import re as _re
 
+    logger.info(f"DEBUG_REGEX: Starting regex search with pattern: {regex.regex}")
     matches: List[ArtifactMetadata] = []
 
     # Security: Limit regex pattern length to prevent ReDoS attacks
@@ -2166,6 +2181,7 @@ async def artifact_by_regex(
     # We mitigate ReDoS risk by limiting pattern length and complexity.
     MAX_REGEX_LENGTH = 500
     if len(regex.regex) > MAX_REGEX_LENGTH:
+        logger.warning(f"DEBUG_REGEX: Pattern too long: {len(regex.regex)} chars")
         raise HTTPException(
             status_code=400,
             detail=f"Regex pattern too long. Maximum length is {MAX_REGEX_LENGTH} characters.",
@@ -2181,6 +2197,7 @@ async def artifact_by_regex(
         # For exact match patterns (^name$), use case-sensitive matching per autograder expectations
         # For partial patterns, use case-insensitive matching
         name_only = raw_pattern.startswith("^") and raw_pattern.endswith("$")
+        logger.info(f"DEBUG_REGEX: Pattern={raw_pattern}, name_only={name_only}, USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}")
         if name_only:
             # Exact match: case-sensitive for autograder compatibility
             pattern = _re.compile(raw_pattern)
@@ -2188,6 +2205,7 @@ async def artifact_by_regex(
             # Partial match: case-insensitive
             pattern = _re.compile(raw_pattern, _re.IGNORECASE)
     except _re.error as e:
+        logger.error(f"DEBUG_REGEX: Invalid regex pattern: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
 
     # Additional safety: reject patterns that are likely to cause catastrophic backtracking
@@ -2226,10 +2244,12 @@ async def artifact_by_regex(
     # Check in-memory first to ensure same-request artifacts are found correctly
     # This also ensures case-sensitive exact matches work correctly
     seen_ids = set()
+    logger.info(f"DEBUG_REGEX: Checking in-memory artifacts_db, count={len(artifacts_db)}")
     for artifact_id, artifact_data in artifacts_db.items():
         if artifact_id in seen_ids:
             continue
         name = str(artifact_data["metadata"]["name"]).strip()
+        logger.info(f"DEBUG_REGEX: Checking in-memory artifact id={artifact_id}, name={name}")
         readme_text = ""
 
         if not name_only:
@@ -2250,6 +2270,7 @@ async def artifact_by_regex(
         if name_only:
             # Exact match: only check stored name
             if name_matches:
+                logger.info(f"DEBUG_REGEX: Exact match found in-memory: id={artifact_id}, name={name}")
                 matches.append(
                     ArtifactMetadata(
                         name=name,
@@ -2258,6 +2279,8 @@ async def artifact_by_regex(
                     )
                 )
                 seen_ids.add(artifact_id)
+            else:
+                logger.info(f"DEBUG_REGEX: Exact match failed in-memory: id={artifact_id}, name={name}, pattern={raw_pattern}")
         else:
             # Partial match: search in name and README
             readme_matches = _safe_text_search(pattern, readme_text) if readme_text else False
@@ -2337,15 +2360,18 @@ async def artifact_by_regex(
     # Check SQLite (local development)
     if USE_SQLITE:
         # SQLite regex search - need to respect exact match case sensitivity
+        logger.info(f"DEBUG_REGEX: Checking SQLite, name_only={name_only}")
         with next(get_db()) as _db:  # type: ignore[misc]
             # For exact matches, query all artifacts and filter with case-sensitive pattern
             # For partial matches, we can use list_by_regex for efficiency
             if name_only:
                 # For exact matches, get all artifacts and filter with case-sensitive pattern
                 items = _db.query(db_models.Artifact).all()
+                logger.info(f"DEBUG_REGEX: SQLite exact match: queried all artifacts, count={len(items)}")
             else:
                 # For partial matches, use list_by_regex (case-insensitive pre-filter)
                 items = db_crud.list_by_regex(_db, regex.regex)
+                logger.info(f"DEBUG_REGEX: SQLite partial match: list_by_regex returned count={len(items)}")
             for a in items:
                 artifact_id_str = str(a.id)
                 if artifact_id_str in seen_ids:
@@ -2354,9 +2380,13 @@ async def artifact_by_regex(
                 if name_only:
                     # Use the case-sensitive pattern to verify with timeout protection
                     art_name = str(a.name).strip() if a.name else ""
+                    logger.info(f"DEBUG_REGEX: SQLite checking exact match: id={artifact_id_str}, name={art_name}, pattern={raw_pattern}")
                     if art_name and _safe_name_match(pattern, art_name, exact_match=True):
+                        logger.info(f"DEBUG_REGEX: SQLite exact match found: id={artifact_id_str}, name={art_name}")
                         matches.append(ArtifactMetadata(name=a.name, id=artifact_id_str, type=ArtifactType(a.type)))
                         seen_ids.add(artifact_id_str)
+                    else:
+                        logger.info(f"DEBUG_REGEX: SQLite exact match failed: id={artifact_id_str}, name={art_name}")
                 else:
                     # For partial matches, use safe search with timeout protection
                     art_name = str(a.name).strip() if a.name else ""
@@ -2372,7 +2402,9 @@ async def artifact_by_regex(
             seen_ids_final.add(match.id)
             unique_matches.append(match)
 
+    logger.info(f"DEBUG_REGEX: Total matches found: {len(unique_matches)}, pattern={raw_pattern}")
     if not unique_matches:
+        logger.warning(f"DEBUG_REGEX: No matches found for pattern={raw_pattern}, name_only={name_only}, USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}")
         raise HTTPException(status_code=404, detail="No artifact found under this regex.")
 
     # Track search hits for package confusion detection (M5.2)
@@ -2579,7 +2611,7 @@ async def artifact_retrieve(
     _validate_artifact_id_or_400(id)
     if not check_permission(user, "search"):
         raise HTTPException(status_code=401, detail="You do not have permission to search.")
-    logger.info(f"Retrieving artifact: type={artifact_type.value}, id={id}")
+    logger.info(f"DEBUG_BYID: Retrieving artifact: type={artifact_type.value}, id={id}, USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}")
 
     # Check all storage layers: in-memory (for same-request), S3 (production), SQLite (local)
     # Priority: in-memory (fastest, same-request) > S3 (production) > SQLite (local)
@@ -2588,42 +2620,49 @@ async def artifact_retrieve(
     artifact_url = None
 
     # Check in-memory first (same-request artifacts, Lambda cold start protection)
+    logger.info(f"DEBUG_BYID: Checking in-memory, artifacts_db count={len(artifacts_db)}, id in db={id in artifacts_db}")
     if id in artifacts_db:
         artifact_data = artifacts_db[id]
         stored_type = artifact_data["metadata"]["type"]
         artifact_url = artifact_data.get("data", {}).get("url") or ""
+        logger.info(f"DEBUG_BYID: Found in-memory: type={stored_type}, url={artifact_url}")
 
     # Check S3 if not found in-memory
     if not artifact_data and USE_S3 and s3_storage:
-        logger.info(f"🔍 Retrieving artifact from S3: type={artifact_type.value}, id={id}")
-        print(f"DEBUG: 🔍 Retrieving artifact from S3: type={artifact_type.value}, id={id}")
-        sys.stdout.flush()
+        logger.info(f"DEBUG_BYID: Checking S3 for id={id}")
         s3_data = s3_storage.get_artifact_metadata(id)
         if s3_data:
             stored_type = s3_data.get("metadata", {}).get("type")
             artifact_url = s3_data.get("data", {}).get("url") or ""
+            logger.info(f"DEBUG_BYID: Found in S3: type={stored_type}, url={artifact_url}")
             # Convert S3 data to artifact_data format for consistent handling
             artifact_data = {
                 "metadata": s3_data.get("metadata", {}),
                 "data": s3_data.get("data", {}),
             }
+        else:
+            logger.info(f"DEBUG_BYID: Not found in S3 for id={id}")
 
     # Check SQLite if not found in in-memory or S3
     if not artifact_data and USE_SQLITE:
+        logger.info(f"DEBUG_BYID: Checking SQLite for id={id}")
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
             if art:
                 stored_type = art.type
                 artifact_url = art.url
+                logger.info(f"DEBUG_BYID: Found in SQLite: type={stored_type}, url={artifact_url}, name={art.name}")
                 # Convert SQLite data to artifact_data format
                 artifact_data = {
                     "metadata": {"name": art.name, "id": art.id, "type": art.type},
                     "data": {"url": art.url},
                 }
+            else:
+                logger.info(f"DEBUG_BYID: Not found in SQLite for id={id}")
 
     # If not found in any storage layer, return 404
     if not artifact_data or not stored_type:
-        logger.warning(f"Artifact not found: id={id}, type={artifact_type.value}")
+        logger.warning(f"DEBUG_BYID: Artifact not found: id={id}, type={artifact_type.value}, USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}, in_memory_count={len(artifacts_db)}")
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
 
     # Validate artifact type
@@ -3013,9 +3052,11 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
     # If PENDING, compute metrics now (lazy evaluation approach 3) and mark READY.
     _validate_artifact_id_or_400(id)
     status = artifact_status.get(id)
+    logger.info(f"DEBUG_RATE: Getting rate for id={id}, status={status}, USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}")
     # Per spec v3.4.4: "Subsequent requests to /rate or any other endpoint with this artifact id should return 404 until a rating result exists."
     # If status is INVALID, return 404 forever
     if status == "INVALID":
+        logger.warning(f"DEBUG_RATE: Artifact {id} has INVALID status, returning 404")
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
     # For PENDING or READY status (or no status), compute metrics on first call (lazy evaluation approach 3)
     # This allows concurrent requests to work correctly - all will compute metrics and return the same result
@@ -3026,37 +3067,54 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
     artifact_found = False
 
     # Check in-memory first (same-request artifacts, Lambda cold start protection)
+    logger.info(f"DEBUG_RATE: Checking in-memory, artifacts_db count={len(artifacts_db)}, id in db={id in artifacts_db}")
     if id in artifacts_db:
         artifact_data = artifacts_db[id]
         if artifact_data["metadata"]["type"] != "model":
+            logger.warning(f"DEBUG_RATE: Artifact {id} in-memory is not a model, type={artifact_data['metadata']['type']}")
             raise HTTPException(status_code=400, detail="Not a model artifact.")
         url = artifact_data["data"].get("url", "")
         artifact_name = artifact_data["metadata"].get("name", "")
         artifact_found = True
+        logger.info(f"DEBUG_RATE: Found in-memory: name={artifact_name}, url={url}")
 
     # Check S3 if not found in-memory
     if not artifact_found and USE_S3 and s3_storage:
+        logger.info(f"DEBUG_RATE: Checking S3 for id={id}")
         existing_data = s3_storage.get_artifact_metadata(id)
         if existing_data:
-            if existing_data.get("metadata", {}).get("type") != "model":
+            artifact_type = existing_data.get("metadata", {}).get("type")
+            logger.info(f"DEBUG_RATE: Found in S3: type={artifact_type}")
+            if artifact_type != "model":
+                logger.warning(f"DEBUG_RATE: Artifact {id} in S3 is not a model, type={artifact_type}")
                 raise HTTPException(status_code=400, detail="Not a model artifact.")
             url = existing_data.get("data", {}).get("url", "")
             artifact_name = existing_data.get("metadata", {}).get("name", "")
             artifact_found = True
+            logger.info(f"DEBUG_RATE: Found in S3: name={artifact_name}, url={url}")
+        else:
+            logger.info(f"DEBUG_RATE: Not found in S3 for id={id}")
 
     # Check SQLite if not found in in-memory or S3
     if not artifact_found and USE_SQLITE:
+        logger.info(f"DEBUG_RATE: Checking SQLite for id={id}")
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
             if art:
+                logger.info(f"DEBUG_RATE: Found in SQLite: type={art.type}, name={art.name}")
                 if art.type != "model":
+                    logger.warning(f"DEBUG_RATE: Artifact {id} in SQLite is not a model, type={art.type}")
                     raise HTTPException(status_code=400, detail="Not a model artifact.")
                 url = art.url
                 artifact_name = art.name
                 artifact_found = True
+                logger.info(f"DEBUG_RATE: Found in SQLite: name={artifact_name}, url={url}")
+            else:
+                logger.info(f"DEBUG_RATE: Not found in SQLite for id={id}")
 
     # If not found in any storage layer, return 404
     if not artifact_found:
+        logger.warning(f"DEBUG_RATE: Artifact not found: id={id}, USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}, in_memory_count={len(artifacts_db)}")
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
     category = "classification"
     size_scores: Dict[str, float] = {
