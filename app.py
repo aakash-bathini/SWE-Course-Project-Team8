@@ -2338,9 +2338,14 @@ async def artifact_by_regex(
     if USE_SQLITE:
         # SQLite regex search - need to respect exact match case sensitivity
         with next(get_db()) as _db:  # type: ignore[misc]
-            # For exact matches, we need case-sensitive matching
-            # SQLite's list_by_regex always uses case-insensitive, so we filter manually
-            items = db_crud.list_by_regex(_db, regex.regex)
+            # For exact matches, query all artifacts and filter with case-sensitive pattern
+            # For partial matches, we can use list_by_regex for efficiency
+            if name_only:
+                # For exact matches, get all artifacts and filter with case-sensitive pattern
+                items = _db.query(db_models.Artifact).all()
+            else:
+                # For partial matches, use list_by_regex (case-insensitive pre-filter)
+                items = db_crud.list_by_regex(_db, regex.regex)
             for a in items:
                 artifact_id_str = str(a.id)
                 if artifact_id_str in seen_ids:
