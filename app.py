@@ -328,6 +328,9 @@ _DANGEROUS_REGEX_SNIPPETS: List[re.Pattern[str]] = [
     re.compile(r"\(\?:\.\*\)\+"),  # (?:.*)+
     # Greedy ambiguous repeats anchored end-to-end (common bombs)
     re.compile(r"^\((?:[^()\\]|\\.)+\)\+$"),  # ^(a+)+$-like
+    # Additional patterns: multiple nested quantifiers like (a+)(a+)(a+)(a+)(a+)(a+)$
+    re.compile(r"\([^)]+\+\)\{3,\}"),  # Three or more (something+)
+    re.compile(r"\([^)]+\+\)\+.*\([^)]+\+\)\+"),  # Multiple nested quantifier groups
 ]
 
 
@@ -370,7 +373,7 @@ def _safe_eval_with_timeout(fn: Callable[[], Any], timeout_ms: int) -> Tuple[boo
 
 def _safe_name_match(pattern: Any, candidate: str, exact_match: bool = False) -> bool:
     """
-    Safely evaluate name match using short timeout.
+    Safely evaluate name match using timeout.
     For exact match patterns (^name$), use fullmatch() only.
     For partial patterns, use search().
     """
@@ -378,27 +381,34 @@ def _safe_name_match(pattern: Any, candidate: str, exact_match: bool = False) ->
         return False
     if exact_match:
         # For exact matches, only use fullmatch (entire string must match)
+        # Use longer timeout for exact matches to handle valid patterns
         ok, res = _safe_eval_with_timeout(
             lambda: pattern.fullmatch(candidate) is not None,
-            timeout_ms=20,
+            timeout_ms=100,
         )
     else:
         # For partial matches, use search (pattern can appear anywhere)
         ok, res = _safe_eval_with_timeout(
             lambda: pattern.search(candidate) is not None,
-            timeout_ms=20,
+            timeout_ms=100,
         )
-    return bool(ok and res)
+    # If timeout occurred, treat as no match (pattern likely causes ReDoS)
+    if not ok:
+        return False
+    return bool(res)
 
 
 def _safe_text_search(pattern: Any, text: str) -> bool:
     """
-    Safely evaluate text search (README etc.) with slightly higher timeout.
+    Safely evaluate text search (README etc.) with timeout.
     """
     if not text:
         return False
-    ok, res = _safe_eval_with_timeout(lambda: pattern.search(text) is not None, timeout_ms=35)
-    return bool(ok and res)
+    ok, res = _safe_eval_with_timeout(lambda: pattern.search(text) is not None, timeout_ms=100)
+    # If timeout occurred, treat as no match (pattern likely causes ReDoS)
+    if not ok:
+        return False
+    return bool(res)
 
 
 class ArtifactLineageNode(BaseModel):
@@ -2060,8 +2070,13 @@ async def artifact_by_name(
     # Always check in-memory first (captures just-created items and ensures consistency)
     for artifact_id, artifact_data in artifacts_db.items():
         stored_name = str(artifact_data["metadata"]["name"]).strip()
-        # Per spec, byName matches on the stored name only (case-insensitive)
-        if stored_name.lower() == search_name_lc:
+        # Also check hf_model_name for ingested models (e.g., "google/gemma-2-2b" vs "gemma-2-2b")
+        hf_model_name = artifact_data.get("hf_model_name", "")
+        # Per spec, byName matches on the stored name (case-insensitive)
+        # Also match against hf_model_name for ingested models
+        name_matches = stored_name.lower() == search_name_lc
+        hf_name_matches = hf_model_name and str(hf_model_name).lower() == search_name_lc
+        if name_matches or hf_name_matches:
             # Check if already in matches
             if not any(m.id == artifact_id for m in matches):
                 matches.append(
@@ -2085,8 +2100,13 @@ async def artifact_by_name(
             metadata = art_data.get("metadata", {})
             stored_name = str(metadata.get("name", "")).strip()
             artifact_id = metadata.get("id", "")
-            # Per spec, byName matches on the stored name only (case-insensitive)
-            if stored_name.lower() == search_name_lc:
+            # Also check hf_model_name for ingested models (e.g., "google/gemma-2-2b" vs "gemma-2-2b")
+            hf_model_name = art_data.get("hf_model_name", "")
+            # Per spec, byName matches on the stored name (case-insensitive)
+            # Also match against hf_model_name for ingested models
+            name_matches = stored_name.lower() == search_name_lc
+            hf_name_matches = hf_model_name and str(hf_model_name).lower() == search_name_lc
+            if name_matches or hf_name_matches:
                 # Check if already in matches
                 if not any(m.id == artifact_id for m in matches):
                     matches.append(
@@ -2170,11 +2190,33 @@ async def artifact_by_regex(
         raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
 
     # Additional safety: reject patterns that are likely to cause catastrophic backtracking
+    # Check BEFORE compilation to avoid ReDoS during pattern matching
     if _is_dangerous_regex(raw_pattern):
         raise HTTPException(
             status_code=400,
             detail="Regex pattern too complex and may cause excessive backtracking.",
         )
+
+    # Runtime test: Check if pattern causes ReDoS on a test string
+    # This catches patterns that pass static detection but still cause backtracking
+    # Use a string that triggers catastrophic backtracking: many 'a's followed by 'b'
+    try:
+        test_string = "a" * 100 + "b"  # String that triggers backtracking in patterns like (a+)+$
+        test_result = _safe_eval_with_timeout(
+            lambda: pattern.search(test_string) is not None,
+            timeout_ms=100,  # Timeout for ReDoS detection
+        )
+        # If pattern times out on test string, it's dangerous and should be rejected
+        if not test_result[0]:
+            raise HTTPException(
+                status_code=400,
+                detail="Regex pattern too complex and may cause excessive backtracking.",
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        # If test fails for other reasons (not timeout), continue (pattern might be valid)
+        pass
 
     # Priority: in-memory (for same-request) > S3 (production) > SQLite (local)
     # Check in-memory first to ensure same-request artifacts are found correctly
@@ -2299,18 +2341,17 @@ async def artifact_by_regex(
                 artifact_id_str = str(a.id)
                 if artifact_id_str in seen_ids:
                     continue  # Skip duplicates
-                # For exact matches, verify case-sensitive match
+                # For exact matches, verify case-sensitive match using safe timeout wrapper
                 if name_only:
-                    # Use the case-sensitive pattern to verify
+                    # Use the case-sensitive pattern to verify with timeout protection
                     art_name = str(a.name).strip() if a.name else ""
-                    if art_name and pattern.fullmatch(art_name):
+                    if art_name and _safe_name_match(pattern, art_name, exact_match=True):
                         matches.append(ArtifactMetadata(name=a.name, id=artifact_id_str, type=ArtifactType(a.type)))
                         seen_ids.add(artifact_id_str)
                 else:
-                    # For partial matches, SQLite's case-insensitive is fine, but we still need to check
-                    # that the case-sensitive pattern matches (for consistency)
+                    # For partial matches, use safe search with timeout protection
                     art_name = str(a.name).strip() if a.name else ""
-                    if art_name and pattern.search(art_name):
+                    if art_name and _safe_name_match(pattern, art_name, exact_match=False):
                         matches.append(ArtifactMetadata(name=a.name, id=artifact_id_str, type=ArtifactType(a.type)))
                         seen_ids.add(artifact_id_str)
 
@@ -2460,11 +2501,9 @@ async def artifact_create(
             sys.stdout.flush()
         # Still keep in-memory for current request compatibility
         artifacts_db[artifact_id] = artifact_entry
-    elif USE_SQLITE:
-        # Store in SQLite for local development
-        artifacts_db[artifact_id] = artifact_entry
-    else:
-        # In-memory fallback
+
+    # Always store in-memory for current request compatibility (regardless of S3/SQLite)
+    if artifact_id not in artifacts_db:
         artifacts_db[artifact_id] = artifact_entry
 
     # Store in SQLite if enabled (for local development)
@@ -2971,44 +3010,45 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
     # For PENDING or READY status (or no status), compute metrics on first call (lazy evaluation approach 3)
     # This allows concurrent requests to work correctly - all will compute metrics and return the same result
-    # Check if artifact exists - Priority: S3 (production) > SQLite (local) > in-memory
-    # Also check in-memory as fallback for same-request artifacts (Lambda cold start protection)
+    # Check if artifact exists - Check all storage layers
+    # Priority: in-memory (fastest, same-request) > S3 (production) > SQLite (local)
     url = None
     artifact_name = None
-    # Check all storage layers: in-memory (for same-request), S3 (production), SQLite (local)
-    # Priority: in-memory (fastest, same-request) > S3 (production) > SQLite (local)
+    artifact_found = False
+
+    # Check in-memory first (same-request artifacts, Lambda cold start protection)
     if id in artifacts_db:
-        # Check in-memory first (same-request artifacts, Lambda cold start protection)
         artifact_data = artifacts_db[id]
         if artifact_data["metadata"]["type"] != "model":
             raise HTTPException(status_code=400, detail="Not a model artifact.")
         url = artifact_data["data"].get("url", "")
         artifact_name = artifact_data["metadata"].get("name", "")
-    elif USE_S3 and s3_storage:
+        artifact_found = True
+
+    # Check S3 if not found in-memory
+    if not artifact_found and USE_S3 and s3_storage:
         existing_data = s3_storage.get_artifact_metadata(id)
-        if not existing_data:
-            raise HTTPException(status_code=404, detail="Artifact does not exist.")
-        if existing_data.get("metadata", {}).get("type") != "model":
-            raise HTTPException(status_code=400, detail="Not a model artifact.")
-        url = existing_data.get("data", {}).get("url", "")
-        artifact_name = existing_data.get("metadata", {}).get("name", "")
-    elif USE_SQLITE:
+        if existing_data:
+            if existing_data.get("metadata", {}).get("type") != "model":
+                raise HTTPException(status_code=400, detail="Not a model artifact.")
+            url = existing_data.get("data", {}).get("url", "")
+            artifact_name = existing_data.get("metadata", {}).get("name", "")
+            artifact_found = True
+
+    # Check SQLite if not found in in-memory or S3
+    if not artifact_found and USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
-            if not art:
-                raise HTTPException(status_code=404, detail="Artifact does not exist.")
-            if art.type != "model":
-                raise HTTPException(status_code=400, detail="Not a model artifact.")
-            url = art.url
-            artifact_name = art.name
-    else:
-        if id not in artifacts_db:
-            raise HTTPException(status_code=404, detail="Artifact does not exist.")
-        artifact_data = artifacts_db[id]
-        if artifact_data["metadata"]["type"] != "model":
-            raise HTTPException(status_code=400, detail="Not a model artifact.")
-        url = artifact_data["data"]["url"]
-        artifact_name = artifact_data["metadata"]["name"]
+            if art:
+                if art.type != "model":
+                    raise HTTPException(status_code=400, detail="Not a model artifact.")
+                url = art.url
+                artifact_name = art.name
+                artifact_found = True
+
+    # If not found in any storage layer, return 404
+    if not artifact_found:
+        raise HTTPException(status_code=404, detail="Artifact does not exist.")
     category = "classification"
     size_scores: Dict[str, float] = {
         "raspberry_pi": 1.0,
