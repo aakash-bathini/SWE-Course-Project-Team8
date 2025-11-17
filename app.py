@@ -382,15 +382,16 @@ def _safe_name_match(pattern: Any, candidate: str, exact_match: bool = False) ->
     if exact_match:
         # For exact matches, only use fullmatch (entire string must match)
         # Use longer timeout for exact matches to handle valid patterns
+        # But still detect ReDoS patterns that cause catastrophic backtracking
         ok, res = _safe_eval_with_timeout(
             lambda: pattern.fullmatch(candidate) is not None,
-            timeout_ms=100,
+            timeout_ms=500,  # 500ms should be enough for valid patterns, but catch ReDoS
         )
     else:
         # For partial matches, use search (pattern can appear anywhere)
         ok, res = _safe_eval_with_timeout(
             lambda: pattern.search(candidate) is not None,
-            timeout_ms=100,
+            timeout_ms=500,  # 500ms should be enough for valid patterns, but catch ReDoS
         )
     # If timeout occurred, treat as no match (pattern likely causes ReDoS)
     if not ok:
@@ -404,7 +405,7 @@ def _safe_text_search(pattern: Any, text: str) -> bool:
     """
     if not text:
         return False
-    ok, res = _safe_eval_with_timeout(lambda: pattern.search(text) is not None, timeout_ms=100)
+    ok, res = _safe_eval_with_timeout(lambda: pattern.search(text) is not None, timeout_ms=500)
     # If timeout occurred, treat as no match (pattern likely causes ReDoS)
     if not ok:
         return False
@@ -2200,11 +2201,14 @@ async def artifact_by_regex(
     # Runtime test: Check if pattern causes ReDoS on a test string
     # This catches patterns that pass static detection but still cause backtracking
     # Use a string that triggers catastrophic backtracking: many 'a's followed by 'b'
+    # Per Q&A: patterns like (a+)+$ should get stuck for more than a minute with Python's re module
     try:
         test_string = "a" * 100 + "b"  # String that triggers backtracking in patterns like (a+)+$
+        # For exact match patterns, use fullmatch; for others, use search
+        test_func = pattern.fullmatch if name_only else pattern.search
         test_result = _safe_eval_with_timeout(
-            lambda: pattern.search(test_string) is not None,
-            timeout_ms=100,  # Timeout for ReDoS detection
+            lambda: test_func(test_string) is not None,
+            timeout_ms=2000,  # 2 second timeout for ReDoS detection (patterns can take minutes)
         )
         # If pattern times out on test string, it's dangerous and should be rejected
         if not test_result[0]:
