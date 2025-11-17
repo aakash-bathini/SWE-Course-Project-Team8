@@ -2094,7 +2094,7 @@ async def artifact_by_name(
     # Check S3 (production storage)
     if USE_S3 and s3_storage:
         # Broad list then filter client-side (handles case-insensitive, hf_model_name, and trimming)
-        logger.info(f"DEBUG_BYNAME: Checking S3 storage")
+        logger.info("DEBUG_BYNAME: Checking S3 storage")
         try:
             s3_artifacts = s3_storage.list_artifacts_by_queries(
                 [{"name": "*", "types": ["model", "dataset", "code"]}]
