@@ -172,19 +172,26 @@ except ImportError:
     db_crud = None  # type: ignore[assignment]
     db_models = None  # type: ignore[assignment]
 
-if USE_SQLITE:
+# Ensure database tables are created if database is available
+# This is needed even in Lambda for endpoints that use the database (e.g., /audit/package-confusion)
+if get_db is not None:
     try:
-        # Ensure schema exists
-        if get_db is not None:
-            Base.metadata.create_all(bind=engine)
-            logger.info(
-                f"SQLite initialized successfully. Database path: {os.environ.get('SQLALCHEMY_DATABASE_URL', 'default')}"
-            )
+        # Ensure schema exists (creates all tables including sensitive_models, js_programs, etc.)
+        Base.metadata.create_all(bind=engine)
+        if USE_SQLITE:
+            db_path = os.environ.get("SQLALCHEMY_DATABASE_URL", "default")
+            logger.info(f"SQLite initialized successfully. Database path: {db_path}")
+        else:
+            # In Lambda, database is available but USE_SQLITE is False (using S3 for artifacts)
+            # Still need to create tables for endpoints that use the database
+            db_path = os.environ.get("SQLALCHEMY_DATABASE_URL", "default")
+            logger.info(f"Database tables created for Lambda endpoints. Database path: {db_path}")
     except Exception as e:
         logger.error(
-            f"SQLite initialization failed: {e}, falling back to in-memory storage", exc_info=True
+            f"Database initialization failed: {e}, some endpoints may not work", exc_info=True
         )
-        USE_SQLITE = False
+        if USE_SQLITE:
+            USE_SQLITE = False
 else:
     if os.environ.get("ENVIRONMENT") == "production" or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
         logger.info("SQLite disabled in production - using S3 storage")
@@ -340,6 +347,9 @@ _DANGEROUS_REGEX_SNIPPETS: List[re.Pattern[str]] = [
     # Additional patterns: multiple nested quantifiers like (a+)(a+)(a+)(a+)(a+)(a+)$
     re.compile(r"\([^)]+\+\)\{3,\}"),  # Three or more (something+)
     re.compile(r"\([^)]+\+\)\+.*\([^)]+\+\)\+"),  # Multiple nested quantifier groups
+    # Alternation with quantifiers: (a|aa)*, (a|ab)*, etc. - can cause catastrophic backtracking
+    re.compile(r"\([^|)]+\|[^)]+\)[*+]+"),  # (a|aa)*, (a|ab)+, etc.
+    re.compile(r"\([^|)]+\|[^)]+\)\*$"),  # (a|aa)*$ - anchored alternation with star
 ]
 
 
