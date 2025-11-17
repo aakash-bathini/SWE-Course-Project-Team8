@@ -2072,7 +2072,14 @@ async def artifact_by_name(
     name: str, user: Dict[str, Any] = Depends(verify_token)
 ) -> List[ArtifactMetadata]:
     """List artifact metadata for this name (NON-BASELINE)"""
+    # CRITICAL: Log IMMEDIATELY at function start to see what autograder is sending
+    logger.info("DEBUG_BYNAME: ===== FUNCTION START =====")
+    logger.info(f"DEBUG_BYNAME: AUTOGRADER REQUEST - raw name param: '{name}'")
+    sys.stdout.flush()  # Force flush to CloudWatch
+    
     if not check_permission(user, "search"):
+        logger.warning("DEBUG_BYNAME: Permission denied for user")
+        sys.stdout.flush()
         raise HTTPException(status_code=401, detail="You do not have permission to search.")
     matches: List[ArtifactMetadata] = []
     # Accept names that include slashes and URL-encoded characters
@@ -2080,22 +2087,25 @@ async def artifact_by_name(
     search_name_lc = search_name.lower()
 
     # Log what autograder is sending
-    logger.info(f"DEBUG_BYNAME: AUTOGRADER REQUEST - raw name param: '{name}'")
     logger.info(f"DEBUG_BYNAME: AUTOGRADER REQUEST - after unquote: '{search_name}'")
     logger.info(f"DEBUG_BYNAME: AUTOGRADER REQUEST - lowercase: '{search_name_lc}'")
     logger.info(f"DEBUG_BYNAME: Storage config - USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}")
+    sys.stdout.flush()  # Force flush to CloudWatch
 
     # Log all existing artifacts in storage
     logger.info(f"DEBUG_BYNAME: EXISTING ARTIFACTS - in_memory count: {len(artifacts_db)}")
-    for aid, adata in list(artifacts_db.items())[:20]:  # Log first 20 to avoid spam
+    sys.stdout.flush()
+    for aid, adata in list(artifacts_db.items())[:30]:  # Log first 30 to avoid spam
         aname = adata.get("metadata", {}).get("name", "")
         hf_name = adata.get("hf_model_name", "")
+        atype = adata.get("metadata", {}).get("type", "")
         aname_lc = aname.lower() if aname else ""
         hf_name_lc = hf_name.lower() if hf_name else ""
         matches_search = (aname_lc == search_name_lc) or (hf_name_lc == search_name_lc)
-        logger.info(f"DEBUG_BYNAME:   in_memory artifact: id={aid}, name='{aname}' (lc='{aname_lc}'), hf_model_name='{hf_name}' (lc='{hf_name_lc}'), matches={matches_search}")
-    if len(artifacts_db) > 20:
-        logger.info(f"DEBUG_BYNAME:   ... and {len(artifacts_db) - 20} more in-memory artifacts")
+        logger.info(f"DEBUG_BYNAME:   in_memory artifact: id={aid}, name='{aname}' (lc='{aname_lc}'), hf_model_name='{hf_name}' (lc='{hf_name_lc}'), type={atype}, matches={matches_search}")
+    if len(artifacts_db) > 30:
+        logger.info(f"DEBUG_BYNAME:   ... and {len(artifacts_db) - 30} more in-memory artifacts")
+    sys.stdout.flush()  # Flush before checking storage layers
     # Per spec, '*' is reserved for enumeration; treat it as invalid here
     if not search_name or search_name == "*":
         raise HTTPException(
@@ -2106,80 +2116,111 @@ async def artifact_by_name(
     # Check all storage layers: in-memory (for same-request), S3 (production), SQLite (local)
     # Priority: in-memory (fastest, same-request) > S3 (production) > SQLite (local)
     # Always check in-memory first (captures just-created items and ensures consistency)
-    logger.info(f"DEBUG_BYNAME: Checking in-memory artifacts_db, count={len(artifacts_db)}")
+    logger.info(f"DEBUG_BYNAME: MATCHING PROCESS - Checking in-memory artifacts_db, count={len(artifacts_db)}")
+    sys.stdout.flush()
+    in_memory_checked = 0
+    in_memory_matches = 0
     for artifact_id, artifact_data in artifacts_db.items():
+        in_memory_checked += 1
         stored_name = str(artifact_data["metadata"]["name"]).strip()
         # Also check hf_model_name for ingested models (e.g., "google/gemma-2-2b" vs "gemma-2-2b")
         hf_model_name = artifact_data.get("hf_model_name", "")
+        stored_type = artifact_data["metadata"].get("type", "")
         # Per spec, byName matches on the stored name (case-insensitive)
         # Also match against hf_model_name for ingested models
         name_matches = stored_name.lower() == search_name_lc
         hf_name_matches = hf_model_name and str(hf_model_name).lower() == search_name_lc
-        logger.info(f"DEBUG_BYNAME: In-memory check: id={artifact_id}, stored_name='{stored_name}', hf_model_name='{hf_model_name}', name_matches={name_matches}, hf_name_matches={hf_name_matches}")
+        if in_memory_checked <= 10:  # Log first 10 checks in detail
+            logger.info(f"DEBUG_BYNAME:   In-memory check #{in_memory_checked}: id={artifact_id}, stored_name='{stored_name}', hf_model_name='{hf_model_name}', type={stored_type}, name_matches={name_matches}, hf_name_matches={hf_name_matches}")
         if name_matches or hf_name_matches:
             # Check if already in matches
             if not any(m.id == artifact_id for m in matches):
+                in_memory_matches += 1
+                logger.info(f"DEBUG_BYNAME:   ✓ MATCH FOUND in-memory: id={artifact_id}, name='{stored_name}', type={stored_type}")
                 matches.append(
                     ArtifactMetadata(
                         name=stored_name,
                         id=artifact_id,
-                        type=ArtifactType(artifact_data["metadata"]["type"]),
+                        type=ArtifactType(stored_type),
                     )
                 )
+    logger.info(f"DEBUG_BYNAME:   In-memory check complete: checked={in_memory_checked}, matches={in_memory_matches}")
+    sys.stdout.flush()
 
     # Check S3 (production storage)
     if USE_S3 and s3_storage:
         # Broad list then filter client-side (handles case-insensitive, hf_model_name, and trimming)
-        logger.info("DEBUG_BYNAME: Checking S3 storage")
+        logger.info("DEBUG_BYNAME: MATCHING PROCESS - Checking S3 storage")
+        sys.stdout.flush()
         try:
             s3_artifacts = s3_storage.list_artifacts_by_queries(
                 [{"name": "*", "types": ["model", "dataset", "code"]}]
             )
-            logger.info(f"DEBUG_BYNAME: S3 returned {len(s3_artifacts)} artifacts")
+            logger.info(f"DEBUG_BYNAME:   S3 returned {len(s3_artifacts)} artifacts to check")
         except Exception as e:
-            logger.error(f"DEBUG_BYNAME: S3 error: {e}")
+            logger.error(f"DEBUG_BYNAME:   S3 error: {e}")
             s3_artifacts = []
+        s3_checked = 0
+        s3_matches = 0
         for art_data in s3_artifacts:
+            s3_checked += 1
             metadata = art_data.get("metadata", {})
             stored_name = str(metadata.get("name", "")).strip()
             artifact_id = metadata.get("id", "")
+            stored_type = metadata.get("type", "")
             # Also check hf_model_name for ingested models (e.g., "google/gemma-2-2b" vs "gemma-2-2b")
             hf_model_name = art_data.get("hf_model_name", "")
             # Per spec, byName matches on the stored name (case-insensitive)
             # Also match against hf_model_name for ingested models
             name_matches = stored_name.lower() == search_name_lc
             hf_name_matches = hf_model_name and str(hf_model_name).lower() == search_name_lc
-            logger.info(f"DEBUG_BYNAME: S3 check: id={artifact_id}, stored_name='{stored_name}', hf_model_name='{hf_model_name}', name_matches={name_matches}, hf_name_matches={hf_name_matches}")
+            if s3_checked <= 10:  # Log first 10 checks in detail
+                logger.info(f"DEBUG_BYNAME:   S3 check #{s3_checked}: id={artifact_id}, stored_name='{stored_name}', hf_model_name='{hf_model_name}', type={stored_type}, name_matches={name_matches}, hf_name_matches={hf_name_matches}")
             if name_matches or hf_name_matches:
                 # Check if already in matches
                 if not any(m.id == artifact_id for m in matches):
-                    logger.info(f"DEBUG_BYNAME: S3 match found: id={artifact_id}, name={stored_name}")
+                    s3_matches += 1
+                    logger.info(f"DEBUG_BYNAME:   ✓ MATCH FOUND in S3: id={artifact_id}, name='{stored_name}', type={stored_type}")
                     matches.append(
                         ArtifactMetadata(
                             name=stored_name,
                             id=artifact_id,
-                            type=ArtifactType(metadata.get("type", "")),
+                            type=ArtifactType(stored_type),
                         )
                     )
+        logger.info(f"DEBUG_BYNAME:   S3 check complete: checked={s3_checked}, matches={s3_matches}")
+        sys.stdout.flush()
 
     # Check SQLite (local development)
     if USE_SQLITE:
-        logger.info(f"DEBUG_BYNAME: Checking SQLite with search_name='{search_name}'")
+        logger.info(f"DEBUG_BYNAME: MATCHING PROCESS - Checking SQLite with search_name='{search_name}'")
+        sys.stdout.flush()
         with next(get_db()) as _db:  # type: ignore[misc]
             items = db_crud.list_by_name(_db, search_name)
-            logger.info(f"DEBUG_BYNAME: SQLite list_by_name returned {len(items)} items")
-            for a in items:
+            logger.info(f"DEBUG_BYNAME:   SQLite list_by_name returned {len(items)} items")
+            sqlite_matches = 0
+            for idx, a in enumerate(items):
                 # Case-insensitive safeguard
-                logger.info(f"DEBUG_BYNAME: SQLite item: id={a.id}, name='{a.name}', comparing with '{search_name_lc}'")
+                if idx < 10:  # Log first 10 items in detail
+                    logger.info(f"DEBUG_BYNAME:   SQLite item #{idx+1}: id={a.id}, name='{a.name}', type={a.type}, comparing with '{search_name_lc}'")
                 if str(a.name).lower() == search_name_lc:
-                    logger.info(f"DEBUG_BYNAME: SQLite match found: id={a.id}, name={a.name}")
-                    matches.append(
-                        ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type))
-                    )
+                    sqlite_matches += 1
+                    logger.info(f"DEBUG_BYNAME:   ✓ MATCH FOUND in SQLite: id={a.id}, name='{a.name}', type={a.type}")
+                    if not any(m.id == a.id for m in matches):
+                        matches.append(
+                            ArtifactMetadata(name=a.name, id=a.id, type=ArtifactType(a.type))
+                        )
+            logger.info(f"DEBUG_BYNAME:   SQLite check complete: returned={len(items)}, matches={sqlite_matches}")
+        sys.stdout.flush()
 
     logger.info(f"DEBUG_BYNAME: Total matches found: {len(matches)} for name='{search_name}'")
+    if matches:
+        for idx, match in enumerate(matches):
+            logger.info(f"DEBUG_BYNAME:   Match #{idx+1}: id={match.id}, name='{match.name}', type={match.type}")
+    else:
+        logger.warning(f"DEBUG_BYNAME: ✗ NO MATCHES FOUND for name='{search_name}', USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}, in_memory_count={len(artifacts_db)}")
+    sys.stdout.flush()
     if not matches:
-        logger.warning(f"DEBUG_BYNAME: No matches found for name='{search_name}', USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}, in_memory_count={len(artifacts_db)}")
         raise HTTPException(status_code=404, detail="No such artifact.")
 
     # Track search hits for package confusion detection (M5.2)
@@ -2707,24 +2748,33 @@ async def artifact_retrieve(
     user: Dict[str, Any] = Depends(verify_token),
 ) -> Artifact:
     """Interact with the artifact with this id (BASELINE)"""
+    # CRITICAL: Log IMMEDIATELY at function start to see what autograder is sending
+    logger.info("DEBUG_BYID: ===== FUNCTION START =====")
+    logger.info(f"DEBUG_BYID: AUTOGRADER REQUEST - artifact_type='{artifact_type.value}', id='{id}'")
+    sys.stdout.flush()  # Force flush to CloudWatch
+    
     _validate_artifact_id_or_400(id)
     if not check_permission(user, "search"):
+        logger.warning("DEBUG_BYID: Permission denied for user")
+        sys.stdout.flush()
         raise HTTPException(status_code=401, detail="You do not have permission to search.")
 
-    # Log what autograder is sending
-    logger.info(f"DEBUG_BYID: AUTOGRADER REQUEST - artifact_type='{artifact_type.value}', id='{id}'")
     logger.info(f"DEBUG_BYID: Storage config - USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}")
+    sys.stdout.flush()
 
     # Log all existing artifact IDs in storage
     logger.info(f"DEBUG_BYID: EXISTING ARTIFACTS - in_memory count: {len(artifacts_db)}")
     in_memory_ids = list(artifacts_db.keys())[:30]  # Log first 30 IDs
     logger.info(f"DEBUG_BYID:   in_memory IDs (first 30): {in_memory_ids}")
     if id in artifacts_db:
-        logger.info(f"DEBUG_BYID:   ✓ Requested id '{id}' FOUND in in_memory")
+        stored_type = artifacts_db[id].get("metadata", {}).get("type", "")
+        stored_name = artifacts_db[id].get("metadata", {}).get("name", "")
+        logger.info(f"DEBUG_BYID:   ✓ Requested id '{id}' FOUND in in_memory: type={stored_type}, name='{stored_name}'")
     else:
         logger.info(f"DEBUG_BYID:   ✗ Requested id '{id}' NOT in in_memory")
     if len(artifacts_db) > 30:
         logger.info(f"DEBUG_BYID:   ... and {len(artifacts_db) - 30} more in-memory artifacts")
+    sys.stdout.flush()  # Flush before checking storage layers
 
     # Check all storage layers: in-memory (for same-request), S3 (production), SQLite (local)
     # Priority: in-memory (fastest, same-request) > S3 (production) > SQLite (local)
@@ -2733,65 +2783,85 @@ async def artifact_retrieve(
     artifact_url = None
 
     # Check in-memory first (same-request artifacts, Lambda cold start protection)
-    logger.info(f"DEBUG_BYID: Checking in-memory, artifacts_db count={len(artifacts_db)}, id in db={id in artifacts_db}")
+    logger.info(f"DEBUG_BYID: MATCHING PROCESS - Checking in-memory, artifacts_db count={len(artifacts_db)}, id in db={id in artifacts_db}")
+    sys.stdout.flush()
     if id in artifacts_db:
         artifact_data = artifacts_db[id]
         stored_type = artifact_data["metadata"]["type"]
         artifact_url = artifact_data.get("data", {}).get("url") or ""
-        logger.info(f"DEBUG_BYID: Found in-memory: type={stored_type}, url={artifact_url}")
+        stored_name = artifact_data["metadata"].get("name", "")
+        logger.info(f"DEBUG_BYID:   ✓ FOUND in-memory: type={stored_type}, name='{stored_name}', url={artifact_url}")
+    else:
+        logger.info(f"DEBUG_BYID:   ✗ NOT FOUND in-memory")
+    sys.stdout.flush()
 
     # Check S3 if not found in-memory
     if not artifact_data and USE_S3 and s3_storage:
-        logger.info(f"DEBUG_BYID: Checking S3 for id={id}")
-        s3_data = s3_storage.get_artifact_metadata(id)
-        if s3_data:
-            stored_type = s3_data.get("metadata", {}).get("type")
-            artifact_url = s3_data.get("data", {}).get("url") or ""
-            logger.info(f"DEBUG_BYID: Found in S3: type={stored_type}, url={artifact_url}")
-            # Convert S3 data to artifact_data format for consistent handling
-            artifact_data = {
-                "metadata": s3_data.get("metadata", {}),
-                "data": s3_data.get("data", {}),
-            }
-        else:
-            logger.info(f"DEBUG_BYID: Not found in S3 for id={id}")
+        logger.info(f"DEBUG_BYID: MATCHING PROCESS - Checking S3 for id={id}")
+        sys.stdout.flush()
+        try:
+            s3_data = s3_storage.get_artifact_metadata(id)
+            if s3_data:
+                stored_type = s3_data.get("metadata", {}).get("type")
+                artifact_url = s3_data.get("data", {}).get("url") or ""
+                stored_name = s3_data.get("metadata", {}).get("name", "")
+                logger.info(f"DEBUG_BYID:   ✓ FOUND in S3: type={stored_type}, name='{stored_name}', url={artifact_url}")
+                # Convert S3 data to artifact_data format for consistent handling
+                artifact_data = {
+                    "metadata": s3_data.get("metadata", {}),
+                    "data": s3_data.get("data", {}),
+                }
+            else:
+                logger.info(f"DEBUG_BYID:   ✗ NOT FOUND in S3 for id={id}")
+        except Exception as e:
+            logger.error(f"DEBUG_BYID:   S3 error: {e}")
+        sys.stdout.flush()
 
     # Check SQLite if not found in in-memory or S3
     if not artifact_data and USE_SQLITE:
-        logger.info(f"DEBUG_BYID: Checking SQLite for id={id}")
-        with next(get_db()) as _db:  # type: ignore[misc]
-            art = db_crud.get_artifact(_db, id)
-            if art:
-                stored_type = art.type
-                artifact_url = art.url
-                logger.info(f"DEBUG_BYID: Found in SQLite: type={stored_type}, url={artifact_url}, name={art.name}")
-                # Convert SQLite data to artifact_data format
-                artifact_data = {
-                    "metadata": {"name": art.name, "id": art.id, "type": art.type},
-                    "data": {"url": art.url},
-                }
-            else:
-                logger.info(f"DEBUG_BYID: Not found in SQLite for id={id}")
+        logger.info(f"DEBUG_BYID: MATCHING PROCESS - Checking SQLite for id={id}")
+        sys.stdout.flush()
+        try:
+            with next(get_db()) as _db:  # type: ignore[misc]
+                art = db_crud.get_artifact(_db, id)
+                if art:
+                    stored_type = art.type
+                    artifact_url = art.url
+                    stored_name = art.name
+                    logger.info(f"DEBUG_BYID:   ✓ FOUND in SQLite: type={stored_type}, name='{stored_name}', url={artifact_url}")
+                    # Convert SQLite data to artifact_data format
+                    artifact_data = {
+                        "metadata": {"name": art.name, "id": art.id, "type": art.type},
+                        "data": {"url": art.url},
+                    }
+                else:
+                    logger.info(f"DEBUG_BYID:   ✗ NOT FOUND in SQLite for id={id}")
+        except Exception as e:
+            logger.error(f"DEBUG_BYID:   SQLite error: {e}")
+        sys.stdout.flush()
 
     # If not found in any storage layer, return 404
     if not artifact_data or not stored_type:
-        logger.warning(f"DEBUG_BYID: Artifact not found: id={id}, type={artifact_type.value}, USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}, in_memory_count={len(artifacts_db)}")
+        logger.warning(f"DEBUG_BYID: ✗ ARTIFACT NOT FOUND: id={id}, requested_type={artifact_type.value}, USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}, in_memory_count={len(artifacts_db)}")
+        sys.stdout.flush()
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
 
     # Validate artifact type
     if stored_type != artifact_type.value:
-        logger.warning(
-            f"Artifact type mismatch: stored={stored_type}, requested={artifact_type.value}"
-        )
+        logger.warning(f"DEBUG_BYID: ✗ TYPE MISMATCH: stored={stored_type}, requested={artifact_type.value}")
+        sys.stdout.flush()
         raise HTTPException(status_code=400, detail="Artifact type mismatch.")
 
     # Validate URL
     if not artifact_url:
-        logger.error(f"❌ Artifact {id} has no URL in data")
+        logger.error(f"DEBUG_BYID: ✗ Artifact {id} has no URL in data")
+        sys.stdout.flush()
         raise HTTPException(status_code=500, detail="Artifact data is malformed.")
 
     # Generate download URL and return
     download_url = generate_download_url(artifact_type.value, id, request)
+    logger.info(f"DEBUG_BYID: ✓ SUCCESS - Returning artifact: id={id}, type={stored_type}, url={artifact_url}")
+    sys.stdout.flush()
     return Artifact(
         metadata=ArtifactMetadata(**artifact_data["metadata"]),
         data=ArtifactData(url=artifact_url, download_url=download_url),
@@ -3161,14 +3231,19 @@ async def model_license_check_alias(
 @app.get("/artifact/model/{id}/rate", response_model=ModelRating)
 async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_token)) -> ModelRating:
     """Get ratings for this model artifact (BASELINE)"""
+    # CRITICAL: Log IMMEDIATELY at function start to see what autograder is sending
+    logger.info("DEBUG_RATE: ===== FUNCTION START =====")
+    logger.info(f"DEBUG_RATE: AUTOGRADER REQUEST - id='{id}'")
+    sys.stdout.flush()  # Force flush to CloudWatch
+    
     # Support async ingest semantics (v3.4.4): if INVALID, return 404 forever.
     # If PENDING, compute metrics now (lazy evaluation approach 3) and mark READY.
     _validate_artifact_id_or_400(id)
     status = artifact_status.get(id)
 
-    # Log what autograder is sending
-    logger.info(f"DEBUG_RATE: AUTOGRADER REQUEST - id='{id}', status={status}")
     logger.info(f"DEBUG_RATE: Storage config - USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}")
+    logger.info(f"DEBUG_RATE: Artifact status: {status}")
+    sys.stdout.flush()
 
     # Log all existing model artifact IDs in storage
     model_ids_in_memory = [aid for aid, adata in artifacts_db.items() if adata.get("metadata", {}).get("type") == "model"]
@@ -3203,55 +3278,83 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
     artifact_found = False
 
     # Check in-memory first (same-request artifacts, Lambda cold start protection)
-    logger.info(f"DEBUG_RATE: Checking in-memory, artifacts_db count={len(artifacts_db)}, id in db={id in artifacts_db}")
+    logger.info(f"DEBUG_RATE: MATCHING PROCESS - Checking in-memory, artifacts_db count={len(artifacts_db)}, id in db={id in artifacts_db}")
+    sys.stdout.flush()
     if id in artifacts_db:
         artifact_data = artifacts_db[id]
-        if artifact_data["metadata"]["type"] != "model":
-            logger.warning(f"DEBUG_RATE: Artifact {id} in-memory is not a model, type={artifact_data['metadata']['type']}")
-            raise HTTPException(status_code=400, detail="Not a model artifact.")
-        url = artifact_data["data"].get("url", "")
+        stored_type = artifact_data["metadata"]["type"]
         artifact_name = artifact_data["metadata"].get("name", "")
+        url = artifact_data["data"].get("url", "")
+        logger.info(f"DEBUG_RATE:   Found in-memory: type={stored_type}, name='{artifact_name}', url={url}")
+        if stored_type != "model":
+            logger.warning(f"DEBUG_RATE:   ✗ Artifact {id} in-memory is not a model, type={stored_type}")
+            sys.stdout.flush()
+            raise HTTPException(status_code=400, detail="Not a model artifact.")
         artifact_found = True
-        logger.info(f"DEBUG_RATE: Found in-memory: name={artifact_name}, url={url}")
+        logger.info(f"DEBUG_RATE:   ✓ Valid model found in-memory")
+    else:
+        logger.info(f"DEBUG_RATE:   ✗ NOT FOUND in-memory")
+        artifact_found = False
+    sys.stdout.flush()
 
     # Check S3 if not found in-memory
     if not artifact_found and USE_S3 and s3_storage:
-        logger.info(f"DEBUG_RATE: Checking S3 for id={id}")
-        existing_data = s3_storage.get_artifact_metadata(id)
-        if existing_data:
-            artifact_type = existing_data.get("metadata", {}).get("type")
-            logger.info(f"DEBUG_RATE: Found in S3: type={artifact_type}")
-            if artifact_type != "model":
-                logger.warning(f"DEBUG_RATE: Artifact {id} in S3 is not a model, type={artifact_type}")
-                raise HTTPException(status_code=400, detail="Not a model artifact.")
-            url = existing_data.get("data", {}).get("url", "")
-            artifact_name = existing_data.get("metadata", {}).get("name", "")
-            artifact_found = True
-            logger.info(f"DEBUG_RATE: Found in S3: name={artifact_name}, url={url}")
-        else:
-            logger.info(f"DEBUG_RATE: Not found in S3 for id={id}")
+        logger.info(f"DEBUG_RATE: MATCHING PROCESS - Checking S3 for id={id}")
+        sys.stdout.flush()
+        try:
+            existing_data = s3_storage.get_artifact_metadata(id)
+            if existing_data:
+                artifact_type = existing_data.get("metadata", {}).get("type")
+                artifact_name = existing_data.get("metadata", {}).get("name", "")
+                url = existing_data.get("data", {}).get("url", "")
+                logger.info(f"DEBUG_RATE:   Found in S3: type={artifact_type}, name='{artifact_name}', url={url}")
+                if artifact_type != "model":
+                    logger.warning(f"DEBUG_RATE:   ✗ Artifact {id} in S3 is not a model, type={artifact_type}")
+                    sys.stdout.flush()
+                    raise HTTPException(status_code=400, detail="Not a model artifact.")
+                artifact_found = True
+                logger.info(f"DEBUG_RATE:   ✓ Valid model found in S3")
+            else:
+                logger.info(f"DEBUG_RATE:   ✗ NOT FOUND in S3 for id={id}")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"DEBUG_RATE:   S3 error: {e}")
+        sys.stdout.flush()
 
     # Check SQLite if not found in in-memory or S3
     if not artifact_found and USE_SQLITE:
-        logger.info(f"DEBUG_RATE: Checking SQLite for id={id}")
-        with next(get_db()) as _db:  # type: ignore[misc]
-            art = db_crud.get_artifact(_db, id)
-            if art:
-                logger.info(f"DEBUG_RATE: Found in SQLite: type={art.type}, name={art.name}")
-                if art.type != "model":
-                    logger.warning(f"DEBUG_RATE: Artifact {id} in SQLite is not a model, type={art.type}")
-                    raise HTTPException(status_code=400, detail="Not a model artifact.")
-                url = art.url
-                artifact_name = art.name
-                artifact_found = True
-                logger.info(f"DEBUG_RATE: Found in SQLite: name={artifact_name}, url={url}")
-            else:
-                logger.info(f"DEBUG_RATE: Not found in SQLite for id={id}")
+        logger.info(f"DEBUG_RATE: MATCHING PROCESS - Checking SQLite for id={id}")
+        sys.stdout.flush()
+        try:
+            with next(get_db()) as _db:  # type: ignore[misc]
+                art = db_crud.get_artifact(_db, id)
+                if art:
+                    artifact_name = art.name
+                    url = art.url
+                    logger.info(f"DEBUG_RATE:   Found in SQLite: type={art.type}, name='{artifact_name}', url={url}")
+                    if art.type != "model":
+                        logger.warning(f"DEBUG_RATE:   ✗ Artifact {id} in SQLite is not a model, type={art.type}")
+                        sys.stdout.flush()
+                        raise HTTPException(status_code=400, detail="Not a model artifact.")
+                    artifact_found = True
+                    logger.info(f"DEBUG_RATE:   ✓ Valid model found in SQLite")
+                else:
+                    logger.info(f"DEBUG_RATE:   ✗ NOT FOUND in SQLite for id={id}")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"DEBUG_RATE:   SQLite error: {e}")
+        sys.stdout.flush()
 
     # If not found in any storage layer, return 404
     if not artifact_found:
-        logger.warning(f"DEBUG_RATE: Artifact not found: id={id}, USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}, in_memory_count={len(artifacts_db)}")
+        logger.warning(f"DEBUG_RATE: ✗ ARTIFACT NOT FOUND: id={id}, USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}, in_memory_count={len(artifacts_db)}")
+        sys.stdout.flush()
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
+    logger.info(f"DEBUG_RATE: Computing metrics for artifact: id={id}, name='{artifact_name}', url={url}")
+    sys.stdout.flush()
+    
     category = "classification"
     size_scores: Dict[str, float] = {
         "raspberry_pi": 1.0,
@@ -3302,7 +3405,8 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
         # Per spec: 500 if "at least one metric was computed successfully" but others failed
         # If all metrics fail, we still return 200 with defaults (per approach 3: lazy evaluation)
         # But log the error for debugging
-        logger.warning(f"Metrics calculation failed: {e}", exc_info=True)
+        logger.warning(f"DEBUG_RATE: Metrics calculation failed: {e}", exc_info=True)
+        sys.stdout.flush()
         # If metrics dict is empty, use defaults (all zeros) - this is acceptable for lazy evaluation
         if not metrics:
             metrics = {}
@@ -3318,12 +3422,17 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
         if id in artifact_status:
             if artifact_status.get(id) == "PENDING":
                 artifact_status[id] = "READY"
+                logger.info(f"DEBUG_RATE: Updated status from PENDING to READY for id={id}")
         else:
             # If no status set, set to READY after computing metrics
             artifact_status[id] = "READY"
+            logger.info(f"DEBUG_RATE: Set status to READY for id={id}")
     except HTTPException:
         # Propagate 404 for invalidated artifacts
         raise
+
+    logger.info(f"DEBUG_RATE: ✓ SUCCESS - Returning rating for artifact: id={id}, name='{artifact_name}', net_score={net_score}")
+    sys.stdout.flush()
 
     def get_m(name: str) -> float:
         v = metrics.get(name)
