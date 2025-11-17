@@ -2076,7 +2076,7 @@ async def artifact_by_name(
     logger.info("DEBUG_BYNAME: ===== FUNCTION START =====")
     logger.info(f"DEBUG_BYNAME: AUTOGRADER REQUEST - raw name param: '{name}'")
     sys.stdout.flush()  # Force flush to CloudWatch
-    
+
     if not check_permission(user, "search"):
         logger.warning("DEBUG_BYNAME: Permission denied for user")
         sys.stdout.flush()
@@ -3235,7 +3235,7 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
     logger.info("DEBUG_RATE: ===== FUNCTION START =====")
     logger.info(f"DEBUG_RATE: AUTOGRADER REQUEST - id='{id}'")
     sys.stdout.flush()  # Force flush to CloudWatch
-    
+
     # Support async ingest semantics (v3.4.4): if INVALID, return 404 forever.
     # If PENDING, compute metrics now (lazy evaluation approach 3) and mark READY.
     _validate_artifact_id_or_400(id)
