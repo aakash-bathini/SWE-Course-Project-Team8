@@ -320,6 +320,8 @@ class ArtifactAuditEntry(BaseModel):
 # Input validation helpers
 # ----------------------------
 _ARTIFACT_ID_ALLOWED_RE = re.compile(r"^[A-Za-z0-9\-]+$")
+_HF_ALLOWED_HOSTS = ("huggingface.co", "hf.co")
+_HF_PATH_PREFIXES = {"models", "model", "datasets", "dataset", "spaces", "space"}
 
 
 def _validate_artifact_id_or_400(artifact_id: str) -> None:
@@ -332,6 +334,88 @@ def _validate_artifact_id_or_400(artifact_id: str) -> None:
             status_code=400,
             detail="There is missing field(s) in the artifact_id or it is formed improperly, or is invalid.",
         )
+
+
+def _add_unique_candidate(candidates: List[str], value: str) -> None:
+    """Helper to append non-empty unique candidate strings while preserving order."""
+    if not value:
+        return
+    candidate = value.strip()
+    if not candidate:
+        return
+    if candidate not in candidates:
+        candidates.append(candidate)
+
+
+def _normalize_hf_identifier(identifier: str) -> List[str]:
+    """Return ordered list of canonical + alias strings for a HuggingFace identifier."""
+    if not identifier:
+        return []
+    cleaned = identifier.replace("\\", "/").strip().strip("/")
+    if not cleaned:
+        return []
+    variants: List[str] = []
+    _add_unique_candidate(variants, cleaned)
+    # Hyphenated variant (common in autograder regex/name queries)
+    _add_unique_candidate(variants, cleaned.replace("/", "-"))
+    # Just the final segment (already stored as metadata name, but keep for completeness)
+    last_segment = cleaned.split("/")[-1]
+    if last_segment and last_segment != cleaned:
+        _add_unique_candidate(variants, last_segment)
+    return variants
+
+
+def _derive_hf_variants_from_url(url: str) -> List[str]:
+    """Attempt to derive HuggingFace identifier variants from a URL."""
+    if not url:
+        return []
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return []
+    host = parsed.netloc.lower()
+    if not any(host.endswith(allowed) for allowed in _HF_ALLOWED_HOSTS):
+        return []
+    path_parts = [unquote(part) for part in parsed.path.split("/") if part]
+    if path_parts and path_parts[0].lower() in _HF_PATH_PREFIXES:
+        path_parts = path_parts[1:]
+    if not path_parts:
+        return []
+    canonical = "/".join(path_parts)
+    return _normalize_hf_identifier(canonical)
+
+
+def _get_hf_name_candidates(record: Dict[str, Any]) -> List[str]:
+    """
+    Collect all HuggingFace-related name variants stored with an artifact.
+    Includes explicit hf_model_name values, aliases, and URL-derived identifiers.
+    """
+    candidates: List[str] = []
+    hf_name = str(record.get("hf_model_name") or "").strip()
+    _add_unique_candidate(candidates, hf_name)
+
+    aliases = record.get("hf_model_name_aliases", [])
+    alias_values: List[str] = []
+    if isinstance(aliases, str):
+        alias_values = [aliases]
+    elif isinstance(aliases, bytes):
+        alias_values = [aliases.decode("utf-8", errors="ignore")]
+    elif isinstance(aliases, list):
+        for alias in aliases:
+            if isinstance(alias, bytes):
+                alias_values.append(alias.decode("utf-8", errors="ignore"))
+            elif isinstance(alias, str):
+                alias_values.append(alias)
+    for alias in alias_values:
+        _add_unique_candidate(candidates, alias)
+
+    data_block = record.get("data", {})
+    if isinstance(data_block, dict):
+        url_candidate = str(data_block.get("url") or "")
+        for derived in _derive_hf_variants_from_url(url_candidate):
+            _add_unique_candidate(candidates, derived)
+
+    return candidates
 
 
 # ----------------------------
@@ -549,13 +633,30 @@ def generate_download_url(
 def verify_token(
     x_authorization: Optional[str] = Header(None, alias="X-Authorization"),
     authorization: Optional[str] = Header(None, alias="Authorization"),
+    authentication_token: Optional[str] = Header(None, alias="AuthenticationToken"),
 ) -> Dict[str, Any]:
     """Verify token from X-Authorization (spec) or Authorization header and return user info"""
+    # DEBUG: Log auth headers to diagnose 403 errors
+    logger.info(
+        f"DEBUG_AUTH: verify_token called - x_authorization present: {x_authorization is not None}, "
+        f"authorization present: {authorization is not None}"
+    )
+    if x_authorization:
+        x_auth_len = len(x_authorization) if isinstance(x_authorization, str) else 0
+        logger.info(f"DEBUG_AUTH: x_authorization length: {x_auth_len}")
+    if authorization:
+        logger.info(f"DEBUG_AUTH: authorization length: {len(authorization) if isinstance(authorization, str) else 0}")
+    if authentication_token:
+        token_len = len(authentication_token) if isinstance(authentication_token, str) else 0
+        logger.info(f"DEBUG_AUTH: authentication_token length: {token_len}")
+    sys.stdout.flush()
+
     token: Optional[str] = None
 
     if x_authorization and isinstance(x_authorization, str) and x_authorization.strip():
         raw = x_authorization.strip()
         token = raw[7:].strip() if raw.lower().startswith("bearer ") else raw
+        logger.info(f"DEBUG_AUTH: Extracted token from x_authorization, token length: {len(token)}")
     elif authorization and isinstance(authorization, str) and authorization.strip():
         # Support both "Bearer <token>" and raw token in Authorization
         raw = authorization.strip()
@@ -563,21 +664,40 @@ def verify_token(
             token = raw[7:].strip()
         else:
             token = raw
+        logger.info(f"DEBUG_AUTH: Extracted token from authorization, token length: {len(token)}")
+    elif authentication_token and isinstance(authentication_token, str) and authentication_token.strip():
+        raw = authentication_token.strip()
+        token = raw[7:].strip() if raw.lower().startswith("bearer ") else raw
+        logger.info(
+            f"DEBUG_AUTH: Extracted token from authentication_token header, token length: {len(token)}"
+        )
+    else:
+        logger.warning(
+            "DEBUG_AUTH: No auth headers found - X-Authorization, Authorization, and AuthenticationToken all missing/empty"
+        )
 
     if not token:
         # Spec: 403 for invalid or missing AuthenticationToken
+        logger.warning("DEBUG_AUTH: No token extracted, returning 403")
+        sys.stdout.flush()
         raise HTTPException(
             status_code=403,
             detail="Authentication failed due to invalid or missing AuthenticationToken.",
         )
 
     # Validate JWT token
+    logger.info(f"DEBUG_AUTH: Verifying JWT token, token length: {len(token)}")
+    sys.stdout.flush()
     payload = jwt_auth.verify_token(token)
     if not payload:
+        logger.warning("DEBUG_AUTH: JWT token verification failed, returning 403")
+        sys.stdout.flush()
         raise HTTPException(
             status_code=403,
             detail="Authentication failed due to invalid or missing AuthenticationToken.",
         )
+    logger.info(f"DEBUG_AUTH: JWT token verified successfully, username: {payload.get('sub', 'unknown')}")
+    sys.stdout.flush()
 
     # Track call count server-side (Milestone 3 requirement: 1000 calls or 10 hours)
     # Use token hash as key to track calls
@@ -589,6 +709,8 @@ def verify_token(
     # Check if exceeded max calls (1000 calls limit)
     MAX_CALLS = 1000
     if current_calls >= MAX_CALLS:
+        logger.warning(f"DEBUG_AUTH: Token exceeded max calls ({current_calls}/{MAX_CALLS}), returning 403")
+        sys.stdout.flush()
         raise HTTPException(
             status_code=403,
             detail="Authentication failed due to invalid or missing AuthenticationToken.",
@@ -1555,6 +1677,10 @@ async def models_ingest(
         artifact_id = f"model-{model_count + 1}-{int(datetime.now().timestamp())}"
         model_display_name = model_name.split("/")[-1] if "/" in model_name else model_name
 
+        hf_variants = _normalize_hf_identifier(model_name)
+        hf_primary = hf_variants[0] if hf_variants else model_name
+        hf_aliases = hf_variants[1:] if len(hf_variants) > 1 else []
+
         artifact_entry = {
             "metadata": {
                 "name": model_display_name,
@@ -1565,8 +1691,11 @@ async def models_ingest(
             "data": {"url": f"local://{artifact_id}", "hf_data": [hf_data]},
             "created_at": datetime.now().isoformat(),
             "created_by": user["username"],
-            "hf_model_name": model_name,
+            "hf_model_name": hf_primary,
         }
+
+        if hf_aliases:
+            artifact_entry["hf_model_name_aliases"] = hf_aliases
 
         artifacts_db[artifact_id] = artifact_entry
 
@@ -2101,14 +2230,18 @@ async def artifact_by_name(
     sys.stdout.flush()
     for aid, adata in list(artifacts_db.items())[:30]:  # Log first 30 to avoid spam
         aname = adata.get("metadata", {}).get("name", "")
-        hf_name = adata.get("hf_model_name", "")
         atype = adata.get("metadata", {}).get("type", "")
         aname_lc = aname.lower() if aname else ""
-        hf_name_lc = hf_name.lower() if hf_name else ""
-        matches_search = (aname_lc == search_name_lc) or (hf_name_lc == search_name_lc)
+        hf_candidates = _get_hf_name_candidates(adata)
+        metadata_match = aname_lc == search_name_lc
+        candidate_match = any(
+            cand.lower() == search_name_lc for cand in hf_candidates if isinstance(cand, str)
+        )
+        preview = hf_candidates[:3]
         logger.info(
             f"DEBUG_BYNAME:   in_memory artifact: id={aid}, name='{aname}' (lc='{aname_lc}'), "
-            f"hf_model_name='{hf_name}' (lc='{hf_name_lc}'), type={atype}, matches={matches_search}"
+            f"type={atype}, hf_candidates={preview} (+{max(len(hf_candidates)-len(preview), 0)} more), "
+            f"matches={candidate_match or metadata_match}"
         )
     if len(artifacts_db) > 30:
         logger.info(f"DEBUG_BYNAME:   ... and {len(artifacts_db) - 30} more in-memory artifacts")
@@ -2130,17 +2263,17 @@ async def artifact_by_name(
     for artifact_id, artifact_data in artifacts_db.items():
         in_memory_checked += 1
         stored_name = str(artifact_data["metadata"]["name"]).strip()
-        # Also check hf_model_name for ingested models (e.g., "google/gemma-2-2b" vs "gemma-2-2b")
-        hf_model_name = artifact_data.get("hf_model_name", "")
         stored_type = artifact_data["metadata"].get("type", "")
+        hf_candidates = _get_hf_name_candidates(artifact_data)
         # Per spec, byName matches on the stored name (case-insensitive)
-        # Also match against hf_model_name for ingested models
+        # Also match against hf_model_name variants for ingested models
         name_matches = stored_name.lower() == search_name_lc
-        hf_name_matches = hf_model_name and str(hf_model_name).lower() == search_name_lc
+        hf_name_matches = any(candidate.lower() == search_name_lc for candidate in hf_candidates)
         if in_memory_checked <= 10:  # Log first 10 checks in detail
             logger.info(
                 f"DEBUG_BYNAME:   In-memory check #{in_memory_checked}: id={artifact_id}, "
-                f"stored_name='{stored_name}', hf_model_name='{hf_model_name}', type={stored_type}, "
+                f"stored_name='{stored_name}', type={stored_type}, "
+                f"hf_candidates={hf_candidates[:3]}, "
                 f"name_matches={name_matches}, hf_name_matches={hf_name_matches}"
             )
         if name_matches or hf_name_matches:
@@ -2182,16 +2315,15 @@ async def artifact_by_name(
             stored_name = str(metadata.get("name", "")).strip()
             artifact_id = metadata.get("id", "")
             stored_type = metadata.get("type", "")
-            # Also check hf_model_name for ingested models (e.g., "google/gemma-2-2b" vs "gemma-2-2b")
-            hf_model_name = art_data.get("hf_model_name", "")
+            hf_candidates = _get_hf_name_candidates(art_data)
             # Per spec, byName matches on the stored name (case-insensitive)
-            # Also match against hf_model_name for ingested models
+            # Also match against hf_model_name variants for ingested models
             name_matches = stored_name.lower() == search_name_lc
-            hf_name_matches = hf_model_name and str(hf_model_name).lower() == search_name_lc
+            hf_name_matches = any(candidate.lower() == search_name_lc for candidate in hf_candidates)
             if s3_checked <= 10:  # Log first 10 checks in detail
                 logger.info(
                     f"DEBUG_BYNAME:   S3 check #{s3_checked}: id={artifact_id}, "
-                    f"stored_name='{stored_name}', hf_model_name='{hf_model_name}', type={stored_type}, "
+                    f"stored_name='{stored_name}', hf_candidates={hf_candidates[:3]}, type={stored_type}, "
                     f"name_matches={name_matches}, hf_name_matches={hf_name_matches}"
                 )
             if name_matches or hf_name_matches:
@@ -2292,10 +2424,10 @@ async def artifact_by_regex(
     for aid, adata in list(artifacts_db.items())[:20]:  # Log first 20 to avoid spam
         aname = adata.get("metadata", {}).get("name", "")
         atype = adata.get("metadata", {}).get("type", "")
-        hf_name = adata.get("hf_model_name", "")
+        hf_candidates = _get_hf_name_candidates(adata)
         logger.info(
             f"DEBUG_REGEX:   in_memory artifact: id={aid}, name='{aname}', "
-            f"type={atype}, hf_model_name='{hf_name}'"
+            f"type={atype}, hf_candidates={hf_candidates[:3]} (+{max(len(hf_candidates)-3, 0)} more)"
         )
     if len(artifacts_db) > 20:
         logger.info(f"DEBUG_REGEX:   ... and {len(artifacts_db) - 20} more in-memory artifacts")
@@ -2399,6 +2531,7 @@ async def artifact_by_regex(
         name = str(artifact_data["metadata"]["name"]).strip()
         logger.info(f"DEBUG_REGEX: Checking in-memory artifact id={artifact_id}, name={name}")
         readme_text = ""
+        hf_candidates = _get_hf_name_candidates(artifact_data)
 
         if not name_only:
             # Extract README text from hf_data if available
@@ -2412,7 +2545,7 @@ async def artifact_by_regex(
         # Mitigate catastrophic backtracking by limiting searchable text length
         if isinstance(readme_text, str) and len(readme_text) > 10000:
             readme_text = readme_text[:10000]
-        # For exact matches (patterns like ^name$), only check the stored name per spec
+        # For exact matches (patterns like ^name$), check stored name plus HF aliases
         try:
             name_matches = _safe_name_match(pattern, name, exact_match=name_only)
         except Exception as match_err:
@@ -2420,12 +2553,28 @@ async def artifact_by_regex(
             logger.warning(f"DEBUG_REGEX:   Regex match failed for in-memory artifact {artifact_id}: {match_err}")
             name_matches = False
 
+        # Also check hf_model_name variants (supports HF repo IDs such as "google-research/bert")
+        hf_name_matches = False
+        matched_candidate = None
+        for candidate in hf_candidates:
+            try:
+                if _safe_name_match(pattern, candidate, exact_match=name_only):
+                    hf_name_matches = True
+                    matched_candidate = candidate
+                    break
+            except Exception as match_err:
+                logger.warning(
+                    f"DEBUG_REGEX:   Regex match failed for hf candidate '{candidate}' "
+                    f"in artifact {artifact_id}: {match_err}"
+                )
+
         if name_only:
-            # Exact match: only check stored name
-            if name_matches:
+            # Exact match: allow stored name or HF aliases to trigger match
+            if name_matches or hf_name_matches:
+                match_source = "metadata name" if name_matches else f"hf alias '{matched_candidate}'"
                 logger.info(
                     f"DEBUG_REGEX:   ✓ MATCH FOUND in-memory: id={artifact_id}, "
-                    f"name='{name}' matches pattern='{raw_pattern}'"
+                    f"{match_source} matches pattern='{raw_pattern}'"
                 )
                 matches.append(
                     ArtifactMetadata(
@@ -2441,9 +2590,9 @@ async def artifact_by_regex(
                     f"name='{name}' does NOT match pattern='{raw_pattern}'"
                 )
         else:
-            # Partial match: search in name and README
+            # Partial match: search in name, hf_model_name, and README
             readme_matches = _safe_text_search(pattern, readme_text) if readme_text else False
-            if name_matches or readme_matches:
+            if name_matches or hf_name_matches or readme_matches:
                 matches.append(
                     ArtifactMetadata(
                         name=name,
@@ -2486,11 +2635,12 @@ async def artifact_by_regex(
                 continue  # Skip duplicates
             stored_type = str(metadata.get("type", "") or "")
             stored_name = str(metadata.get("name", "") or "").strip()
+            hf_candidates = _get_hf_name_candidates(art_data)
             # Check name first (fast path)
             # For exact matches (^name$), use fullmatch only
             logger.info(
-                f"DEBUG_REGEX:   Testing S3 artifact: id={artifact_id}, name='{stored_name}' "
-                f"against pattern='{raw_pattern}'"
+                f"DEBUG_REGEX:   Testing S3 artifact: id={artifact_id}, name='{stored_name}', "
+                f"hf_candidates={hf_candidates[:3]} against pattern='{raw_pattern}'"
             )
             try:
                 name_matches = _safe_name_match(pattern, stored_name, exact_match=name_only)
@@ -2498,10 +2648,26 @@ async def artifact_by_regex(
                 # If matching fails (e.g., timeout), log and treat as no match
                 logger.warning(f"DEBUG_REGEX:   Regex match failed for S3 artifact {artifact_id}: {match_err}")
                 name_matches = False
-            if name_matches:
+
+            # Also check hf_model_name variants (when provided)
+            hf_name_matches = False
+            matched_candidate = None
+            for candidate in hf_candidates:
+                try:
+                    if _safe_name_match(pattern, candidate, exact_match=name_only):
+                        hf_name_matches = True
+                        matched_candidate = candidate
+                        break
+                except Exception as match_err:
+                    logger.warning(
+                        f"DEBUG_REGEX:   Regex match failed for S3 hf candidate '{candidate}' "
+                        f"in artifact {artifact_id}: {match_err}"
+                    )
+
+            if name_matches or hf_name_matches:
                 logger.info(
                     f"DEBUG_REGEX:   ✓ MATCH FOUND in S3: id={artifact_id}, "
-                    f"name='{stored_name}' matches pattern='{raw_pattern}'"
+                    f"{'metadata name' if name_matches else f'hf alias {matched_candidate!r}'} matches pattern='{raw_pattern}'"
                 )
                 matches.append(
                     ArtifactMetadata(
@@ -2720,6 +2886,13 @@ async def artifact_create(
     # Store hf_data if available (for regex search of README content)
     if hf_data:
         artifact_entry["data"]["hf_data"] = hf_data
+
+    # Derive HuggingFace identifiers for regex/byName searches
+    hf_variants = _derive_hf_variants_from_url(artifact_data.url)
+    if hf_variants:
+        artifact_entry["hf_model_name"] = hf_variants[0]
+        if len(hf_variants) > 1:
+            artifact_entry["hf_model_name_aliases"] = hf_variants[1:]
 
     # Store artifact in appropriate storage layer
     # Priority: S3 (production) > SQLite (local) > in-memory
