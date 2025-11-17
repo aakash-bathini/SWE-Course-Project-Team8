@@ -9,6 +9,7 @@ import os
 import sys
 import re
 import threading
+import time
 from urllib.parse import unquote, urlparse
 
 # Configure logging first
@@ -2250,24 +2251,31 @@ async def artifact_by_regex(
     # This catches patterns that pass static detection but still cause backtracking
     # Use a string that triggers catastrophic backtracking: many 'a's followed by 'b'
     # Per Q&A: patterns like (a+)+$ should get stuck for more than a minute with Python's re module
+    # CRITICAL: This test MUST complete quickly or we reject the pattern to prevent Lambda timeouts
+    logger.info(f"DEBUG_REGEX: Starting ReDoS runtime test for pattern='{raw_pattern}'")
     try:
         test_string = "a" * 100 + "b"  # String that triggers backtracking in patterns like (a+)+$
         # For exact match patterns, use fullmatch; for others, use search
         test_func = pattern.fullmatch if name_only else pattern.search
+        test_start = time.monotonic()
         test_result = _safe_eval_with_timeout(
             lambda: test_func(test_string) is not None,
-            timeout_ms=2000,  # 2 second timeout for ReDoS detection (patterns can take minutes)
+            timeout_ms=1000,  # 1 second timeout - if it takes longer, it's dangerous
         )
+        test_duration = time.monotonic() - test_start
+        logger.info(f"DEBUG_REGEX: ReDoS test completed in {test_duration:.3f}s, result={test_result[0]}")
         # If pattern times out on test string, it's dangerous and should be rejected
         if not test_result[0]:
+            logger.warning(f"DEBUG_REGEX: ReDoS test TIMED OUT - rejecting pattern='{raw_pattern}'")
             raise HTTPException(
                 status_code=400,
                 detail="Regex pattern too complex and may cause excessive backtracking.",
             )
     except HTTPException:
         raise
-    except Exception:
-        # If test fails for other reasons (not timeout), continue (pattern might be valid)
+    except Exception as e:
+        # If test fails for other reasons (not timeout), log and continue (pattern might be valid)
+        logger.warning(f"DEBUG_REGEX: ReDoS test exception: {e}")
         pass
 
     # Priority: in-memory (for same-request) > S3 (production) > SQLite (local)
@@ -2295,7 +2303,12 @@ async def artifact_by_regex(
         if isinstance(readme_text, str) and len(readme_text) > 10000:
             readme_text = readme_text[:10000]
         # For exact matches (patterns like ^name$), only check the stored name per spec
-        name_matches = _safe_name_match(pattern, name, exact_match=name_only)
+        try:
+            name_matches = _safe_name_match(pattern, name, exact_match=name_only)
+        except Exception as match_err:
+            # If matching fails (e.g., timeout), log and treat as no match
+            logger.warning(f"DEBUG_REGEX:   Regex match failed for in-memory artifact {artifact_id}: {match_err}")
+            name_matches = False
 
         if name_only:
             # Exact match: only check stored name
@@ -2360,7 +2373,12 @@ async def artifact_by_regex(
             # Check name first (fast path)
             # For exact matches (^name$), use fullmatch only
             logger.info(f"DEBUG_REGEX:   Testing S3 artifact: id={artifact_id}, name='{stored_name}' against pattern='{raw_pattern}'")
-            name_matches = _safe_name_match(pattern, stored_name, exact_match=name_only)
+            try:
+                name_matches = _safe_name_match(pattern, stored_name, exact_match=name_only)
+            except Exception as match_err:
+                # If matching fails (e.g., timeout), log and treat as no match
+                logger.warning(f"DEBUG_REGEX:   Regex match failed for S3 artifact {artifact_id}: {match_err}")
+                name_matches = False
             if name_matches:
                 logger.info(f"DEBUG_REGEX:   ✓ MATCH FOUND in S3: id={artifact_id}, name='{stored_name}' matches pattern='{raw_pattern}'")
                 matches.append(
