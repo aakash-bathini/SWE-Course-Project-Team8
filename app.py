@@ -13,11 +13,19 @@ import time
 from urllib.parse import unquote, urlparse
 
 # Configure logging first
+# Use unbuffered mode for Lambda to ensure logs appear in CloudWatch immediately
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    force=True,  # Override any existing configuration
 )
+# Configure handlers to flush immediately
+for log_handler in logging.root.handlers:
+    log_handler.flush()
 logger = logging.getLogger(__name__)
+# Set up immediate flushing for Lambda
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(line_buffering=True)  # Python 3.7+
 
 # Set environment defaults for Lambda
 os.environ.setdefault("USE_SQLITE", "0")
@@ -2187,13 +2195,19 @@ async def artifact_by_regex(
     regex: ArtifactRegEx, user: Dict[str, Any] = Depends(verify_token)
 ) -> List[ArtifactMetadata]:
     """Search for an artifact using regular expression over artifact names and READMEs (BASELINE)"""
-    if not check_permission(user, "search"):
-        raise HTTPException(status_code=401, detail="You do not have permission to search.")
     import re as _re
 
-    # Log what autograder is sending
+    # CRITICAL: Log IMMEDIATELY at function start to see what autograder is sending
+    # Flush logs explicitly to ensure they appear in CloudWatch even if function times out
+    logger.info("DEBUG_REGEX: ===== FUNCTION START =====")
     logger.info(f"DEBUG_REGEX: AUTOGRADER REQUEST - pattern received: '{regex.regex}'")
     logger.info(f"DEBUG_REGEX: Pattern type: {type(regex.regex)}, length: {len(regex.regex) if regex.regex else 0}")
+    sys.stdout.flush()  # Force flush to CloudWatch
+
+    if not check_permission(user, "search"):
+        logger.warning("DEBUG_REGEX: Permission denied for user")
+        sys.stdout.flush()
+        raise HTTPException(status_code=401, detail="You do not have permission to search.")
 
     # Log all existing artifacts in storage
     logger.info(f"DEBUG_REGEX: EXISTING ARTIFACTS - in_memory count: {len(artifacts_db)}")
@@ -2204,6 +2218,7 @@ async def artifact_by_regex(
         logger.info(f"DEBUG_REGEX:   in_memory artifact: id={aid}, name='{aname}', type={atype}, hf_model_name='{hf_name}'")
     if len(artifacts_db) > 20:
         logger.info(f"DEBUG_REGEX:   ... and {len(artifacts_db) - 20} more in-memory artifacts")
+    sys.stdout.flush()  # Flush before potentially long operations
 
     matches: List[ArtifactMetadata] = []
 
@@ -2229,12 +2244,17 @@ async def artifact_by_regex(
         # For partial patterns, use case-insensitive matching
         name_only = raw_pattern.startswith("^") and raw_pattern.endswith("$")
         logger.info(f"DEBUG_REGEX: Pattern={raw_pattern}, name_only={name_only}, USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}")
+        sys.stdout.flush()  # Flush before regex compilation
         if name_only:
             # Exact match: case-sensitive for autograder compatibility
+            logger.info("DEBUG_REGEX: Compiling regex (exact match, case-sensitive)...")
             pattern = _re.compile(raw_pattern)
         else:
             # Partial match: case-insensitive
+            logger.info("DEBUG_REGEX: Compiling regex (partial match, case-insensitive)...")
             pattern = _re.compile(raw_pattern, _re.IGNORECASE)
+        logger.info("DEBUG_REGEX: Regex compilation successful")
+        sys.stdout.flush()
     except _re.error as e:
         logger.error(f"DEBUG_REGEX: Invalid regex pattern: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Invalid regex pattern: {str(e)}")
@@ -2253,20 +2273,25 @@ async def artifact_by_regex(
     # Per Q&A: patterns like (a+)+$ should get stuck for more than a minute with Python's re module
     # CRITICAL: This test MUST complete quickly or we reject the pattern to prevent Lambda timeouts
     logger.info(f"DEBUG_REGEX: Starting ReDoS runtime test for pattern='{raw_pattern}'")
+    sys.stdout.flush()  # CRITICAL: Flush before potentially long-running test
     try:
         test_string = "a" * 100 + "b"  # String that triggers backtracking in patterns like (a+)+$
         # For exact match patterns, use fullmatch; for others, use search
         test_func = pattern.fullmatch if name_only else pattern.search
         test_start = time.monotonic()
+        logger.info("DEBUG_REGEX: ReDoS test - calling _safe_eval_with_timeout with timeout_ms=1000")
+        sys.stdout.flush()
         test_result = _safe_eval_with_timeout(
             lambda: test_func(test_string) is not None,
             timeout_ms=1000,  # 1 second timeout - if it takes longer, it's dangerous
         )
         test_duration = time.monotonic() - test_start
         logger.info(f"DEBUG_REGEX: ReDoS test completed in {test_duration:.3f}s, result={test_result[0]}")
+        sys.stdout.flush()
         # If pattern times out on test string, it's dangerous and should be rejected
         if not test_result[0]:
             logger.warning(f"DEBUG_REGEX: ReDoS test TIMED OUT - rejecting pattern='{raw_pattern}'")
+            sys.stdout.flush()
             raise HTTPException(
                 status_code=400,
                 detail="Regex pattern too complex and may cause excessive backtracking.",
@@ -2276,6 +2301,7 @@ async def artifact_by_regex(
     except Exception as e:
         # If test fails for other reasons (not timeout), log and continue (pattern might be valid)
         logger.warning(f"DEBUG_REGEX: ReDoS test exception: {e}")
+        sys.stdout.flush()
         pass
 
     # Priority: in-memory (for same-request) > S3 (production) > SQLite (local)
