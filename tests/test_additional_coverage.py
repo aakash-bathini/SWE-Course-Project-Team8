@@ -6,10 +6,33 @@ Focuses on testing endpoints, helper functions, and error paths
 import pytest
 import sys
 import os
+from typing import Dict, Optional
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+
+class _DummyRequest:
+    """Lightweight stand-in for FastAPI Request when calling verify_token directly."""
+
+    def __init__(
+        self,
+        headers: Optional[Dict[str, str]] = None,
+        query_params: Optional[Dict[str, str]] = None,
+        cookies: Optional[Dict[str, str]] = None,
+    ) -> None:
+        self.headers = headers or {}
+        self.query_params = query_params or {}
+        self.cookies = cookies or {}
+
+
+def _make_dummy_request(
+    headers: Optional[Dict[str, str]] = None,
+    query_params: Optional[Dict[str, str]] = None,
+    cookies: Optional[Dict[str, str]] = None,
+) -> _DummyRequest:
+    return _DummyRequest(headers=headers, query_params=query_params, cookies=cookies)
 
 
 def _get_auth_token():
@@ -117,6 +140,41 @@ class TestCheckPermission:
 
         user = {"username": "test"}
         assert check_permission(user, "upload") is False
+
+
+class TestHuggingFaceNameCandidates:
+    """Ensure HF identifiers are extracted from stored metadata."""
+
+    def test_hf_candidate_from_hf_data(self):
+        from app import _get_hf_name_candidates
+
+        record = {
+            "data": {
+                "hf_data": [
+                    {
+                        "repo_id": "google-research/bert",
+                        "card_data": {"base_model": "google-research/bert-base"},
+                    }
+                ]
+            }
+        }
+        candidates = _get_hf_name_candidates(record)
+        assert "google-research/bert" in candidates
+        assert "google-research-bert" in candidates
+        assert "google-research/bert-base" in candidates
+
+    def test_repo_candidate_from_github_url(self):
+        from app import _get_hf_name_candidates
+
+        record = {
+            "data": {
+                "url": "https://github.com/google-research/bert",
+            }
+        }
+        candidates = _get_hf_name_candidates(record)
+        assert "google-research/bert" in candidates
+        assert "google-research-bert" in candidates
+        assert "bert" in candidates
 
 
 class TestUserModels:
@@ -236,14 +294,14 @@ class TestAuthenticationPaths:
         from app import verify_token
 
         with pytest.raises(Exception):  # Should raise HTTPException
-            verify_token(x_authorization="", authorization=None)
+            verify_token(_make_dummy_request(), x_authorization="", authorization=None)
 
     def test_verify_token_whitespace(self):
         """Test verify_token with whitespace only"""
         from app import verify_token
 
         with pytest.raises(Exception):  # Should raise HTTPException
-            verify_token(x_authorization="   ", authorization=None)
+            verify_token(_make_dummy_request(), x_authorization="   ", authorization=None)
 
     def test_verify_token_bearer_lowercase(self):
         """Test verify_token with lowercase bearer"""
@@ -253,7 +311,7 @@ class TestAuthenticationPaths:
         token_data = {"sub": "testuser", "permissions": ["upload"]}
         token = auth.create_access_token(token_data)
 
-        result = verify_token(x_authorization=f"bearer {token}")
+        result = verify_token(_make_dummy_request(), x_authorization=f"bearer {token}")
         assert result["username"] == "testuser"
 
     def test_verify_token_bearer_uppercase(self):
@@ -264,7 +322,7 @@ class TestAuthenticationPaths:
         token_data = {"sub": "testuser", "permissions": ["upload"]}
         token = auth.create_access_token(token_data)
 
-        result = verify_token(x_authorization=f"Bearer {token}")
+        result = verify_token(_make_dummy_request(), x_authorization=f"Bearer {token}")
         assert result["username"] == "testuser"
 
     def test_verify_token_authorization_header(self):
@@ -275,7 +333,7 @@ class TestAuthenticationPaths:
         token_data = {"sub": "testuser", "permissions": ["upload"]}
         token = auth.create_access_token(token_data)
 
-        result = verify_token(authorization=f"Bearer {token}")
+        result = verify_token(_make_dummy_request(), authorization=f"Bearer {token}")
         assert result["username"] == "testuser"
 
     def test_verify_token_call_count_tracking(self):
@@ -298,11 +356,11 @@ class TestAuthenticationPaths:
             del token_call_counts[token_hash]
 
         # First call
-        result1 = verify_token(x_authorization=token)
+        result1 = verify_token(_make_dummy_request(), x_authorization=token)
         assert result1["username"] == "testuser"
 
         # Second call (should increment)
-        result2 = verify_token(x_authorization=token)
+        result2 = verify_token(_make_dummy_request(), x_authorization=token)
         assert result2["username"] == "testuser"
 
         # Verify count was incremented
