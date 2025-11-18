@@ -73,6 +73,27 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# Request logging middleware to track all incoming requests (especially byName and rate)
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log all incoming requests, especially byName and rate routes"""
+    path = request.url.path
+    method = request.method
+    query_params = dict(request.query_params)
+    
+    # Log byName-related requests immediately (before dependencies run)
+    if "byname" in path.lower() or "byname" in str(query_params).lower():
+        logger.info(f"MIDDLEWARE_BYNAME: Request detected - method={method}, path='{path}', query={query_params}")
+        sys.stdout.flush()
+    
+    # Log rate-related requests immediately (before dependencies run)
+    if "/rate" in path.lower():
+        logger.info(f"MIDDLEWARE_RATE: Request detected - method={method}, path='{path}', query={query_params}")
+        sys.stdout.flush()
+    
+    response = await call_next(request)
+    return response
+
 # CORS middleware for frontend integration
 # Allow all origins for health endpoint (autograder compatibility)
 # For other endpoints, we restrict to known origins
@@ -2526,13 +2547,19 @@ async def artifact_by_name(
                     f"DEBUG_BYNAME:   ✓ MATCH FOUND in-memory: id={artifact_id}, "
                     f"name='{stored_name}', type={stored_type}"
                 )
-                matches.append(
-                    ArtifactMetadata(
-                        name=stored_name,
-                        id=artifact_id,
-                        type=ArtifactType(stored_type),
+                try:
+                    artifact_type_enum = ArtifactType(stored_type)
+                    matches.append(
+                        ArtifactMetadata(
+                            name=stored_name,
+                            id=artifact_id,
+                            type=artifact_type_enum,
+                        )
                     )
-                )
+                except ValueError as e:
+                    logger.error(f"DEBUG_BYNAME:   ✗ Invalid artifact type '{stored_type}' for id={artifact_id}: {e}")
+                except Exception as e:
+                    logger.error(f"DEBUG_BYNAME:   ✗ Failed to create ArtifactMetadata for id={artifact_id}: {e}", exc_info=True)
     logger.info(f"DEBUG_BYNAME:   In-memory check complete: checked={in_memory_checked}, matches={in_memory_matches}")
     sys.stdout.flush()
 
@@ -2557,6 +2584,14 @@ async def artifact_by_name(
             stored_name = _ensure_artifact_display_name(art_data)
             artifact_id = metadata.get("id", "")
             stored_type = metadata.get("type", "")
+            # Skip artifacts without required fields
+            if not artifact_id or not stored_type:
+                if s3_checked <= 10:
+                    logger.warning(
+                        f"DEBUG_BYNAME:   S3 check #{s3_checked}: Skipping artifact - missing id or type: "
+                        f"id='{artifact_id}', type='{stored_type}'"
+                    )
+                continue
             hf_candidates = _get_hf_name_candidates(art_data)
             # Per spec, byName matches on the stored name (case-insensitive)
             # Also match against hf_model_name variants for ingested models
@@ -2576,13 +2611,19 @@ async def artifact_by_name(
                         f"DEBUG_BYNAME:   ✓ MATCH FOUND in S3: id={artifact_id}, "
                         f"name='{stored_name}', type={stored_type}"
                     )
-                    matches.append(
-                        ArtifactMetadata(
-                            name=stored_name,
-                            id=artifact_id,
-                            type=ArtifactType(stored_type),
+                    try:
+                        artifact_type_enum = ArtifactType(stored_type)
+                        matches.append(
+                            ArtifactMetadata(
+                                name=stored_name,
+                                id=artifact_id,
+                                type=artifact_type_enum,
+                            )
                         )
-                    )
+                    except ValueError as e:
+                        logger.error(f"DEBUG_BYNAME:   ✗ Invalid artifact type '{stored_type}' for id={artifact_id}: {e}")
+                    except Exception as e:
+                        logger.error(f"DEBUG_BYNAME:   ✗ Failed to create ArtifactMetadata for id={artifact_id}: {e}", exc_info=True)
         logger.info(f"DEBUG_BYNAME:   S3 check complete: checked={s3_checked}, matches={s3_matches}")
         sys.stdout.flush()
 
@@ -2655,12 +2696,20 @@ async def artifact_by_name_query(
     Query-param variant of byName endpoint for compatibility with clients/autograder.
     Delegates to the path-based handler to keep logic centralized.
     """
+    # Log that query-param endpoint was hit
+    logger.info("DEBUG_BYNAME_QUERY: ===== QUERY-PARAM ENDPOINT HIT =====")
+    logger.info(f"DEBUG_BYNAME_QUERY: Request path='{request.url.path}', query params: name='{name}'")
+    sys.stdout.flush()
     cleaned = (name or "").strip()
     if not cleaned or cleaned == "*":
+        logger.warning(f"DEBUG_BYNAME_QUERY: Invalid name parameter: '{name}' -> '{cleaned}'")
+        sys.stdout.flush()
         raise HTTPException(
             status_code=400,
             detail="There is missing field(s) in the artifact_name or it is formed improperly, or is invalid.",
         )
+    logger.info(f"DEBUG_BYNAME_QUERY: Delegating to path-based handler with name='{cleaned}'")
+    sys.stdout.flush()
     return await artifact_by_name(cleaned, request, user)
 
 
@@ -3348,10 +3397,11 @@ async def artifact_retrieve(
     sys.stdout.flush()
     if id in artifacts_db:
         artifact_data = artifacts_db[id]
-        stored_type = artifact_data["metadata"]["type"]
+        # Type from in-memory is stored as string (artifact_type.value), ensure it's a string
+        stored_type = artifact_data["metadata"].get("type", "")
         artifact_url = artifact_data.get("data", {}).get("url") or ""
         stored_name = artifact_data["metadata"].get("name", "")
-        logger.info(f"DEBUG_BYID:   ✓ FOUND in-memory: type={stored_type}, name='{stored_name}', url={artifact_url}")
+        logger.info(f"DEBUG_BYID:   ✓ FOUND in-memory: type={stored_type} (type={type(stored_type).__name__}), name='{stored_name}', url={artifact_url}")
     else:
         logger.info("DEBUG_BYID:   ✗ NOT FOUND in-memory")
     sys.stdout.flush()
@@ -3363,11 +3413,14 @@ async def artifact_retrieve(
         try:
             s3_data = s3_storage.get_artifact_metadata(id)
             if s3_data:
-                stored_type = s3_data.get("metadata", {}).get("type")
+                # Type from S3 is stored as string in JSON, ensure it's a string
+                stored_type = s3_data.get("metadata", {}).get("type", "")
+                if not stored_type:
+                    logger.error(f"DEBUG_BYID:   ✗ S3 data missing type field: {s3_data.get('metadata', {})}")
                 artifact_url = s3_data.get("data", {}).get("url") or ""
                 stored_name = s3_data.get("metadata", {}).get("name", "")
                 logger.info(
-                    f"DEBUG_BYID:   ✓ FOUND in S3: type={stored_type}, name='{stored_name}', "
+                    f"DEBUG_BYID:   ✓ FOUND in S3: type={stored_type} (type={type(stored_type).__name__}), name='{stored_name}', "
                     f"url={artifact_url}"
                 )
                 # Convert S3 data to artifact_data format for consistent handling
@@ -3431,17 +3484,39 @@ async def artifact_retrieve(
         sys.stdout.flush()
         raise HTTPException(status_code=500, detail="Artifact data is malformed.")
 
+    # Ensure metadata has all required fields (id, name, type) before creating ArtifactMetadata
+    metadata_dict = artifact_data.get("metadata", {}).copy()
+    metadata_dict["id"] = id  # Ensure id is always present
+    metadata_dict["name"] = resolved_name  # Use resolved name
+    # Convert stored_type string to ArtifactType enum
+    try:
+        artifact_type_enum = ArtifactType(stored_type)
+    except ValueError:
+        logger.error(f"DEBUG_BYID: ✗ Invalid artifact type: '{stored_type}'")
+        sys.stdout.flush()
+        raise HTTPException(status_code=500, detail=f"Invalid artifact type: {stored_type}")
+    metadata_dict["type"] = artifact_type_enum  # Use ArtifactType enum
+
     # Generate download URL and return
     download_url = generate_download_url(artifact_type.value, id, request)
     logger.info(
         f"DEBUG_BYID: ✓ SUCCESS - Returning artifact: id={id}, type={stored_type}, "
-        f"name='{resolved_name}', url={artifact_url}"
+        f"name='{resolved_name}', url={artifact_url}, type_enum={artifact_type_enum.value}"
     )
     sys.stdout.flush()
-    return Artifact(
-        metadata=ArtifactMetadata(**artifact_data["metadata"]),
-        data=ArtifactData(url=artifact_url, download_url=download_url),
-    )
+    try:
+        artifact_response = Artifact(
+            metadata=ArtifactMetadata(**metadata_dict),
+            data=ArtifactData(url=artifact_url, download_url=download_url),
+        )
+        logger.info(f"DEBUG_BYID: ✓ Artifact response created successfully")
+        sys.stdout.flush()
+        return artifact_response
+    except Exception as e:
+        logger.error(f"DEBUG_BYID: ✗ Failed to create Artifact response: {type(e).__name__}: {e}", exc_info=True)
+        logger.error(f"DEBUG_BYID:   metadata_dict={metadata_dict}")
+        sys.stdout.flush()
+        raise HTTPException(status_code=500, detail=f"Failed to create artifact response: {str(e)}")
 
 
 # CRITICAL: Add duplicate route handler for /artifact/{type}/{id} (singular)
@@ -3812,11 +3887,27 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
     # CRITICAL: Log IMMEDIATELY at function start to see what autograder is sending
     logger.info("DEBUG_RATE: ===== FUNCTION START =====")
     logger.info(f"DEBUG_RATE: AUTOGRADER REQUEST - id='{id}'")
+    logger.info(f"DEBUG_RATE: User info - name='{user.get('name', 'unknown')}', is_admin={user.get('is_admin', False)}")
     sys.stdout.flush()  # Force flush to CloudWatch
+
+    # Check permissions
+    if not check_permission(user, "search"):
+        logger.warning("DEBUG_RATE: Permission denied for user")
+        sys.stdout.flush()
+        raise HTTPException(status_code=401, detail="You do not have permission to search.")
+    logger.info("DEBUG_RATE: Permission check passed")
+    sys.stdout.flush()
 
     # Support async ingest semantics (v3.4.4): if INVALID, return 404 forever.
     # If PENDING, compute metrics now (lazy evaluation approach 3) and mark READY.
-    _validate_artifact_id_or_400(id)
+    try:
+        _validate_artifact_id_or_400(id)
+        logger.info(f"DEBUG_RATE: Artifact ID validation passed: '{id}'")
+    except HTTPException as e:
+        logger.error(f"DEBUG_RATE: Artifact ID validation failed: {e.detail}")
+        sys.stdout.flush()
+        raise
+    sys.stdout.flush()
     status = artifact_status.get(id)
 
     logger.info(f"DEBUG_RATE: Storage config - USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}")
@@ -3952,6 +4043,9 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
     }
 
     metrics: Dict[str, float] = {}
+    logger.info(f"DEBUG_RATE: Starting metrics calculation - calculate_phase2_metrics={calculate_phase2_metrics is not None}, "
+                f"create_eval_context={create_eval_context_from_model_data is not None}, size_metric={size_metric is not None}")
+    sys.stdout.flush()
     try:
         # Check if metrics calculation is available
         if (
@@ -3960,8 +4054,14 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
             or size_metric is None
         ):
             # Metrics calculation not available, use defaults
-            logger.warning("Metrics calculation not available, using default values")
+            logger.warning("DEBUG_RATE: Metrics calculation not available, using default values")
+            logger.warning(f"DEBUG_RATE:   calculate_phase2_metrics={calculate_phase2_metrics is None}, "
+                          f"create_eval_context={create_eval_context_from_model_data is None}, "
+                          f"size_metric={size_metric is None}")
+            sys.stdout.flush()
         else:
+            logger.info("DEBUG_RATE: Metrics calculation functions available, proceeding with calculation")
+            sys.stdout.flush()
             hf_data = None
             # For ingested models, try to get hf_data from stored artifact data
             # Priority: S3 > in-memory (for same-request artifacts) > SQLite
@@ -3982,28 +4082,52 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
 
             # Avoid external scraping here to keep rating fast and robust under concurrency
 
-        model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
-        metrics = await calculate_phase2_metrics(model_data)
-        # Compute size_score dict explicitly
-        ctx = create_eval_context_from_model_data(model_data)
-        size_scores_result = await size_metric.metric(ctx)
-        if isinstance(size_scores_result, dict):
-            size_scores = size_scores_result
+            logger.info(f"DEBUG_RATE: Preparing model_data - url='{url}', hf_data={'present' if hf_data else 'missing'}")
+            sys.stdout.flush()
+            model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
+            logger.info("DEBUG_RATE: Calling calculate_phase2_metrics...")
+            sys.stdout.flush()
+            metrics = await calculate_phase2_metrics(model_data)
+            logger.info(f"DEBUG_RATE: calculate_phase2_metrics returned {len(metrics)} metrics: {list(metrics.keys())}")
+            sys.stdout.flush()
+            # Compute size_score dict explicitly
+            logger.info("DEBUG_RATE: Creating eval context and computing size_score...")
+            sys.stdout.flush()
+            ctx = create_eval_context_from_model_data(model_data)
+            size_scores_result = await size_metric.metric(ctx)
+            logger.info(f"DEBUG_RATE: size_metric returned: {type(size_scores_result)}, value={size_scores_result}")
+            sys.stdout.flush()
+            if isinstance(size_scores_result, dict):
+                size_scores = size_scores_result
+                logger.info(f"DEBUG_RATE: size_scores updated: {size_scores}")
+            else:
+                logger.warning(f"DEBUG_RATE: size_scores_result is not a dict: {type(size_scores_result)}")
+            sys.stdout.flush()
     except Exception as e:
         # Per spec: 500 if "at least one metric was computed successfully" but others failed
         # If all metrics fail, we still return 200 with defaults (per approach 3: lazy evaluation)
         # But log the error for debugging
-        logger.warning(f"DEBUG_RATE: Metrics calculation failed: {e}", exc_info=True)
+        logger.error(f"DEBUG_RATE: Metrics calculation failed with exception: {type(e).__name__}: {e}", exc_info=True)
         sys.stdout.flush()
         # If metrics dict is empty, use defaults (all zeros) - this is acceptable for lazy evaluation
         if not metrics:
+            logger.warning("DEBUG_RATE: Metrics dict is empty after exception, using empty dict (will default to 0.0)")
             metrics = {}
+        else:
+            logger.info(f"DEBUG_RATE: Partial metrics available after exception: {list(metrics.keys())}")
+        sys.stdout.flush()
 
+    logger.info(f"DEBUG_RATE: Computing net_score - metrics available: {bool(metrics)}, "
+                f"calculate_phase2_net_score available: {calculate_phase2_net_score is not None}")
+    sys.stdout.flush()
     net_score = (
         calculate_phase2_net_score(metrics)
         if (metrics and calculate_phase2_net_score is not None)
         else 0.0
     )
+    logger.info(f"DEBUG_RATE: Computed net_score={net_score}")
+    sys.stdout.flush()
+    
     # If rating completed, update status to READY (for both PENDING and initial READY status)
     # This ensures subsequent calls know metrics have been computed
     try:
@@ -4018,48 +4142,72 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
     except HTTPException:
         # Propagate 404 for invalidated artifacts
         raise
+    except Exception as e:
+        logger.warning(f"DEBUG_RATE: Error updating status: {e}")
+    sys.stdout.flush()
 
     logger.info(
-        f"DEBUG_RATE: ✓ SUCCESS - Returning rating for artifact: id={id}, "
-        f"name='{artifact_name}', net_score={net_score}"
+        f"DEBUG_RATE: Preparing ModelRating response - id={id}, name='{artifact_name}', "
+        f"net_score={net_score}, metrics_count={len(metrics)}"
     )
     sys.stdout.flush()
 
     def get_m(name: str) -> float:
         v = metrics.get(name)
         try:
-            return float(v) if isinstance(v, (int, float)) else 0.0
-        except Exception:
+            result = float(v) if isinstance(v, (int, float)) else 0.0
+            return result
+        except Exception as e:
+            logger.warning(f"DEBUG_RATE: Error converting metric '{name}': {e}")
             return 0.0
 
-    return ModelRating(
-        name=artifact_name,
-        category=category or "unknown",
-        net_score=net_score,
-        net_score_latency=0.0,
-        ramp_up_time=get_m("ramp_up_time"),
-        ramp_up_time_latency=0.0,
-        bus_factor=get_m("bus_factor"),
-        bus_factor_latency=0.0,
-        performance_claims=get_m("performance_claims"),
-        performance_claims_latency=0.0,
-        license=get_m("license"),
-        license_latency=0.0,
-        dataset_and_code_score=get_m("dataset_and_code_score"),
-        dataset_and_code_score_latency=0.0,
-        dataset_quality=get_m("dataset_quality"),
-        dataset_quality_latency=0.0,
-        code_quality=get_m("code_quality"),
-        code_quality_latency=0.0,
-        reproducibility=get_m("reproducibility"),
-        reproducibility_latency=0.0,
-        reviewedness=get_m("reviewedness"),
-        reviewedness_latency=0.0,
-        tree_score=get_m("tree_score"),
-        tree_score_latency=0.0,
-        size_score=size_scores,
-        size_score_latency=0.0,
-    )
+    # Validate that artifact_name is not None/empty before creating ModelRating
+    if not artifact_name:
+        logger.error(f"DEBUG_RATE: ✗ CRITICAL ERROR - artifact_name is empty/None for id={id}")
+        sys.stdout.flush()
+        raise HTTPException(status_code=500, detail="Artifact name is missing.")
+
+    try:
+        rating = ModelRating(
+            name=artifact_name,
+            category=category or "unknown",
+            net_score=net_score,
+            net_score_latency=0.0,
+            ramp_up_time=get_m("ramp_up_time"),
+            ramp_up_time_latency=0.0,
+            bus_factor=get_m("bus_factor"),
+            bus_factor_latency=0.0,
+            performance_claims=get_m("performance_claims"),
+            performance_claims_latency=0.0,
+            license=get_m("license"),
+            license_latency=0.0,
+            dataset_and_code_score=get_m("dataset_and_code_score"),
+            dataset_and_code_score_latency=0.0,
+            dataset_quality=get_m("dataset_quality"),
+            dataset_quality_latency=0.0,
+            code_quality=get_m("code_quality"),
+            code_quality_latency=0.0,
+            reproducibility=get_m("reproducibility"),
+            reproducibility_latency=0.0,
+            reviewedness=get_m("reviewedness"),
+            reviewedness_latency=0.0,
+            tree_score=get_m("tree_score"),
+            tree_score_latency=0.0,
+            size_score=size_scores,
+            size_score_latency=0.0,
+        )
+        logger.info(
+            f"DEBUG_RATE: ✓ SUCCESS - ModelRating created successfully for artifact: id={id}, "
+            f"name='{artifact_name}', net_score={net_score}, category='{rating.category}'"
+        )
+        sys.stdout.flush()
+        return rating
+    except Exception as e:
+        logger.error(f"DEBUG_RATE: ✗ CRITICAL ERROR - Failed to create ModelRating: {type(e).__name__}: {e}", exc_info=True)
+        logger.error(f"DEBUG_RATE:   artifact_name='{artifact_name}', category='{category}', "
+                    f"net_score={net_score}, size_scores={size_scores}")
+        sys.stdout.flush()
+        raise HTTPException(status_code=500, detail=f"Failed to generate rating: {str(e)}")
 
 
 @app.get("/package/{id}/rate", response_model=ModelRating)
