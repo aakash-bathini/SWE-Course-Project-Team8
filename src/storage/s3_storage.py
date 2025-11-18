@@ -172,10 +172,16 @@ class S3Storage:
             if error_code == "404":
                 # Bucket doesn't exist, try to create it
                 try:
-                    self.s3_client.create_bucket(
-                        Bucket=self.bucket_name,
-                        CreateBucketConfiguration={"LocationConstraint": self.region},
-                    )
+                    # For us-east-1, don't specify CreateBucketConfiguration (it's the default)
+                    # For other regions, specify the location constraint
+                    if self.region and self.region != "us-east-1":
+                        self.s3_client.create_bucket(
+                            Bucket=self.bucket_name,
+                            CreateBucketConfiguration={"LocationConstraint": self.region},
+                        )
+                    else:
+                        # us-east-1 is the default, no config needed
+                        self.s3_client.create_bucket(Bucket=self.bucket_name)
                     if logger:
                         logger.info(f"Created S3 bucket: {self.bucket_name}")
                     return True

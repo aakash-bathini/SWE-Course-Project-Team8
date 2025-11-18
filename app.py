@@ -1698,6 +1698,9 @@ async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
 
     # Clear all artifacts (CRITICAL: ensure this is complete)
     # Priority: S3 (production) > SQLite (local) > in-memory
+    # IMPORTANT: Always clear in-memory artifacts_db regardless of storage backend
+    artifacts_db.clear()
+
     if USE_S3 and s3_storage:
         try:
             s3_storage.clear_all_artifacts()
@@ -1709,8 +1712,6 @@ async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
                 db_crud.reset_registry(_db)
         except Exception as e:
             logger.error(f"Failed to reset SQLite database: {e}")
-    else:
-        artifacts_db.clear()
 
     audit_log.clear()
     token_call_counts.clear()
