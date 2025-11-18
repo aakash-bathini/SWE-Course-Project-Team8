@@ -73,6 +73,7 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+
 # Request logging middleware to track all incoming requests (especially byName and rate)
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -80,17 +81,17 @@ async def log_requests(request: Request, call_next):
     path = request.url.path
     method = request.method
     query_params = dict(request.query_params)
-    
+
     # Log byName-related requests immediately (before dependencies run)
     if "byname" in path.lower() or "byname" in str(query_params).lower():
         logger.info(f"MIDDLEWARE_BYNAME: Request detected - method={method}, path='{path}', query={query_params}")
         sys.stdout.flush()
-    
+
     # Log rate-related requests immediately (before dependencies run)
     if "/rate" in path.lower():
         logger.info(f"MIDDLEWARE_RATE: Request detected - method={method}, path='{path}', query={query_params}")
         sys.stdout.flush()
-    
+
     response = await call_next(request)
     return response
 
@@ -3509,7 +3510,7 @@ async def artifact_retrieve(
             metadata=ArtifactMetadata(**metadata_dict),
             data=ArtifactData(url=artifact_url, download_url=download_url),
         )
-        logger.info(f"DEBUG_BYID: ✓ Artifact response created successfully")
+        logger.info("DEBUG_BYID: ✓ Artifact response created successfully")
         sys.stdout.flush()
         return artifact_response
     except Exception as e:
@@ -4055,9 +4056,11 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
         ):
             # Metrics calculation not available, use defaults
             logger.warning("DEBUG_RATE: Metrics calculation not available, using default values")
-            logger.warning(f"DEBUG_RATE:   calculate_phase2_metrics={calculate_phase2_metrics is None}, "
-                          f"create_eval_context={create_eval_context_from_model_data is None}, "
-                          f"size_metric={size_metric is None}")
+            logger.warning(
+                f"DEBUG_RATE:   calculate_phase2_metrics={calculate_phase2_metrics is None}, "
+                f"create_eval_context={create_eval_context_from_model_data is None}, "
+                f"size_metric={size_metric is None}"
+            )
             sys.stdout.flush()
         else:
             logger.info("DEBUG_RATE: Metrics calculation functions available, proceeding with calculation")
@@ -4127,7 +4130,7 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
     )
     logger.info(f"DEBUG_RATE: Computed net_score={net_score}")
     sys.stdout.flush()
-    
+
     # If rating completed, update status to READY (for both PENDING and initial READY status)
     # This ensures subsequent calls know metrics have been computed
     try:
@@ -4204,8 +4207,10 @@ async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_tok
         return rating
     except Exception as e:
         logger.error(f"DEBUG_RATE: ✗ CRITICAL ERROR - Failed to create ModelRating: {type(e).__name__}: {e}", exc_info=True)
-        logger.error(f"DEBUG_RATE:   artifact_name='{artifact_name}', category='{category}', "
-                    f"net_score={net_score}, size_scores={size_scores}")
+        logger.error(
+            f"DEBUG_RATE:   artifact_name='{artifact_name}', category='{category}', "
+            f"net_score={net_score}, size_scores={size_scores}"
+        )
         sys.stdout.flush()
         raise HTTPException(status_code=500, detail=f"Failed to generate rating: {str(e)}")
 
