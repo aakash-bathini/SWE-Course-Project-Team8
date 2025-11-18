@@ -366,7 +366,7 @@ def _normalize_hf_identifier(identifier: str) -> List[str]:
 
 
 def _derive_hf_variants_from_url(url: str) -> List[str]:
-    """Attempt to derive HuggingFace identifier variants from a URL."""
+    """Attempt to derive repository identifier variants (HF or GitHub) from a URL."""
     if not url:
         return []
     try:
@@ -374,15 +374,29 @@ def _derive_hf_variants_from_url(url: str) -> List[str]:
     except Exception:
         return []
     host = parsed.netloc.lower()
-    if not any(host.endswith(allowed) for allowed in _HF_ALLOWED_HOSTS):
-        return []
     path_parts = [unquote(part) for part in parsed.path.split("/") if part]
-    if path_parts and path_parts[0].lower() in _HF_PATH_PREFIXES:
-        path_parts = path_parts[1:]
     if not path_parts:
         return []
-    canonical = "/".join(path_parts)
-    return _normalize_hf_identifier(canonical)
+
+    variants: List[str] = []
+    if any(host.endswith(allowed) for allowed in _HF_ALLOWED_HOSTS):
+        trimmed = path_parts[:]
+        if trimmed and trimmed[0].lower() in _HF_PATH_PREFIXES:
+            trimmed = trimmed[1:]
+        if not trimmed:
+            return variants
+        canonical = "/".join(trimmed)
+        variants.extend(_normalize_hf_identifier(canonical))
+        return variants
+
+    if "github.com" in host:
+        if len(path_parts) >= 2:
+            org_repo = "/".join(path_parts[:2])
+            variants.extend(_normalize_hf_identifier(org_repo))
+            _add_unique_candidate(variants, path_parts[1])
+        else:
+            variants.extend(_normalize_hf_identifier(path_parts[0]))
+    return variants
 
 
 def _get_hf_name_candidates(record: Dict[str, Any]) -> List[str]:

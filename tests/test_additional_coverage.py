@@ -163,6 +163,19 @@ class TestHuggingFaceNameCandidates:
         assert "google-research-bert" in candidates
         assert "google-research/bert-base" in candidates
 
+    def test_repo_candidate_from_github_url(self):
+        from app import _get_hf_name_candidates
+
+        record = {
+            "data": {
+                "url": "https://github.com/google-research/bert",
+            }
+        }
+        candidates = _get_hf_name_candidates(record)
+        assert "google-research/bert" in candidates
+        assert "google-research-bert" in candidates
+        assert "bert" in candidates
+
 
 class TestUserModels:
     """Test user model classes"""
