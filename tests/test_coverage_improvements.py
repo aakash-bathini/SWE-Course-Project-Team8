@@ -5,6 +5,7 @@ Covers error paths, edge cases, and untested functionality
 
 import os
 import sys
+from typing import Dict, Optional
 import pytest
 from unittest.mock import patch, MagicMock, Mock
 from fastapi.testclient import TestClient
@@ -14,6 +15,28 @@ import json
 
 # Ensure project root is on sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+
+class _DummyRequest:
+    """Minimal request-like object for invoking verify_token directly."""
+
+    def __init__(
+        self,
+        headers: Optional[Dict[str, str]] = None,
+        query_params: Optional[Dict[str, str]] = None,
+        cookies: Optional[Dict[str, str]] = None,
+    ) -> None:
+        self.headers = headers or {}
+        self.query_params = query_params or {}
+        self.cookies = cookies or {}
+
+
+def _make_dummy_request(
+    headers: Optional[Dict[str, str]] = None,
+    query_params: Optional[Dict[str, str]] = None,
+    cookies: Optional[Dict[str, str]] = None,
+) -> _DummyRequest:
+    return _DummyRequest(headers=headers, query_params=query_params, cookies=cookies)
 
 
 class TestErrorHandling:
@@ -38,7 +61,7 @@ class TestErrorHandling:
 
         # No headers provided
         with pytest.raises(HTTPException) as exc_info:
-            verify_token(x_authorization=None, authorization=None)
+            verify_token(_make_dummy_request(), x_authorization=None, authorization=None)
         assert exc_info.value.status_code == 403
 
     def test_verify_token_invalid_token(self):
@@ -49,7 +72,7 @@ class TestErrorHandling:
         # Mock invalid token
         with patch.object(jwt_auth, "verify_token", return_value=None):
             with pytest.raises(HTTPException) as exc_info:
-                verify_token(x_authorization="invalid_token")
+                verify_token(_make_dummy_request(), x_authorization="invalid_token")
             assert exc_info.value.status_code == 403
 
     def test_verify_token_exceeded_calls(self):
@@ -76,7 +99,7 @@ class TestErrorHandling:
                 token_call_counts[token_hash] = 1000
 
                 with pytest.raises(HTTPException) as exc_info:
-                    verify_token(x_authorization=token)
+                    verify_token(_make_dummy_request(), x_authorization=token)
                 assert exc_info.value.status_code == 403
 
     def test_generate_download_url_with_request(self):
@@ -279,7 +302,7 @@ class TestAuthenticationEdgeCases:
         token = auth.create_access_token(token_data)
 
         # Test with bearer prefix
-        result = verify_token(x_authorization=f"bearer {token}")
+        result = verify_token(_make_dummy_request(), x_authorization=f"bearer {token}")
         assert result["username"] == "testuser"
 
     def test_verify_token_without_bearer_prefix(self):
@@ -292,7 +315,7 @@ class TestAuthenticationEdgeCases:
         token = auth.create_access_token(token_data)
 
         # Test without bearer prefix
-        result = verify_token(x_authorization=token)
+        result = verify_token(_make_dummy_request(), x_authorization=token)
         assert result["username"] == "testuser"
 
     def test_verify_token_authorization_header(self):
@@ -305,7 +328,7 @@ class TestAuthenticationEdgeCases:
         token = auth.create_access_token(token_data)
 
         # Test with Authorization header
-        result = verify_token(authorization=f"Bearer {token}")
+        result = verify_token(_make_dummy_request(), authorization=f"Bearer {token}")
         assert result["username"] == "testuser"
 
     def test_check_permission(self):
