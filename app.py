@@ -391,8 +391,11 @@ def _get_hf_name_candidates(record: Dict[str, Any]) -> List[str]:
     Includes explicit hf_model_name values, aliases, and URL-derived identifiers.
     """
     candidates: List[str] = []
+
     hf_name = str(record.get("hf_model_name") or "").strip()
-    _add_unique_candidate(candidates, hf_name)
+    if hf_name:
+        for variant in _normalize_hf_identifier(hf_name):
+            _add_unique_candidate(candidates, variant)
 
     aliases = record.get("hf_model_name_aliases", [])
     alias_values: List[str] = []
@@ -407,7 +410,8 @@ def _get_hf_name_candidates(record: Dict[str, Any]) -> List[str]:
             elif isinstance(alias, str):
                 alias_values.append(alias)
     for alias in alias_values:
-        _add_unique_candidate(candidates, alias)
+        for variant in _normalize_hf_identifier(alias):
+            _add_unique_candidate(candidates, variant)
 
     data_block = record.get("data", {})
     if isinstance(data_block, dict):
