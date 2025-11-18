@@ -223,12 +223,14 @@ export const apiService = {
       const response = await apiClient.post('/artifacts', [{ name: '*' }], { params: { offset: 0 } });
       return response.data;
     }
-    const response = await apiClient.get(`/artifact/byName/${encodeURIComponent(name)}`);
+    const response = await apiClient.get('/artifacts/byName', {
+      params: { name },
+    });
     return response.data;
   },
 
   async searchByRegex(regex: string): Promise<ArtifactMetadata[]> {
-    const response = await apiClient.post('/artifact/byRegEx', { regex });
+    const response = await apiClient.post('/artifacts/byRegEx', { regex });
     return response.data;
   },
 
@@ -255,7 +257,7 @@ export const apiService = {
 
   // Model rating
   async rateModel(modelId: string): Promise<ModelRating> {
-    const response = await apiClient.get(`/artifact/model/${modelId}/rate`);
+    const response = await apiClient.get(`/models/${modelId}/rate`);
     return response.data;
   },
 
