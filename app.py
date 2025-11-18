@@ -388,7 +388,8 @@ def _derive_hf_variants_from_url(url: str) -> List[str]:
 def _get_hf_name_candidates(record: Dict[str, Any]) -> List[str]:
     """
     Collect all HuggingFace-related name variants stored with an artifact.
-    Includes explicit hf_model_name values, aliases, and URL-derived identifiers.
+    Includes explicit hf_model_name values, aliases, hf_data repo identifiers,
+    and URL-derived identifiers.
     """
     candidates: List[str] = []
 
@@ -418,6 +419,37 @@ def _get_hf_name_candidates(record: Dict[str, Any]) -> List[str]:
         url_candidate = str(data_block.get("url") or "")
         for derived in _derive_hf_variants_from_url(url_candidate):
             _add_unique_candidate(candidates, derived)
+
+        hf_data_entries = data_block.get("hf_data", [])
+        if isinstance(hf_data_entries, (list, tuple)):
+            for entry in hf_data_entries:
+                if not isinstance(entry, dict):
+                    continue
+                repo_keys = (
+                    "repo_id",
+                    "repoId",
+                    "model_id",
+                    "modelId",
+                    "model",
+                    "id",
+                    "name",
+                )
+                repo_id = None
+                for key in repo_keys:
+                    if key in entry and entry[key]:
+                        repo_id = str(entry[key]).strip()
+                        if repo_id:
+                            break
+                if repo_id:
+                    for variant in _normalize_hf_identifier(repo_id):
+                        _add_unique_candidate(candidates, variant)
+
+                card_data = entry.get("card_data") or entry.get("cardData")
+                if isinstance(card_data, dict):
+                    base_model = card_data.get("base_model")
+                    if base_model:
+                        for variant in _normalize_hf_identifier(str(base_model)):
+                            _add_unique_candidate(candidates, variant)
 
     return candidates
 

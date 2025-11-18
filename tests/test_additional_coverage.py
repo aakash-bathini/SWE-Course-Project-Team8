@@ -142,6 +142,28 @@ class TestCheckPermission:
         assert check_permission(user, "upload") is False
 
 
+class TestHuggingFaceNameCandidates:
+    """Ensure HF identifiers are extracted from stored metadata."""
+
+    def test_hf_candidate_from_hf_data(self):
+        from app import _get_hf_name_candidates
+
+        record = {
+            "data": {
+                "hf_data": [
+                    {
+                        "repo_id": "google-research/bert",
+                        "card_data": {"base_model": "google-research/bert-base"},
+                    }
+                ]
+            }
+        }
+        candidates = _get_hf_name_candidates(record)
+        assert "google-research/bert" in candidates
+        assert "google-research-bert" in candidates
+        assert "google-research/bert-base" in candidates
+
+
 class TestUserModels:
     """Test user model classes"""
 
