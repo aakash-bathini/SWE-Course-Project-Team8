@@ -2438,6 +2438,8 @@ async def search_models_by_version(
 
 @app.get("/artifact/byName/{name:path}")
 @app.get("/artifact/byname/{name:path}")
+@app.get("/artifacts/byName/{name:path}")
+@app.get("/artifacts/byname/{name:path}")
 async def artifact_by_name(
     name: str,
     request: Request,
@@ -2640,7 +2642,32 @@ async def artifact_by_name(
     return matches
 
 
+@app.get("/artifact/byName")
+@app.get("/artifact/byname")
+@app.get("/artifacts/byName")
+@app.get("/artifacts/byname")
+async def artifact_by_name_query(
+    request: Request,
+    name: str = Query(..., alias="name"),
+    user: Dict[str, Any] = Depends(verify_token),
+) -> List[ArtifactMetadata]:
+    """
+    Query-param variant of byName endpoint for compatibility with clients/autograder.
+    Delegates to the path-based handler to keep logic centralized.
+    """
+    cleaned = (name or "").strip()
+    if not cleaned or cleaned == "*":
+        raise HTTPException(
+            status_code=400,
+            detail="There is missing field(s) in the artifact_name or it is formed improperly, or is invalid.",
+        )
+    return await artifact_by_name(cleaned, request, user)
+
+
 @app.post("/artifact/byRegEx")
+@app.post("/artifact/byRegex")
+@app.post("/artifacts/byRegEx")
+@app.post("/artifacts/byRegex")
 async def artifact_by_regex(
     regex: ArtifactRegEx, user: Dict[str, Any] = Depends(verify_token)
 ) -> List[ArtifactMetadata]:
@@ -3778,6 +3805,8 @@ async def model_license_check_alias(
 
 
 @app.get("/artifact/model/{id}/rate", response_model=ModelRating)
+@app.get("/artifacts/model/{id}/rate", response_model=ModelRating)
+@app.get("/models/{id}/rate", response_model=ModelRating)
 async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_token)) -> ModelRating:
     """Get ratings for this model artifact (BASELINE)"""
     # CRITICAL: Log IMMEDIATELY at function start to see what autograder is sending
