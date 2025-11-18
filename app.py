@@ -484,7 +484,14 @@ _DANGEROUS_REGEX_SNIPPETS: List[re.Pattern[str]] = [
     # Alternation with quantifiers: (a|aa)*, (a|ab)*, etc. - can cause catastrophic backtracking
     re.compile(r"\([^|)]+\|[^)]+\)[*+]+"),  # (a|aa)*, (a|ab)+, etc.
     re.compile(r"\([^|)]+\|[^)]+\)\*$"),  # (a|aa)*$ - anchored alternation with star
+    re.compile(r"\(\?:[^|)]+\|[^)]+\)[*+]+"),  # Non-capturing alternation loops
+    re.compile(r"\(\?:[^|)]+\|[^)]+\)\*$"),  # Non-capturing alternation anchored
+    # Nested counted quantifiers: (a{1,99999}){1,99999}
+    re.compile(r"\([^\)]+\{\d+(?:,\d+)?\}[^\)]*\)\s*\{\d+(?:,\d+)?\}"),
 ]
+
+_LARGE_QUANTIFIER_THRESHOLD = 1000
+_LARGE_QUANTIFIER_RE = re.compile(r"\{(\d+)(?:,(\d+))?\}")
 
 
 def _is_dangerous_regex(raw_pattern: str) -> bool:
@@ -498,6 +505,20 @@ def _is_dangerous_regex(raw_pattern: str) -> bool:
     # Very long patterns are already rejected elsewhere; here detect nested quantifiers
     for bomb in _DANGEROUS_REGEX_SNIPPETS:
         if bomb.search(text):
+            return True
+
+    # Also reject patterns that contain very large quantifier ranges (catastrophic even without nesting)
+    for match in _LARGE_QUANTIFIER_RE.finditer(text):
+        try:
+            lower = int(match.group(1))
+            upper_str = match.group(2)
+            upper = int(upper_str) if upper_str else None
+        except ValueError:
+            continue
+        numbers = [lower]
+        if upper is not None:
+            numbers.append(upper)
+        if any(num >= _LARGE_QUANTIFIER_THRESHOLD for num in numbers):
             return True
     return False
 
@@ -524,7 +545,13 @@ def _safe_eval_with_timeout(fn: Callable[[], Any], timeout_ms: int) -> Tuple[boo
     return True, result_holder.get("value")
 
 
-def _safe_name_match(pattern: Any, candidate: str, exact_match: bool = False) -> bool:
+def _safe_name_match(
+    pattern: Any,
+    candidate: str,
+    exact_match: bool = False,
+    raw_pattern: Optional[str] = None,
+    context: str = "name match",
+) -> bool:
     """
     Safely evaluate name match using timeout.
     For exact match patterns (^name$), use fullmatch() only.
@@ -548,11 +575,30 @@ def _safe_name_match(pattern: Any, candidate: str, exact_match: bool = False) ->
         )
     # If timeout occurred, treat as no match (pattern likely causes ReDoS)
     if not ok:
-        return False
+        pattern_desc = raw_pattern or getattr(pattern, "pattern", "<?>")
+        candidate_preview = candidate[:200]
+        if len(candidate) > 200:
+            candidate_preview += "..."
+        logger.warning(
+            "DEBUG_REGEX: Timeout during %s while matching pattern '%s' against candidate '%s'",
+            context,
+            pattern_desc,
+            candidate_preview,
+        )
+        sys.stdout.flush()
+        raise HTTPException(
+            status_code=400,
+            detail="Regex pattern too complex and may cause excessive backtracking.",
+        )
     return bool(res)
 
 
-def _safe_text_search(pattern: Any, text: str) -> bool:
+def _safe_text_search(
+    pattern: Any,
+    text: str,
+    raw_pattern: Optional[str] = None,
+    context: str = "text search",
+) -> bool:
     """
     Safely evaluate text search (README etc.) with timeout.
     """
@@ -561,7 +607,21 @@ def _safe_text_search(pattern: Any, text: str) -> bool:
     ok, res = _safe_eval_with_timeout(lambda: pattern.search(text) is not None, timeout_ms=500)
     # If timeout occurred, treat as no match (pattern likely causes ReDoS)
     if not ok:
-        return False
+        pattern_desc = raw_pattern or getattr(pattern, "pattern", "<?>")
+        text_preview = text[:200]
+        if len(text) > 200:
+            text_preview += "..."
+        logger.warning(
+            "DEBUG_REGEX: Timeout during %s while searching pattern '%s' within text snippet '%s'",
+            context,
+            pattern_desc,
+            text_preview,
+        )
+        sys.stdout.flush()
+        raise HTTPException(
+            status_code=400,
+            detail="Regex pattern too complex and may cause excessive backtracking.",
+        )
     return bool(res)
 
 
@@ -2324,12 +2384,16 @@ async def search_models_by_version(
 
 
 @app.get("/artifact/byName/{name:path}")
+@app.get("/artifact/byname/{name:path}")
 async def artifact_by_name(
-    name: str, user: Dict[str, Any] = Depends(verify_token)
+    name: str,
+    request: Request,
+    user: Dict[str, Any] = Depends(verify_token),
 ) -> List[ArtifactMetadata]:
     """List artifact metadata for this name (NON-BASELINE)"""
     # CRITICAL: Log IMMEDIATELY at function start to see what autograder is sending
     logger.info("DEBUG_BYNAME: ===== FUNCTION START =====")
+    logger.info(f"DEBUG_BYNAME: Request path='{request.url.path}', method={request.method}")
     logger.info(f"DEBUG_BYNAME: AUTOGRADER REQUEST - raw name param: '{name}'")
     sys.stdout.flush()  # Force flush to CloudWatch
 
@@ -2670,9 +2734,17 @@ async def artifact_by_regex(
             readme_text = readme_text[:10000]
         # For exact matches (patterns like ^name$), check stored name plus HF aliases
         try:
-            name_matches = _safe_name_match(pattern, name, exact_match=name_only)
+            name_matches = _safe_name_match(
+                pattern,
+                name,
+                exact_match=name_only,
+                raw_pattern=raw_pattern,
+                context="in-memory metadata name",
+            )
+        except HTTPException:
+            raise
         except Exception as match_err:
-            # If matching fails (e.g., timeout), log and treat as no match
+            # If matching fails (unexpected), log and treat as no match
             logger.warning(f"DEBUG_REGEX:   Regex match failed for in-memory artifact {artifact_id}: {match_err}")
             name_matches = False
 
@@ -2681,10 +2753,18 @@ async def artifact_by_regex(
         matched_candidate = None
         for candidate in hf_candidates:
             try:
-                if _safe_name_match(pattern, candidate, exact_match=name_only):
+                if _safe_name_match(
+                    pattern,
+                    candidate,
+                    exact_match=name_only,
+                    raw_pattern=raw_pattern,
+                    context="in-memory hf alias",
+                ):
                     hf_name_matches = True
                     matched_candidate = candidate
                     break
+            except HTTPException:
+                raise
             except Exception as match_err:
                 logger.warning(
                     f"DEBUG_REGEX:   Regex match failed for hf candidate '{candidate}' "
@@ -2714,7 +2794,16 @@ async def artifact_by_regex(
                 )
         else:
             # Partial match: search in name, hf_model_name, and README
-            readme_matches = _safe_text_search(pattern, readme_text) if readme_text else False
+            readme_matches = (
+                _safe_text_search(
+                    pattern,
+                    readme_text,
+                    raw_pattern=raw_pattern,
+                    context="in-memory README snippet",
+                )
+                if readme_text
+                else False
+            )
             if name_matches or hf_name_matches or readme_matches:
                 matches.append(
                     ArtifactMetadata(
@@ -2766,9 +2855,17 @@ async def artifact_by_regex(
                 f"hf_candidates={hf_candidates[:3]} against pattern='{raw_pattern}'"
             )
             try:
-                name_matches = _safe_name_match(pattern, stored_name, exact_match=name_only)
+                name_matches = _safe_name_match(
+                    pattern,
+                    stored_name,
+                    exact_match=name_only,
+                    raw_pattern=raw_pattern,
+                    context="S3 metadata name",
+                )
+            except HTTPException:
+                raise
             except Exception as match_err:
-                # If matching fails (e.g., timeout), log and treat as no match
+                # If matching fails (unexpected), log and treat as no match
                 logger.warning(f"DEBUG_REGEX:   Regex match failed for S3 artifact {artifact_id}: {match_err}")
                 name_matches = False
 
@@ -2777,10 +2874,18 @@ async def artifact_by_regex(
             matched_candidate = None
             for candidate in hf_candidates:
                 try:
-                    if _safe_name_match(pattern, candidate, exact_match=name_only):
+                    if _safe_name_match(
+                        pattern,
+                        candidate,
+                        exact_match=name_only,
+                        raw_pattern=raw_pattern,
+                        context="S3 hf alias",
+                    ):
                         hf_name_matches = True
                         matched_candidate = candidate
                         break
+                except HTTPException:
+                    raise
                 except Exception as match_err:
                     logger.warning(
                         f"DEBUG_REGEX:   Regex match failed for S3 hf candidate '{candidate}' "
@@ -2821,7 +2926,12 @@ async def artifact_by_regex(
             if readme_text:
                 if len(readme_text) > 10000:
                     readme_text = readme_text[:10000]
-                if _safe_text_search(pattern, readme_text):
+                if _safe_text_search(
+                    pattern,
+                    readme_text,
+                    raw_pattern=raw_pattern,
+                    context="S3 README snippet",
+                ):
                     matches.append(
                         ArtifactMetadata(
                             name=stored_name,
@@ -2861,7 +2971,13 @@ async def artifact_by_regex(
                         f"DEBUG_REGEX:   Testing SQLite artifact: id={artifact_id_str}, "
                         f"name='{art_name}' against pattern='{raw_pattern}'"
                     )
-                    if art_name and _safe_name_match(pattern, art_name, exact_match=True):
+                    if art_name and _safe_name_match(
+                        pattern,
+                        art_name,
+                        exact_match=True,
+                        raw_pattern=raw_pattern,
+                        context="SQLite metadata name (exact)",
+                    ):
                         logger.info(
                             f"DEBUG_REGEX:   ✓ MATCH FOUND in SQLite: id={artifact_id_str}, "
                             f"name='{art_name}' matches pattern='{raw_pattern}'"
@@ -2876,7 +2992,13 @@ async def artifact_by_regex(
                 else:
                     # For partial matches, use safe search with timeout protection
                     art_name = str(a.name).strip() if a.name else ""
-                    if art_name and _safe_name_match(pattern, art_name, exact_match=False):
+                    if art_name and _safe_name_match(
+                        pattern,
+                        art_name,
+                        exact_match=False,
+                        raw_pattern=raw_pattern,
+                        context="SQLite metadata name (partial)",
+                    ):
                         matches.append(ArtifactMetadata(name=a.name, id=artifact_id_str, type=ArtifactType(a.type)))
                         seen_ids.add(artifact_id_str)
 
