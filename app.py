@@ -468,6 +468,59 @@ def _get_hf_name_candidates(record: Dict[str, Any]) -> List[str]:
     return candidates
 
 
+def _derive_display_name_from_url(url: str) -> Optional[str]:
+    """Generate a friendly display name from a HuggingFace/GitHub URL."""
+    if not url:
+        return None
+    variants = _derive_hf_variants_from_url(url)
+    if variants:
+        # Prefer slash variants (org/repo) when available
+        slash_variants = [v for v in variants if "/" in v]
+        if slash_variants:
+            return slash_variants[0]
+        return variants[0]
+
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        parsed = None
+    if parsed:
+        path_parts = [unquote(part) for part in parsed.path.split("/") if part]
+        if path_parts:
+            return path_parts[-1]
+    return None
+
+
+def _ensure_artifact_display_name(record: Dict[str, Any]) -> str:
+    """
+    Ensure artifact metadata has a non-empty name.
+    Falls back to HF aliases, derived URL identifiers, or artifact ID.
+    """
+    metadata = record.setdefault("metadata", {})
+    current_name = str(metadata.get("name") or "").strip()
+    if current_name:
+        return current_name
+
+    candidates = _get_hf_name_candidates(record)
+    for candidate in candidates:
+        candidate_stripped = candidate.strip()
+        if candidate_stripped:
+            metadata["name"] = candidate_stripped
+            return candidate_stripped
+
+    data_block = record.get("data", {}) or {}
+    derived = _derive_display_name_from_url(str(data_block.get("url") or ""))
+    if derived:
+        metadata["name"] = derived
+        return derived
+
+    fallback = str(metadata.get("id") or record.get("id") or "").strip()
+    if not fallback:
+        fallback = "unknown-artifact"
+    metadata["name"] = fallback
+    return fallback
+
+
 # ----------------------------
 # Regex safety helpers
 # ----------------------------
@@ -2449,7 +2502,7 @@ async def artifact_by_name(
     in_memory_matches = 0
     for artifact_id, artifact_data in artifacts_db.items():
         in_memory_checked += 1
-        stored_name = str(artifact_data["metadata"]["name"]).strip()
+        stored_name = _ensure_artifact_display_name(artifact_data)
         stored_type = artifact_data["metadata"].get("type", "")
         hf_candidates = _get_hf_name_candidates(artifact_data)
         # Per spec, byName matches on the stored name (case-insensitive)
@@ -2499,7 +2552,7 @@ async def artifact_by_name(
         for art_data in s3_artifacts:
             s3_checked += 1
             metadata = art_data.get("metadata", {})
-            stored_name = str(metadata.get("name", "")).strip()
+            stored_name = _ensure_artifact_display_name(art_data)
             artifact_id = metadata.get("id", "")
             stored_type = metadata.get("type", "")
             hf_candidates = _get_hf_name_candidates(art_data)
@@ -2715,7 +2768,7 @@ async def artifact_by_regex(
     for artifact_id, artifact_data in artifacts_db.items():
         if artifact_id in seen_ids:
             continue
-        name = str(artifact_data["metadata"]["name"]).strip()
+        name = _ensure_artifact_display_name(artifact_data)
         logger.info(f"DEBUG_REGEX: Checking in-memory artifact id={artifact_id}, name={name}")
         readme_text = ""
         hf_candidates = _get_hf_name_candidates(artifact_data)
@@ -2846,7 +2899,7 @@ async def artifact_by_regex(
             if artifact_id in seen_ids:
                 continue  # Skip duplicates
             stored_type = str(metadata.get("type", "") or "")
-            stored_name = str(metadata.get("name", "") or "").strip()
+            stored_name = _ensure_artifact_display_name(art_data)
             hf_candidates = _get_hf_name_candidates(art_data)
             # Check name first (fast path)
             # For exact matches (^name$), use fullmatch only
@@ -3336,6 +3389,9 @@ async def artifact_retrieve(
         sys.stdout.flush()
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
 
+    # Ensure metadata has a display name for response/logging consistency
+    resolved_name = _ensure_artifact_display_name(artifact_data)
+
     # Validate artifact type
     if stored_type != artifact_type.value:
         logger.warning(f"DEBUG_BYID: ✗ TYPE MISMATCH: stored={stored_type}, requested={artifact_type.value}")
@@ -3350,7 +3406,10 @@ async def artifact_retrieve(
 
     # Generate download URL and return
     download_url = generate_download_url(artifact_type.value, id, request)
-    logger.info(f"DEBUG_BYID: ✓ SUCCESS - Returning artifact: id={id}, type={stored_type}, url={artifact_url}")
+    logger.info(
+        f"DEBUG_BYID: ✓ SUCCESS - Returning artifact: id={id}, type={stored_type}, "
+        f"name='{resolved_name}', url={artifact_url}"
+    )
     sys.stdout.flush()
     return Artifact(
         metadata=ArtifactMetadata(**artifact_data["metadata"]),
