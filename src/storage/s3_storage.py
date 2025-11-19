@@ -338,25 +338,33 @@ class S3Storage:
                 for obj in page["Contents"]:
                     key = obj["Key"]
                     # Extract artifact_id from path: artifacts/{id}/metadata.json
+                    # Skip folder markers (keys ending with just /)
+                    if key.endswith("/") and key != prefix:
+                        continue
+                    # Only process metadata.json files
                     if key.endswith("/metadata.json"):
-                        artifact_id = key.split("/")[1]
-                        if artifact_type:
-                            # Need to fetch metadata to check type
-                            metadata = self.get_artifact_metadata(artifact_id)
-                            if (
-                                metadata
-                                and metadata.get("metadata", {}).get("type") == artifact_type
-                            ):
-                                artifact_ids.append(artifact_id)
-                        else:
-                            artifact_ids.append(artifact_id)
+                        # Extract artifact_id: artifacts/{id}/metadata.json -> {id}
+                        parts = key.split("/")
+                        if len(parts) >= 3 and parts[0] == "artifacts" and parts[-1] == "metadata.json":
+                            artifact_id = parts[1]
+                            if artifact_id:  # Ensure not empty
+                                if artifact_type:
+                                    # Need to fetch metadata to check type
+                                    metadata = self.get_artifact_metadata(artifact_id)
+                                    if (
+                                        metadata
+                                        and metadata.get("metadata", {}).get("type") == artifact_type
+                                    ):
+                                        artifact_ids.append(artifact_id)
+                                else:
+                                    artifact_ids.append(artifact_id)
 
             if logger:
-                logger.debug(f"Listed {len(artifact_ids)} artifacts from S3")
+                logger.info(f"Listed {len(artifact_ids)} artifacts from S3 (filtered by type={artifact_type})")
             return artifact_ids
         except Exception as e:
             if logger:
-                logger.error(f"Failed to list artifacts from S3: {e}")
+                logger.error(f"Failed to list artifacts from S3: {e}", exc_info=True)
             return []
 
     def list_artifacts_by_queries(self, queries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -369,6 +377,8 @@ class S3Storage:
             List of artifact metadata dicts
         """
         if not self.s3_client:
+            if logger:
+                logger.warning("S3 client not initialized, cannot list artifacts")
             return []
 
         all_artifacts: List[Dict[str, Any]] = []
@@ -377,6 +387,8 @@ class S3Storage:
         try:
             # Get all artifact IDs
             artifact_ids = self.list_artifacts()
+            if logger:
+                logger.info(f"S3 list_artifacts_by_queries: Found {len(artifact_ids)} artifact IDs from S3")
 
             for artifact_id in artifact_ids:
                 if artifact_id in seen_ids:
@@ -384,6 +396,8 @@ class S3Storage:
 
                 metadata = self.get_artifact_metadata(artifact_id)
                 if not metadata:
+                    if logger:
+                        logger.warning(f"S3 list_artifacts_by_queries: Failed to get metadata for artifact_id={artifact_id}")
                     continue
 
                 art_name = str(metadata.get("metadata", {}).get("name", ""))
@@ -401,10 +415,10 @@ class S3Storage:
                     if name and name != "*":
                         # Case-insensitive; match either stored name or HF full name
                         name_lc = name.strip().lower()
-                        hf_match = (
-                            hf_model_name.strip().lower() == name_lc if hf_model_name else False
-                        )
-                        name_match = (art_name.strip().lower() == name_lc) or hf_match
+                        art_name_lc = art_name.strip().lower() if art_name else ""
+                        hf_model_name_lc = hf_model_name.strip().lower() if hf_model_name else ""
+                        hf_match = hf_model_name_lc == name_lc
+                        name_match = (art_name_lc == name_lc) or hf_match
 
                     # Check type match
                     type_match = True
