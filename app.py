@@ -46,7 +46,7 @@ try:
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.security import HTTPBearer
     from fastapi.responses import FileResponse
-    from pydantic import BaseModel, ConfigDict
+    from pydantic import BaseModel
     from typing import List, Optional, Dict, Any, Tuple, Callable
     from datetime import datetime, timezone
     from enum import Enum
@@ -268,14 +268,16 @@ class ArtifactData(BaseModel):
     url: str
     download_url: Optional[str] = None
 
-    model_config = ConfigDict(exclude_none=True)
+    class Config:
+        exclude_none = True
 
 
 class Artifact(BaseModel):
     metadata: ArtifactMetadata
     data: ArtifactData
 
-    model_config = ConfigDict(exclude_none=True)
+    class Config:
+        exclude_none = True
 
 
 class ArtifactQuery(BaseModel):
