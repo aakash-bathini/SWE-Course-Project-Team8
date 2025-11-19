@@ -345,7 +345,11 @@ class S3Storage:
                     if key.endswith("/metadata.json"):
                         # Extract artifact_id: artifacts/{id}/metadata.json -> {id}
                         parts = key.split("/")
-                        if len(parts) >= 3 and parts[0] == "artifacts" and parts[-1] == "metadata.json":
+                        if (
+                            len(parts) >= 3
+                            and parts[0] == "artifacts"
+                            and parts[-1] == "metadata.json"
+                        ):
                             artifact_id = parts[1]
                             if artifact_id:  # Ensure not empty
                                 if artifact_type:
@@ -353,14 +357,17 @@ class S3Storage:
                                     metadata = self.get_artifact_metadata(artifact_id)
                                     if (
                                         metadata
-                                        and metadata.get("metadata", {}).get("type") == artifact_type
+                                        and metadata.get("metadata", {}).get("type")
+                                        == artifact_type
                                     ):
                                         artifact_ids.append(artifact_id)
                                 else:
                                     artifact_ids.append(artifact_id)
 
             if logger:
-                logger.info(f"Listed {len(artifact_ids)} artifacts from S3 (filtered by type={artifact_type})")
+                logger.info(
+                    f"Listed {len(artifact_ids)} artifacts from S3 (filtered by type={artifact_type})"
+                )
             return artifact_ids
         except Exception as e:
             if logger:
@@ -388,7 +395,9 @@ class S3Storage:
             # Get all artifact IDs
             artifact_ids = self.list_artifacts()
             if logger:
-                logger.info(f"S3 list_artifacts_by_queries: Found {len(artifact_ids)} artifact IDs from S3")
+                logger.info(
+                    f"S3 list_artifacts_by_queries: Found {len(artifact_ids)} artifact IDs from S3"
+                )
 
             for artifact_id in artifact_ids:
                 if artifact_id in seen_ids:
@@ -397,7 +406,9 @@ class S3Storage:
                 metadata = self.get_artifact_metadata(artifact_id)
                 if not metadata:
                     if logger:
-                        logger.warning(f"S3 list_artifacts_by_queries: Failed to get metadata for artifact_id={artifact_id}")
+                        logger.warning(
+                            f"S3 list_artifacts_by_queries: Failed to get metadata for artifact_id={artifact_id}"
+                        )
                     continue
 
                 art_name = str(metadata.get("metadata", {}).get("name", ""))
