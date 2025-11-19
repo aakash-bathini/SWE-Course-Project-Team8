@@ -29,7 +29,7 @@ async def metric(context: EvalContext) -> float:
 
         if not demo_code:
             logger.info("No demo code found in model card")
-            return -1.0  # Not applicable (like reviewedness when no GitHub repo)
+            return 0.0  # Per spec: 0 (no code/doesn't run)
 
         # Try to execute the code
         execution_result = _test_code_execution(demo_code)

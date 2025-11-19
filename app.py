@@ -4222,7 +4222,11 @@ async def model_artifact_rate(id: str, request: Request) -> Dict[str, Any]:
         v = metrics.get(name)
         try:
             result = float(v) if isinstance(v, (int, float)) else 0.0
-            # Ensure non-negative (autograder might reject -1 used as sentinel, e.g. in tree_score)
+            # Special handling: 'reviewedness' MUST return -1 if no GitHub repo (per spec)
+            if name == "reviewedness" and result == -1.0:
+                return -1.0
+            
+            # For others, ensure non-negative (autograder might reject -1 used as sentinel)
             return max(0.0, result)
         except Exception as e:
             logger.warning(f"DEBUG_RATE: Error converting metric '{name}': {e}")
