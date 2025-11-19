@@ -307,29 +307,17 @@ class ModelRating(BaseModel):
     name: str
     category: str
     net_score: float
-    net_score_latency: float
     ramp_up_time: float
-    ramp_up_time_latency: float
     bus_factor: float
-    bus_factor_latency: float
     performance_claims: float
-    performance_claims_latency: float
     license: float
-    license_latency: float
     dataset_and_code_score: float
-    dataset_and_code_score_latency: float
     dataset_quality: float
-    dataset_quality_latency: float
     code_quality: float
-    code_quality_latency: float
     reproducibility: float
-    reproducibility_latency: float
     reviewedness: float
-    reviewedness_latency: float
     tree_score: float
-    tree_score_latency: float
     size_score: Dict[str, float]
-    size_score_latency: float
 
 
 class ArtifactCost(BaseModel):
@@ -4193,39 +4181,37 @@ async def model_artifact_rate(id: str, request: Request) -> ModelRating:
         sys.stdout.flush()
         raise HTTPException(status_code=500, detail="Artifact name is missing.")
 
+    logger.info("DEBUG_RATE: BUILDING_RESPONSE - Constructing ModelRating with spec-compliant fields (NO _latency fields)")
+    logger.info(f"DEBUG_RATE: METRICS_READY - net_score={net_score}, category={category}, artifact_name={artifact_name}")
+
     try:
         rating = ModelRating(
             name=artifact_name,
             category=category or "unknown",
             net_score=net_score,
-            net_score_latency=0.0,
             ramp_up_time=get_m("ramp_up_time"),
-            ramp_up_time_latency=0.0,
             bus_factor=get_m("bus_factor"),
-            bus_factor_latency=0.0,
             performance_claims=get_m("performance_claims"),
-            performance_claims_latency=0.0,
             license=get_m("license"),
-            license_latency=0.0,
             dataset_and_code_score=get_m("dataset_and_code_score"),
-            dataset_and_code_score_latency=0.0,
             dataset_quality=get_m("dataset_quality"),
-            dataset_quality_latency=0.0,
             code_quality=get_m("code_quality"),
-            code_quality_latency=0.0,
             reproducibility=get_m("reproducibility"),
-            reproducibility_latency=0.0,
             reviewedness=get_m("reviewedness"),
-            reviewedness_latency=0.0,
             tree_score=get_m("tree_score"),
-            tree_score_latency=0.0,
             size_score=size_scores,
-            size_score_latency=0.0,
         )
         logger.info(
             f"DEBUG_RATE: ✓ SUCCESS - ModelRating created successfully for artifact: id={id}, "
             f"name='{artifact_name}', net_score={net_score}, category='{rating.category}'"
         )
+        # Log the EXACT JSON response being sent to autograder
+        import json
+        rating_json = rating.model_dump()
+        logger.info(f"DEBUG_RATE: RESPONSE_JSON_CLEAN: {json.dumps(rating_json)}")
+        logger.info(f"DEBUG_RATE: RESPONSE_SCHEMA_CHECK - Has net_score: {'net_score' in rating_json}, Has net_score_latency: {'net_score_latency' in rating_json}")
+        logger.info(f"DEBUG_RATE: RESPONSE_FIELD_COUNT: {len(rating_json)} fields total")
+        logger.info("DEBUG_RATE: ===== FUNCTION END - Returning 200 with ModelRating =====")
         sys.stdout.flush()
         return rating
     except Exception as e:
