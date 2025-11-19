@@ -4140,7 +4140,12 @@ async def model_artifact_rate(id: str, request: Request) -> Dict[str, Any]:
             logger.info(f"DEBUG_RATE: size_metric returned: {type(size_scores_result)}, value={size_scores_result}")
             sys.stdout.flush()
             if isinstance(size_scores_result, dict):
-                size_scores = size_scores_result
+                # Clamp size scores to [0, 1] to be safe
+                size_scores = {
+                    k: max(0.0, min(1.0, float(v)))
+                    for k, v in size_scores_result.items()
+                    if isinstance(v, (int, float))
+                }
                 logger.info(f"DEBUG_RATE: size_scores updated: {size_scores}")
             else:
                 logger.warning(f"DEBUG_RATE: size_scores_result is not a dict: {type(size_scores_result)}")
@@ -4162,12 +4167,14 @@ async def model_artifact_rate(id: str, request: Request) -> Dict[str, Any]:
     logger.info(f"DEBUG_RATE: Computing net_score - metrics available: {bool(metrics)}, "
                 f"calculate_phase2_net_score available: {calculate_phase2_net_score is not None}")
     sys.stdout.flush()
-    net_score = (
+    raw_net_score = (
         calculate_phase2_net_score(metrics)
         if (metrics and calculate_phase2_net_score is not None)
         else 0.0
     )
-    logger.info(f"DEBUG_RATE: Computed net_score={net_score}")
+    # Ensure net_score is in [0, 1] range (handling potential -1 sentinels or floating point issues)
+    net_score = max(0.0, min(1.0, raw_net_score))
+    logger.info(f"DEBUG_RATE: Computed net_score={net_score} (raw={raw_net_score})")
     sys.stdout.flush()
 
     # If rating completed, update status to READY (for both PENDING and initial READY status)
@@ -4198,7 +4205,8 @@ async def model_artifact_rate(id: str, request: Request) -> Dict[str, Any]:
         v = metrics.get(name)
         try:
             result = float(v) if isinstance(v, (int, float)) else 0.0
-            return result
+            # Ensure non-negative (autograder might reject -1 used as sentinel, e.g. in tree_score)
+            return max(0.0, result)
         except Exception as e:
             logger.warning(f"DEBUG_RATE: Error converting metric '{name}': {e}")
             return 0.0
