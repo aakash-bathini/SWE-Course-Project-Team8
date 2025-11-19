@@ -268,10 +268,16 @@ class ArtifactData(BaseModel):
     url: str
     download_url: Optional[str] = None
 
+    class Config:
+        exclude_none = True
+
 
 class Artifact(BaseModel):
     metadata: ArtifactMetadata
     data: ArtifactData
+
+    class Config:
+        exclude_none = True
 
 
 class ArtifactQuery(BaseModel):
@@ -3495,7 +3501,7 @@ async def artifact_retrieve(
         sys.stdout.flush()
 
         # CRITICAL: Log the exact JSON response being returned to autograder
-        response_json_str = artifact_response.model_dump_json()
+        response_json_str = artifact_response.model_dump_json(exclude_none=True)
         logger.info(f"[DEBUG_ARTIFACT_RETRIEVE] RESPONSE_JSON_FULL: {response_json_str}")
 
         # Log individual field values for debugging
