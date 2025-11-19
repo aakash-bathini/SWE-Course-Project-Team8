@@ -2548,7 +2548,12 @@ async def artifact_by_name(
                     f"name='{stored_name}', type={stored_type}"
                 )
                 try:
-                    artifact_type_enum = ArtifactType(stored_type)
+                    try:
+                        artifact_type_enum = ArtifactType(stored_type)
+                    except ValueError:
+                        # Try lowercase fallback
+                        artifact_type_enum = ArtifactType(str(stored_type).lower())
+                    
                     matches.append(
                         ArtifactMetadata(
                             name=stored_name,
@@ -2612,7 +2617,12 @@ async def artifact_by_name(
                         f"name='{stored_name}', type={stored_type}"
                     )
                     try:
-                        artifact_type_enum = ArtifactType(stored_type)
+                        try:
+                            artifact_type_enum = ArtifactType(stored_type)
+                        except ValueError:
+                            # Try lowercase fallback
+                            artifact_type_enum = ArtifactType(str(stored_type).lower())
+
                         matches.append(
                             ArtifactMetadata(
                                 name=stored_name,
@@ -3472,12 +3482,19 @@ async def artifact_retrieve(
     metadata_dict["name"] = resolved_name
 
     try:
+        # Try direct conversion first
         artifact_type_enum = ArtifactType(stored_type)
         logger.info(f"[DEBUG_ARTIFACT_RETRIEVE] TYPE_ENUM_CREATED: stored_type={stored_type}, enum_value={artifact_type_enum.value}")
-    except ValueError as ve:
-        logger.error(f"[DEBUG_ARTIFACT_RETRIEVE] TYPE_ENUM_ERROR: stored_type={stored_type}, error={str(ve)}")
-        sys.stdout.flush()
-        raise HTTPException(status_code=500, detail=f"Invalid artifact type: {stored_type}")
+    except ValueError:
+        # Try lowercase conversion (defensive handling for case mismatches in storage)
+        try:
+            logger.warning(f"[DEBUG_ARTIFACT_RETRIEVE] TYPE_ENUM_RETRY: stored_type={stored_type} failed, trying lowercase")
+            artifact_type_enum = ArtifactType(str(stored_type).lower())
+            logger.info(f"[DEBUG_ARTIFACT_RETRIEVE] TYPE_ENUM_CREATED_LOWER: stored_type={stored_type}, enum_value={artifact_type_enum.value}")
+        except ValueError as ve:
+            logger.error(f"[DEBUG_ARTIFACT_RETRIEVE] TYPE_ENUM_ERROR: stored_type={stored_type}, error={str(ve)}")
+            sys.stdout.flush()
+            raise HTTPException(status_code=500, detail=f"Invalid artifact type: {stored_type}")
 
     metadata_dict["type"] = artifact_type_enum
 
