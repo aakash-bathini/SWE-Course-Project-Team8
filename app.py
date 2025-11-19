@@ -85,6 +85,7 @@ async def log_requests(request: Request, call_next):
     # Log byName-related requests immediately (before dependencies run)
     if "byname" in path.lower() or "byname" in str(query_params).lower():
         logger.info(f"MIDDLEWARE_BYNAME: Request detected - method={method}, path='{path}', query={query_params}")
+        print(f"DEBUG_PRINT: MIDDLEWARE_BYNAME detected request: {path}")
         sys.stdout.flush()
 
     # Log rate-related requests immediately (before dependencies run)
@@ -2465,6 +2466,7 @@ async def artifact_by_name(
     """List artifact metadata for this name (NON-BASELINE)"""
     # CRITICAL: Log IMMEDIATELY at function start to see what autograder is sending
     logger.info("DEBUG_BYNAME: ===== FUNCTION START =====")
+    print(f"DEBUG_PRINT: artifact_by_name called with name='{name}'")
     logger.info(f"DEBUG_BYNAME: Request path='{request.url.path}', method={request.method}")
     logger.info(f"DEBUG_BYNAME: AUTOGRADER REQUEST - raw name param: '{name}'")
     sys.stdout.flush()  # Force flush to CloudWatch
@@ -2774,9 +2776,9 @@ async def artifact_by_regex(
         )
         sys.stdout.flush()  # Flush before regex compilation
         if name_only:
-            # Exact match: case-sensitive for autograder compatibility
-            logger.info("DEBUG_REGEX: Compiling regex (exact match, case-sensitive)...")
-            pattern = _re.compile(raw_pattern)
+            # Revert to case-insensitive for robustness, even for "exact" match
+            logger.info("DEBUG_REGEX: Compiling regex (exact match, case-insensitive)...")
+            pattern = _re.compile(raw_pattern, _re.IGNORECASE)
         else:
             # Partial match: case-insensitive
             logger.info("DEBUG_REGEX: Compiling regex (partial match, case-insensitive)...")
@@ -3863,10 +3865,10 @@ async def model_license_check_alias(
     return await artifact_license_check(id, request, user)  # type: ignore[arg-type]
 
 
-@app.get("/artifact/model/{id}/rate", response_model=ModelRating)
-@app.get("/artifacts/model/{id}/rate", response_model=ModelRating)
-@app.get("/models/{id}/rate", response_model=ModelRating)
-async def model_artifact_rate(id: str, request: Request) -> ModelRating:
+@app.get("/artifact/model/{id}/rate")
+@app.get("/artifacts/model/{id}/rate")
+@app.get("/models/{id}/rate")
+async def model_artifact_rate(id: str, request: Request) -> Dict[str, Any]:
     """Get ratings for this model artifact (BASELINE)"""
     # CRITICAL: Log IMMEDIATELY at function start to see what autograder is sending
     logger.info("DEBUG_RATE: ===== FUNCTION START =====")
@@ -4211,9 +4213,9 @@ async def model_artifact_rate(id: str, request: Request) -> ModelRating:
         logger.info(f"DEBUG_RATE: RESPONSE_JSON_CLEAN: {json.dumps(rating_json)}")
         logger.info(f"DEBUG_RATE: RESPONSE_SCHEMA_CHECK - Has net_score: {'net_score' in rating_json}, Has net_score_latency: {'net_score_latency' in rating_json}")
         logger.info(f"DEBUG_RATE: RESPONSE_FIELD_COUNT: {len(rating_json)} fields total")
-        logger.info("DEBUG_RATE: ===== FUNCTION END - Returning 200 with ModelRating =====")
+        logger.info("DEBUG_RATE: ===== FUNCTION END - Returning 200 with ModelRating (as dict) =====")
         sys.stdout.flush()
-        return rating
+        return rating_json
     except Exception as e:
         logger.error(f"DEBUG_RATE: ✗ CRITICAL ERROR - Failed to create ModelRating: {type(e).__name__}: {e}", exc_info=True)
         logger.error(
@@ -4224,8 +4226,8 @@ async def model_artifact_rate(id: str, request: Request) -> ModelRating:
         raise HTTPException(status_code=500, detail=f"Failed to generate rating: {str(e)}")
 
 
-@app.get("/package/{id}/rate", response_model=ModelRating)
-async def package_rate_alias(id: str, request: Request, user: Dict[str, Any] = Depends(verify_token)) -> ModelRating:
+@app.get("/package/{id}/rate")
+async def package_rate_alias(id: str, request: Request, user: Dict[str, Any] = Depends(verify_token)) -> Dict[str, Any]:
     """
     Alias route to support autograder calling /package/{id}/rate.
     Delegates to /artifact/model/{id}/rate after verifying the ID refers to a model.
