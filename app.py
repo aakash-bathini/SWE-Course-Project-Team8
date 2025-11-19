@@ -3884,16 +3884,9 @@ async def model_artifact_rate(id: str) -> ModelRating:
     logger.info("DEBUG_RATE: ===== FUNCTION START =====")
     logger.info(f"DEBUG_RATE: AUTOGRADER REQUEST - id='{id}'")
     sys.stdout.flush()  # Force flush to CloudWatch
-
     # Support async ingest semantics (v3.4.4): if INVALID, return 404 forever.
     # If PENDING, compute metrics now (lazy evaluation approach 3) and mark READY.
-    try:
-        _validate_artifact_id_or_400(id)
-        logger.info(f"DEBUG_RATE: Artifact ID validation passed: '{id}'")
-    except HTTPException as e:
-        logger.error(f"DEBUG_RATE: Artifact ID validation failed: {e.detail}")
-        sys.stdout.flush()
-        raise
+    logger.info(f"DEBUG_RATE: Received request for id='{id}'")
     sys.stdout.flush()
     status = artifact_status.get(id)
 
