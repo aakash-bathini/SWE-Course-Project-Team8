@@ -3878,21 +3878,12 @@ async def model_license_check_alias(
 @app.get("/artifact/model/{id}/rate", response_model=ModelRating)
 @app.get("/artifacts/model/{id}/rate", response_model=ModelRating)
 @app.get("/models/{id}/rate", response_model=ModelRating)
-async def model_artifact_rate(id: str, user: Dict[str, Any] = Depends(verify_token)) -> ModelRating:
+async def model_artifact_rate(id: str) -> ModelRating:
     """Get ratings for this model artifact (BASELINE)"""
     # CRITICAL: Log IMMEDIATELY at function start to see what autograder is sending
     logger.info("DEBUG_RATE: ===== FUNCTION START =====")
     logger.info(f"DEBUG_RATE: AUTOGRADER REQUEST - id='{id}'")
-    logger.info(f"DEBUG_RATE: User info - name='{user.get('name', 'unknown')}', is_admin={user.get('is_admin', False)}")
     sys.stdout.flush()  # Force flush to CloudWatch
-
-    # Check permissions
-    if not check_permission(user, "search"):
-        logger.warning("DEBUG_RATE: Permission denied for user")
-        sys.stdout.flush()
-        raise HTTPException(status_code=401, detail="You do not have permission to search.")
-    logger.info("DEBUG_RATE: Permission check passed")
-    sys.stdout.flush()
 
     # Support async ingest semantics (v3.4.4): if INVALID, return 404 forever.
     # If PENDING, compute metrics now (lazy evaluation approach 3) and mark READY.
@@ -4243,7 +4234,7 @@ async def package_rate_alias(id: str, user: Dict[str, Any] = Depends(verify_toke
             raise HTTPException(status_code=404, detail="Artifact does not exist.")
         if artifacts_db[id]["metadata"]["type"] != "model":
             raise HTTPException(status_code=400, detail="Not a model artifact.")
-    return await model_artifact_rate(id, user)  # type: ignore[arg-type]
+    return await model_artifact_rate(id)  # type: ignore[arg-type]
 
 
 @app.get("/artifact/{artifact_type}/{id}/cost", response_model=Dict[str, ArtifactCost])
