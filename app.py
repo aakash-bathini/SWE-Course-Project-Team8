@@ -4181,7 +4181,7 @@ async def model_artifact_rate(id: str, request: Request) -> ModelRating:
         sys.stdout.flush()
         raise HTTPException(status_code=500, detail="Artifact name is missing.")
 
-    logger.info(f"DEBUG_RATE: BUILDING_RESPONSE - Constructing ModelRating with spec-compliant fields (NO _latency fields)")
+    logger.info("DEBUG_RATE: BUILDING_RESPONSE - Constructing ModelRating with spec-compliant fields (NO _latency fields)")
     logger.info(f"DEBUG_RATE: METRICS_READY - net_score={net_score}, category={category}, artifact_name={artifact_name}")
 
     try:
@@ -4211,7 +4211,7 @@ async def model_artifact_rate(id: str, request: Request) -> ModelRating:
         logger.info(f"DEBUG_RATE: RESPONSE_JSON_CLEAN: {json.dumps(rating_json)}")
         logger.info(f"DEBUG_RATE: RESPONSE_SCHEMA_CHECK - Has net_score: {'net_score' in rating_json}, Has net_score_latency: {'net_score_latency' in rating_json}")
         logger.info(f"DEBUG_RATE: RESPONSE_FIELD_COUNT: {len(rating_json)} fields total")
-        logger.info(f"DEBUG_RATE: ===== FUNCTION END - Returning 200 with ModelRating =====")
+        logger.info("DEBUG_RATE: ===== FUNCTION END - Returning 200 with ModelRating =====")
         sys.stdout.flush()
         return rating
     except Exception as e:
