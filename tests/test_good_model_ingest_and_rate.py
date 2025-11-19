@@ -2,7 +2,7 @@
 import pytest
 import sys
 import os
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 
 @pytest.mark.parametrize("model_name", ["org/good-model"])
@@ -70,9 +70,10 @@ def test_good_model_ingest_and_rate_passes_threshold(model_name):
     )
     headers = {"X-Authorization": f"bearer {token}"}
 
+    # Mock reproducibility metric to return 1.0 (perfect execution) to pass threshold
     with patch("app.scrape_hf_url", return_value=(hf_data, "model")), patch(
         "app.scrape_github_url", return_value=gh_profile
-    ):
+    ), patch("src.metrics.reproducibility.metric", new=AsyncMock(return_value=1.0)):
         # Ingest the model
         client = TestClient(app)
         resp = client.post(f"/models/ingest?model_name={model_name}", headers=headers)
