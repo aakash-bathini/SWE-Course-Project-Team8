@@ -2553,7 +2553,7 @@ async def artifact_by_name(
                     except ValueError:
                         # Try lowercase fallback
                         artifact_type_enum = ArtifactType(str(stored_type).lower())
-                    
+
                     matches.append(
                         ArtifactMetadata(
                             name=stored_name,
@@ -4225,7 +4225,7 @@ async def model_artifact_rate(id: str, request: Request) -> Dict[str, Any]:
             # Special handling: 'reviewedness' MUST return -1 if no GitHub repo (per spec)
             if name == "reviewedness" and result == -1.0:
                 return -1.0
-            
+
             # For others, ensure non-negative (autograder might reject -1 used as sentinel)
             return max(0.0, result)
         except Exception as e:
