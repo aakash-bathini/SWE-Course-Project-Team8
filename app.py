@@ -3878,11 +3878,14 @@ async def model_license_check_alias(
 @app.get("/artifact/model/{id}/rate", response_model=ModelRating)
 @app.get("/artifacts/model/{id}/rate", response_model=ModelRating)
 @app.get("/models/{id}/rate", response_model=ModelRating)
-async def model_artifact_rate(id: str) -> ModelRating:
+async def model_artifact_rate(id: str, request: Request) -> ModelRating:
     """Get ratings for this model artifact (BASELINE)"""
     # CRITICAL: Log IMMEDIATELY at function start to see what autograder is sending
     logger.info("DEBUG_RATE: ===== FUNCTION START =====")
-    logger.info(f"DEBUG_RATE: AUTOGRADER REQUEST - id='{id}'")
+    logger.info(f"DEBUG_RATE: FULL URL: {request.url}")
+    logger.info(f"DEBUG_RATE: ACTUAL HTTP PATH: {request.url.path}")
+    logger.info(f"DEBUG_RATE: SCOPE: {request.scope.get('path', 'N/A')}")
+    logger.info(f"DEBUG_RATE: PATH PARAM id='{id}' (type: {type(id).__name__}, repr={repr(id)})")
     sys.stdout.flush()  # Force flush to CloudWatch
     # Support async ingest semantics (v3.4.4): if INVALID, return 404 forever.
     # If PENDING, compute metrics now (lazy evaluation approach 3) and mark READY.
@@ -3956,9 +3959,12 @@ async def model_artifact_rate(id: str) -> ModelRating:
     # Check S3 if not found in-memory
     if not artifact_found and USE_S3 and s3_storage:
         logger.info(f"DEBUG_RATE: MATCHING PROCESS - Checking S3 for id={id}")
+        logger.info(f"DEBUG_RATE: S3_STORAGE object exists: {s3_storage is not None}")
         sys.stdout.flush()
         try:
+            logger.info(f"DEBUG_RATE: Calling s3_storage.get_artifact_metadata('{id}')")
             existing_data = s3_storage.get_artifact_metadata(id)
+            logger.info(f"DEBUG_RATE: S3 returned: {existing_data is not None}, data type: {type(existing_data).__name__}")
             if existing_data:
                 artifact_type = existing_data.get("metadata", {}).get("type")
                 artifact_name = existing_data.get("metadata", {}).get("name", "")
@@ -3971,10 +3977,11 @@ async def model_artifact_rate(id: str) -> ModelRating:
                 artifact_found = True
                 logger.info("DEBUG_RATE:   ✓ Valid model found in S3")
             else:
-                logger.info(f"DEBUG_RATE:   ✗ NOT FOUND in S3 for id={id}")
+                logger.info(f"DEBUG_RATE:   ✗ NOT FOUND in S3 for id={id} (returned None)")
         except HTTPException:
             raise
         except Exception as e:
+            logger.error(f"DEBUG_RATE: S3 lookup EXCEPTION for id={id}: {type(e).__name__}: {str(e)}", exc_info=True)
             logger.error(f"DEBUG_RATE:   S3 error: {e}")
         sys.stdout.flush()
 
@@ -4195,7 +4202,7 @@ async def model_artifact_rate(id: str) -> ModelRating:
 
 
 @app.get("/package/{id}/rate", response_model=ModelRating)
-async def package_rate_alias(id: str, user: Dict[str, Any] = Depends(verify_token)) -> ModelRating:
+async def package_rate_alias(id: str, request: Request, user: Dict[str, Any] = Depends(verify_token)) -> ModelRating:
     """
     Alias route to support autograder calling /package/{id}/rate.
     Delegates to /artifact/model/{id}/rate after verifying the ID refers to a model.
@@ -4227,7 +4234,7 @@ async def package_rate_alias(id: str, user: Dict[str, Any] = Depends(verify_toke
             raise HTTPException(status_code=404, detail="Artifact does not exist.")
         if artifacts_db[id]["metadata"]["type"] != "model":
             raise HTTPException(status_code=400, detail="Not a model artifact.")
-    return await model_artifact_rate(id)  # type: ignore[arg-type]
+    return await model_artifact_rate(id, request)  # type: ignore[arg-type]
 
 
 @app.get("/artifact/{artifact_type}/{id}/cost", response_model=Dict[str, ArtifactCost])
