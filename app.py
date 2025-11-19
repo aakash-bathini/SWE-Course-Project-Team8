@@ -46,7 +46,7 @@ try:
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.security import HTTPBearer
     from fastapi.responses import FileResponse
-    from pydantic import BaseModel
+    from pydantic import BaseModel, ConfigDict
     from typing import List, Optional, Dict, Any, Tuple, Callable
     from datetime import datetime, timezone
     from enum import Enum
@@ -268,10 +268,14 @@ class ArtifactData(BaseModel):
     url: str
     download_url: Optional[str] = None
 
+    model_config = ConfigDict(exclude_none=True)
+
 
 class Artifact(BaseModel):
     metadata: ArtifactMetadata
     data: ArtifactData
+
+    model_config = ConfigDict(exclude_none=True)
 
 
 class ArtifactQuery(BaseModel):
@@ -3495,7 +3499,7 @@ async def artifact_retrieve(
         sys.stdout.flush()
 
         # CRITICAL: Log the exact JSON response being returned to autograder
-        response_json_str = artifact_response.model_dump_json()
+        response_json_str = artifact_response.model_dump_json(exclude_none=True)
         logger.info(f"[DEBUG_ARTIFACT_RETRIEVE] RESPONSE_JSON_FULL: {response_json_str}")
 
         # Log individual field values for debugging
