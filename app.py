@@ -3357,166 +3357,145 @@ async def artifact_retrieve(
     user: Dict[str, Any] = Depends(verify_token),
 ) -> Artifact:
     """Interact with the artifact with this id (BASELINE)"""
-    # CRITICAL: Log IMMEDIATELY at function start to see what autograder is sending
-    logger.info("DEBUG_BYID: ===== FUNCTION START =====")
-    logger.info(f"DEBUG_BYID: AUTOGRADER REQUEST - artifact_type='{artifact_type.value}', id='{id}'")
-    sys.stdout.flush()  # Force flush to CloudWatch
+    logger.info(f"[DEBUG_ARTIFACT_RETRIEVE] ===== REQUEST START ===== requested_id={id}, requested_type={artifact_type.value}")
+    sys.stdout.flush()
 
     _validate_artifact_id_or_400(id)
     if not check_permission(user, "search"):
-        logger.warning("DEBUG_BYID: Permission denied for user")
+        logger.error(f"[DEBUG_ARTIFACT_RETRIEVE] PERMISSION_DENIED: user={user.get('username', 'unknown')}, id={id}")
         sys.stdout.flush()
         raise HTTPException(status_code=401, detail="You do not have permission to search.")
 
-    logger.info(f"DEBUG_BYID: Storage config - USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}")
+    logger.info(f"[DEBUG_ARTIFACT_RETRIEVE] STORAGE_CONFIG: USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}, in_memory_count={len(artifacts_db)}")
     sys.stdout.flush()
 
-    # Log all existing artifact IDs in storage
-    logger.info(f"DEBUG_BYID: EXISTING ARTIFACTS - in_memory count: {len(artifacts_db)}")
-    in_memory_ids = list(artifacts_db.keys())[:30]  # Log first 30 IDs
-    logger.info(f"DEBUG_BYID:   in_memory IDs (first 30): {in_memory_ids}")
-    if id in artifacts_db:
-        stored_type = artifacts_db[id].get("metadata", {}).get("type", "")
-        stored_name = artifacts_db[id].get("metadata", {}).get("name", "")
-        logger.info(f"DEBUG_BYID:   ✓ Requested id '{id}' FOUND in in_memory: type={stored_type}, name='{stored_name}'")
-    else:
-        logger.info(f"DEBUG_BYID:   ✗ Requested id '{id}' NOT in in_memory")
-    if len(artifacts_db) > 30:
-        logger.info(f"DEBUG_BYID:   ... and {len(artifacts_db) - 30} more in-memory artifacts")
-    sys.stdout.flush()  # Flush before checking storage layers
+    # Log ALL artifact IDs currently in memory with their types
+    all_in_memory_ids = list(artifacts_db.keys())
+    logger.info(f"[DEBUG_ARTIFACT_RETRIEVE] IN_MEMORY_ARTIFACTS: total={len(all_in_memory_ids)}")
+    for i, mem_id in enumerate(all_in_memory_ids):
+        mem_type = artifacts_db[mem_id].get("metadata", {}).get("type", "UNKNOWN")
+        mem_name = artifacts_db[mem_id].get("metadata", {}).get("name", "UNKNOWN")
+        logger.info(f"[DEBUG_ARTIFACT_RETRIEVE]   [{i}] id={mem_id} | type={mem_type} | name={mem_name}")
+    sys.stdout.flush()
 
-    # Check all storage layers: in-memory (for same-request), S3 (production), SQLite (local)
-    # Priority: in-memory (fastest, same-request) > S3 (production) > SQLite (local)
     artifact_data = None
     stored_type = None
     artifact_url = None
+    found_in = "NONE"
 
-    # Check in-memory first (same-request artifacts, Lambda cold start protection)
-    logger.info(
-        f"DEBUG_BYID: MATCHING PROCESS - Checking in-memory, artifacts_db count={len(artifacts_db)}, "
-        f"id in db={id in artifacts_db}"
-    )
-    sys.stdout.flush()
+    # Check in-memory
+    logger.info(f"[DEBUG_ARTIFACT_RETRIEVE] LOOKUP_STEP1: checking in-memory for id={id}")
     if id in artifacts_db:
+        logger.info(f"[DEBUG_ARTIFACT_RETRIEVE]   FOUND_IN_MEMORY: id={id}")
         artifact_data = artifacts_db[id]
-        # Type from in-memory is stored as string (artifact_type.value), ensure it's a string
-        stored_type = artifact_data["metadata"].get("type", "")
-        artifact_url = artifact_data.get("data", {}).get("url") or ""
-        stored_name = artifact_data["metadata"].get("name", "")
-        logger.info(f"DEBUG_BYID:   ✓ FOUND in-memory: type={stored_type} (type={type(stored_type).__name__}), name='{stored_name}', url={artifact_url}")
+        stored_type = artifact_data["metadata"].get("type", "MISSING_TYPE")
+        artifact_url = artifact_data.get("data", {}).get("url", "MISSING_URL")
+        stored_name = artifact_data["metadata"].get("name", "MISSING_NAME")
+        found_in = "IN_MEMORY"
+        logger.info(f"[DEBUG_ARTIFACT_RETRIEVE]   MEMORY_DATA: type={stored_type}, name={stored_name}, url={artifact_url}")
     else:
-        logger.info("DEBUG_BYID:   ✗ NOT FOUND in-memory")
+        logger.info(f"[DEBUG_ARTIFACT_RETRIEVE]   NOT_IN_MEMORY: id={id}")
     sys.stdout.flush()
 
-    # Check S3 if not found in-memory
+    # Check S3
     if not artifact_data and USE_S3 and s3_storage:
-        logger.info(f"DEBUG_BYID: MATCHING PROCESS - Checking S3 for id={id}")
-        sys.stdout.flush()
+        logger.info(f"[DEBUG_ARTIFACT_RETRIEVE] LOOKUP_STEP2: checking S3 for id={id}")
         try:
             s3_data = s3_storage.get_artifact_metadata(id)
             if s3_data:
-                # Type from S3 is stored as string in JSON, ensure it's a string
-                stored_type = s3_data.get("metadata", {}).get("type", "")
-                if not stored_type:
-                    logger.error(f"DEBUG_BYID:   ✗ S3 data missing type field: {s3_data.get('metadata', {})}")
-                artifact_url = s3_data.get("data", {}).get("url") or ""
-                stored_name = s3_data.get("metadata", {}).get("name", "")
-                logger.info(
-                    f"DEBUG_BYID:   ✓ FOUND in S3: type={stored_type} (type={type(stored_type).__name__}), name='{stored_name}', "
-                    f"url={artifact_url}"
-                )
-                # Convert S3 data to artifact_data format for consistent handling
+                logger.info(f"[DEBUG_ARTIFACT_RETRIEVE]   FOUND_IN_S3: id={id}")
+                logger.info(f"[DEBUG_ARTIFACT_RETRIEVE]   S3_DATA_KEYS: {list(s3_data.keys())}")
+                stored_type = s3_data.get("metadata", {}).get("type", "MISSING_S3_TYPE")
+                artifact_url = s3_data.get("data", {}).get("url", "MISSING_S3_URL")
+                stored_name = s3_data.get("metadata", {}).get("name", "MISSING_S3_NAME")
+                found_in = "S3"
+                logger.info(f"[DEBUG_ARTIFACT_RETRIEVE]   S3_DATA: type={stored_type}, name={stored_name}, url={artifact_url}")
+                logger.info(f"[DEBUG_ARTIFACT_RETRIEVE]   S3_METADATA_KEYS: {list(s3_data.get('metadata', {}).keys())}")
                 artifact_data = {
                     "metadata": s3_data.get("metadata", {}),
                     "data": s3_data.get("data", {}),
                 }
             else:
-                logger.info(f"DEBUG_BYID:   ✗ NOT FOUND in S3 for id={id}")
+                logger.info(f"[DEBUG_ARTIFACT_RETRIEVE]   NOT_IN_S3: id={id} returned None")
         except Exception as e:
-            logger.error(f"DEBUG_BYID:   S3 error: {e}")
+            logger.error(f"[DEBUG_ARTIFACT_RETRIEVE]   S3_ERROR: id={id}, exception={type(e).__name__}, msg={str(e)}", exc_info=True)
         sys.stdout.flush()
 
-    # Check SQLite if not found in in-memory or S3
+    # Check SQLite
     if not artifact_data and USE_SQLITE:
-        logger.info(f"DEBUG_BYID: MATCHING PROCESS - Checking SQLite for id={id}")
-        sys.stdout.flush()
+        logger.info(f"[DEBUG_ARTIFACT_RETRIEVE] LOOKUP_STEP3: checking SQLite for id={id}")
         try:
             with next(get_db()) as _db:  # type: ignore[misc]
                 art = db_crud.get_artifact(_db, id)
                 if art:
+                    logger.info(f"[DEBUG_ARTIFACT_RETRIEVE]   FOUND_IN_SQLITE: id={id}")
                     stored_type = art.type
                     artifact_url = art.url
                     stored_name = art.name
-                    logger.info(
-                        f"DEBUG_BYID:   ✓ FOUND in SQLite: type={stored_type}, name='{stored_name}', "
-                        f"url={artifact_url}"
-                    )
-                    # Convert SQLite data to artifact_data format
+                    found_in = "SQLITE"
+                    logger.info(f"[DEBUG_ARTIFACT_RETRIEVE]   SQLITE_DATA: type={stored_type}, name={stored_name}, url={artifact_url}")
                     artifact_data = {
                         "metadata": {"name": art.name, "id": art.id, "type": art.type},
                         "data": {"url": art.url},
                     }
                 else:
-                    logger.info(f"DEBUG_BYID:   ✗ NOT FOUND in SQLite for id={id}")
+                    logger.info(f"[DEBUG_ARTIFACT_RETRIEVE]   NOT_IN_SQLITE: id={id} query returned None")
         except Exception as e:
-            logger.error(f"DEBUG_BYID:   SQLite error: {e}")
+            logger.error(f"[DEBUG_ARTIFACT_RETRIEVE]   SQLITE_ERROR: id={id}, exception={type(e).__name__}, msg={str(e)}", exc_info=True)
         sys.stdout.flush()
 
-    # If not found in any storage layer, return 404
+    # Not found
     if not artifact_data or not stored_type:
-        logger.warning(
-            f"DEBUG_BYID: ✗ ARTIFACT NOT FOUND: id={id}, requested_type={artifact_type.value}, "
-            f"USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}, in_memory_count={len(artifacts_db)}"
-        )
+        logger.error(f"[DEBUG_ARTIFACT_RETRIEVE] NOT_FOUND: id={id}, requested_type={artifact_type.value}, found_in={found_in}, stored_type={stored_type}")
         sys.stdout.flush()
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
 
-    # Ensure metadata has a display name for response/logging consistency
+    logger.info(f"[DEBUG_ARTIFACT_RETRIEVE] FOUND_SUMMARY: id={id}, found_in={found_in}, stored_type={stored_type}, requested_type={artifact_type.value}")
+    sys.stdout.flush()
+
     resolved_name = _ensure_artifact_display_name(artifact_data)
 
-    # Validate artifact type
+    # Type validation
     if stored_type != artifact_type.value:
-        logger.warning(f"DEBUG_BYID: ✗ TYPE MISMATCH: stored={stored_type}, requested={artifact_type.value}")
+        logger.error(f"[DEBUG_ARTIFACT_RETRIEVE] TYPE_MISMATCH: id={id}, stored_type={stored_type}, requested_type={artifact_type.value}")
         sys.stdout.flush()
         raise HTTPException(status_code=400, detail="Artifact type mismatch.")
 
-    # Validate URL
+    # URL validation
     if not artifact_url:
-        logger.error(f"DEBUG_BYID: ✗ Artifact {id} has no URL in data")
+        logger.error(f"[DEBUG_ARTIFACT_RETRIEVE] MISSING_URL: id={id}, artifact_url={artifact_url}")
         sys.stdout.flush()
         raise HTTPException(status_code=500, detail="Artifact data is malformed.")
 
-    # Ensure metadata has all required fields (id, name, type) before creating ArtifactMetadata
+    # Build response
     metadata_dict = artifact_data.get("metadata", {}).copy()
-    metadata_dict["id"] = id  # Ensure id is always present
-    metadata_dict["name"] = resolved_name  # Use resolved name
-    # Convert stored_type string to ArtifactType enum
+    metadata_dict["id"] = id
+    metadata_dict["name"] = resolved_name
+
     try:
         artifact_type_enum = ArtifactType(stored_type)
-    except ValueError:
-        logger.error(f"DEBUG_BYID: ✗ Invalid artifact type: '{stored_type}'")
+        logger.info(f"[DEBUG_ARTIFACT_RETRIEVE] TYPE_ENUM_CREATED: stored_type={stored_type}, enum_value={artifact_type_enum.value}")
+    except ValueError as ve:
+        logger.error(f"[DEBUG_ARTIFACT_RETRIEVE] TYPE_ENUM_ERROR: stored_type={stored_type}, error={str(ve)}")
         sys.stdout.flush()
         raise HTTPException(status_code=500, detail=f"Invalid artifact type: {stored_type}")
-    metadata_dict["type"] = artifact_type_enum  # Use ArtifactType enum
 
-    # Generate download URL and return
+    metadata_dict["type"] = artifact_type_enum
+
     download_url = generate_download_url(artifact_type.value, id, request)
-    logger.info(
-        f"DEBUG_BYID: ✓ SUCCESS - Returning artifact: id={id}, type={stored_type}, "
-        f"name='{resolved_name}', url={artifact_url}, type_enum={artifact_type_enum.value}"
-    )
+    logger.info(f"[DEBUG_ARTIFACT_RETRIEVE] RESPONSE_BUILDING: id={id}, resolved_name={resolved_name}, download_url={download_url}")
     sys.stdout.flush()
+
     try:
         artifact_response = Artifact(
             metadata=ArtifactMetadata(**metadata_dict),
             data=ArtifactData(url=artifact_url, download_url=download_url),
         )
-        logger.info("DEBUG_BYID: ✓ Artifact response created successfully")
+        logger.info(f"[DEBUG_ARTIFACT_RETRIEVE] SUCCESS: id={id}, returned_type={artifact_type_enum.value}, returned_name={resolved_name}")
         sys.stdout.flush()
         return artifact_response
     except Exception as e:
-        logger.error(f"DEBUG_BYID: ✗ Failed to create Artifact response: {type(e).__name__}: {e}", exc_info=True)
-        logger.error(f"DEBUG_BYID:   metadata_dict={metadata_dict}")
+        logger.error(f"[DEBUG_ARTIFACT_RETRIEVE] RESPONSE_ERROR: id={id}, exception={type(e).__name__}, msg={str(e)}, metadata_dict={metadata_dict}", exc_info=True)
         sys.stdout.flush()
         raise HTTPException(status_code=500, detail=f"Failed to create artifact response: {str(e)}")
 
