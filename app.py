@@ -1143,7 +1143,7 @@ async def models_upload(
                 model_count = max(model_count, s3_count)
             except Exception:
                 pass  # Use in-memory count if S3 fails
-        artifact_id = f"model-{model_count + 1}-{int(datetime.now().timestamp())}"
+        artifact_id = f"model-{model_count + 1}-{int(datetime.now().timestamp() * 1_000_000)}"
 
         # Read file content
         content = await file.read()
@@ -1933,7 +1933,7 @@ async def models_ingest(
                 model_count = max(model_count, s3_count)
             except Exception:
                 pass  # Use in-memory count if S3 fails
-        artifact_id = f"model-{model_count + 1}-{int(datetime.now().timestamp())}"
+        artifact_id = f"model-{model_count + 1}-{int(datetime.now().timestamp() * 1_000_000)}"
         model_display_name = model_name.split("/")[-1] if "/" in model_name else model_name
 
         hf_variants = _normalize_hf_identifier(model_name)
@@ -3209,7 +3209,7 @@ async def artifact_create(
             type_count = max(type_count, s3_count)
         except Exception:
             pass  # Use in-memory count if S3 fails
-    artifact_id = f"{artifact_type.value}-{type_count + 1}-{int(datetime.now().timestamp())}"
+    artifact_id = f"{artifact_type.value}-{type_count + 1}-{int(datetime.now().timestamp() * 1_000_000)}"
 
     # Extract name from URL (handle trailing slashes and URL encoding)
     # For HuggingFace URLs, try to use repo_id from scraped data (canonical name)
