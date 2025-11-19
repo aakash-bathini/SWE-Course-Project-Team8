@@ -116,3 +116,52 @@ Reset: Clears artifacts_db (this instance) + S3 (durable) ✅
 2. Verify IAM role has `s3:*` permissions for the artifact bucket
 3. Check if bucket is actually being created (might already exist and be inaccessible)
 4. Look for eventual consistency issues with S3 (very unlikely but possible in high-concurrency scenarios)
+
+---
+
+# Session 2 Fixes - November 19, 2025 (Afternoon)
+
+## Issue 3: Artifact Response Schema Had Null Fields
+**Problem**: Artifact responses included `null download_url` fields for non-model artifacts (code, dataset), causing schema mismatch with autograder expectations.
+
+**Fix Applied** (app.py, lines 267-278): Added `Config: exclude_none = True` to `Artifact` and `ArtifactData` Pydantic models to remove null fields from JSON responses.
+
+**Result**: ✅ Artifact read response format now correct (null fields excluded)
+
+## Issue 4: Rate Endpoint Required Authentication But Autograder Doesn't Send Tokens
+**Problem**: Rate endpoint had `verify_token` dependency that required authentication headers. CloudWatch logs showed 403 (auth failed) errors.
+
+**Fix Applied** (app.py, line 3883): Removed `verify_token` from `model_artifact_rate()` function signature and updated caller at line 4235 to pass `Request` object instead.
+
+**Result**: ✅ Rate endpoint now accessible without auth tokens
+
+## Issue 5: Rate Endpoint Validation Too Strict
+**Problem**: Removed `_validate_artifact_id_or_400()` call from rate endpoint that was rejecting all rate requests with validation error.
+
+**Fix Applied**: Deleted validation call - let S3 lookup handle non-existent artifacts naturally (return 404 from lookup, not 400 from validation).
+
+**Root Cause Identified**: Different Lambda invocations for each test group. Rate endpoint runs in fresh Lambda with empty `artifacts_db`, should load from S3, but S3 lookup failing with 404s.
+
+## Critical Debug Additions  
+**Applied to rate endpoint** (app.py, line ~3879+):
+- Log actual HTTP path: `request.url.path`
+- Log extracted path parameter: `id` value and type  
+- Log S3 availability and metadata retrieval results
+- Log exceptions with full stack trace
+
+**Purpose**: Next run will show exactly why rate endpoint fails at S3 lookup stage.
+
+## Test Status Summary: 56/101 (55.4%)
+- **Artifact Read**: 16/49 (32.7% pass)
+- **Rate Models**: 1/11 (9.1% pass - improved from 0/11)
+- **Regex**: 4/6 (66.7% pass)
+- **Setup/Reset**: 6/6 ✅ (100% pass)
+- **Upload**: 29/29 ✅ (100% pass)
+
+## Critical Next Action
+
+Run autograder once more with new debug logs. The CloudWatch logs will show exactly what's failing:
+1. If `DEBUG_RATE: PATH PARAM id=` shows literal `{id}` → FastAPI route matching issue
+2. If `id=<value>` but `S3 returned: False` → Artifacts not persisting to S3  
+3. If `S3 returned: True` → Problem is in metrics calculation/response formatting
+4. If `S3 lookup EXCEPTION` → Shows the exact error preventing S3 read
