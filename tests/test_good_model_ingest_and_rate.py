@@ -23,13 +23,21 @@ def test_good_model_ingest_and_rate_passes_threshold(model_name):
         "likes": 5000,
         "pipeline_tag": "text-classification",
         "readme_text": """
-        # Good Model
-        Achieves 92% accuracy on GLUE and 90% on MNLI.
-        Evaluated on SQuAD and CoLA with strong F1 and precision/recall.
-        | Benchmark | Score |
-        | GLUE      | 0.92  |
-        | MNLI      | 0.90  |
-        """,
+            # Good Model
+            Achieves 92% accuracy on GLUE and 90% on MNLI.
+            Evaluated on SQuAD and CoLA with strong F1 and precision/recall.
+            | Benchmark | Score |
+            | GLUE      | 0.92  |
+            | MNLI      | 0.90  |
+
+            ## Usage
+
+            ```python
+            from transformers import AutoModel, AutoTokenizer
+            model = AutoModel.from_pretrained("org/good-model")
+            tokenizer = AutoTokenizer.from_pretrained("org/good-model")
+            ```
+            """,
         "github_links": ["https://github.com/example/good-model"],
         "files": [{"path": "weights.bin", "size": 1024}],
         "datasets": ["glue", "squad"],
