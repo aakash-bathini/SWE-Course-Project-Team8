@@ -255,8 +255,8 @@ async def test_reproducibility_metric_no_code():
 
     score = await metric(context)
 
-    # Should be -1.0 (not applicable) since no code found
-    assert score == -1.0
+    # Per spec: "0 (no code/doesn't run)" - should return 0.0 when no code found
+    assert score == 0.0
 
 
 @pytest.mark.asyncio
