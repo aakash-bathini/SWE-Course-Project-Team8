@@ -3493,6 +3493,15 @@ async def artifact_retrieve(
         )
         logger.info(f"[DEBUG_ARTIFACT_RETRIEVE] SUCCESS: id={id}, returned_type={artifact_type_enum.value}, returned_name={resolved_name}")
         sys.stdout.flush()
+
+        # CRITICAL: Log the exact JSON response being returned to autograder
+        response_json_str = artifact_response.model_dump_json()
+        logger.info(f"[DEBUG_ARTIFACT_RETRIEVE] RESPONSE_JSON_FULL: {response_json_str}")
+
+        # Log individual field values for debugging
+        logger.info(f"[DEBUG_ARTIFACT_RETRIEVE] RESPONSE_FIELDS: metadata.id={artifact_response.metadata.id}, metadata.name={artifact_response.metadata.name}, metadata.type={artifact_response.metadata.type}, data.url={artifact_response.data.url}, data.download_url={artifact_response.data.download_url}")
+        sys.stdout.flush()
+
         return artifact_response
     except Exception as e:
         logger.error(f"[DEBUG_ARTIFACT_RETRIEVE] RESPONSE_ERROR: id={id}, exception={type(e).__name__}, msg={str(e)}, metadata_dict={metadata_dict}", exc_info=True)
