@@ -1,7 +1,7 @@
 # src/metrics/phase2_adapter.py
 """
-Phase 2 adapter for original Phase 1 metrics
-Converts web-based model data to EvalContext format for original metrics
+Phase 2 adapter for original Phase 1 metrics.
+Converts web-based model data to EvalContext format for original metrics.
 """
 
 import logging
