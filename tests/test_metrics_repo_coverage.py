@@ -91,7 +91,9 @@ def test_phase2_adapter_runs_metrics():
     model_data = {"url": ctx.url, "hf_data": ctx.hf_data, "gh_data": ctx.gh_data}
     import asyncio
 
-    metrics, latencies = asyncio.get_event_loop().run_until_complete(calculate_phase2_metrics(model_data))
+    metrics, latencies = asyncio.get_event_loop().run_until_complete(
+        calculate_phase2_metrics(model_data)
+    )
     assert isinstance(metrics, dict)
 
 

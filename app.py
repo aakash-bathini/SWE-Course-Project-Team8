@@ -1808,9 +1808,13 @@ async def artifacts_list(
     if not results and USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             db_items = db_crud.list_by_queries(_db, [q.model_dump() for q in queries])
-            for art in db_items:
+            for db_art in db_items:
                 results.append(
-                    ArtifactMetadata(name=art.name, id=art.id, type=ArtifactType(art.type))
+                    ArtifactMetadata(
+                        name=str(db_art.name),
+                        id=db_art.id,
+                        type=ArtifactType(db_art.type),
+                    )
                 )
 
     if not results:
@@ -1843,6 +1847,35 @@ async def artifacts_list(
                                     type=ArtifactType(artifact_type_str),
                                 )
                             )
+
+    # Strict filtering to ensure exact name matching (as required by autograder/spec)
+    # Storage layers (especially S3/SQLite) might perform case-insensitive matching
+    filtered_results: List[ArtifactMetadata] = []
+    seen_ids = set()
+
+    for item in results:
+        if item.id in seen_ids:
+            continue
+
+        matches_any_query = False
+        for q in queries:
+            # Name match: specific name must match EXACTLY, "*" matches everything
+            name_match = (q.name == "*") or (item.name == q.name)
+
+            # Type match: if types specified, must be in list
+            type_match = True
+            if q.types:
+                type_match = any(item.type == t for t in q.types)
+
+            if name_match and type_match:
+                matches_any_query = True
+                break
+
+        if matches_any_query:
+            filtered_results.append(item)
+            seen_ids.add(item.id)
+
+    results = filtered_results
 
     # Simple pagination implementation per spec using an "offset" page index and fixed page size
     # Check if too many artifacts BEFORE pagination (Q&A guidance: 10-100 is reasonable)
@@ -1905,8 +1938,12 @@ async def models_ingest(
 
         model_data = {"url": hf_url, "hf_data": [hf_data], "gh_data": gh_data}
 
-        # Calculate all metrics (returns tuple of metrics and latencies)
-        metrics, _ = await calculate_phase2_metrics(model_data)
+        # Calculate all metrics (support both tuple and dict return types)
+        metrics_result = await calculate_phase2_metrics(model_data)
+        if isinstance(metrics_result, tuple):
+            metrics, _ = metrics_result
+        else:
+            metrics = metrics_result  # type: ignore[assignment]
 
         # Filter out latency metrics and sentinel negatives
         # Latency metrics have "_latency" suffix or are "net_score_latency", "size_score_latency", etc.
@@ -3795,80 +3832,66 @@ async def artifact_lineage(
 ) -> ArtifactLineageGraph:
     """Get lineage graph for a model artifact (BASELINE)"""
     _validate_artifact_id_or_400(id)
-    # Check if artifact exists and get URL
-    url = None
-    artifact_name = None
-    if USE_SQLITE:
+    # Resolve artifact and collect HF metadata
+    artifact_name: Optional[str] = None
+    model_data: Dict[str, Any] = {"url": None, "hf_data": [], "gh_data": []}
+
+    # Priority: S3 > SQLite > in-memory (rich metadata only from S3/memory)
+    if USE_S3 and s3_storage:
+        s3_meta = s3_storage.get_artifact_metadata(id)
+        if s3_meta:
+            if s3_meta.get("metadata", {}).get("type") != "model":
+                raise HTTPException(status_code=400, detail="Not a model artifact.")
+            artifact_name = s3_meta.get("metadata", {}).get("name")
+            model_data["url"] = s3_meta.get("data", {}).get("url")
+            model_data["hf_data"] = s3_meta.get("data", {}).get("hf_data", [])
+            model_data["gh_data"] = s3_meta.get("data", {}).get("gh_data", [])
+    if not artifact_name and id in artifacts_db:
+        a = artifacts_db[id]
+        if a.get("metadata", {}).get("type") != "model":
+            raise HTTPException(status_code=400, detail="Not a model artifact.")
+        artifact_name = a.get("metadata", {}).get("name")
+        model_data["url"] = a.get("data", {}).get("url")
+        model_data["hf_data"] = a.get("data", {}).get("hf_data", [])
+        model_data["gh_data"] = a.get("data", {}).get("gh_data", [])
+    if not artifact_name and USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
             if not art:
                 raise HTTPException(status_code=404, detail="Artifact does not exist.")
             if art.type != "model":
                 raise HTTPException(status_code=400, detail="Not a model artifact.")
-            url = art.url
-            artifact_name = art.name
-    else:
-        if id not in artifacts_db:
-            raise HTTPException(status_code=404, detail="Artifact does not exist.")
-        artifact_data = artifacts_db[id]
-        if artifact_data["metadata"]["type"] != "model":
-            raise HTTPException(status_code=400, detail="Not a model artifact.")
-        url = artifact_data["data"]["url"]
-        artifact_name = artifact_data["metadata"]["name"]
+            artifact_name = str(art.name)
 
-    # Build lineage using available HF metadata when possible
+    if not artifact_name:
+        raise HTTPException(status_code=404, detail="Artifact does not exist.")
+
+    # Extract parents using treescore helper
+    parents: List[str] = []
+    try:
+        if create_eval_context_from_model_data is None:
+            raise RuntimeError("Lineage extraction unavailable")
+        ctx = create_eval_context_from_model_data(model_data)  # type: ignore[arg-type]
+        from src.metrics.treescore import _extract_parent_models  # local to avoid cycles
+
+        parents = _extract_parent_models(ctx)
+    except Exception:
+        parents = []
+
+    # Build graph: self node + parent nodes and edges (parent -> child)
     nodes: List[ArtifactLineageNode] = [
         ArtifactLineageNode(artifact_id=id, name=artifact_name or id, source="config_json")
     ]
     edges: List[ArtifactLineageEdge] = []
-    try:
-        if url and isinstance(url, str) and "huggingface.co" in url.lower():
-            if scrape_hf_url is not None:
-                hf_data, _ = scrape_hf_url(url)
-            for ds in (hf_data.get("datasets") or [])[:5]:
-                # Only include datasets that exist in the local registry (per Q&A)
-                dataset_name = str(ds)
-                found_dataset_id: Optional[str] = None
-                # Priority: S3 > SQLite > in-memory
-                if USE_S3 and s3_storage:
-                    try:
-                        matches = s3_storage.list_artifacts_by_queries(
-                            [{"name": dataset_name, "types": ["dataset"]}]
-                        )
-                        if matches:
-                            found_dataset_id = str(matches[0].get("metadata", {}).get("id", ""))
-                    except Exception:
-                        found_dataset_id = None
-                if not found_dataset_id and USE_SQLITE:
-                    with next(get_db()) as _db:  # type: ignore[misc]
-                        ds_rows = db_crud.list_by_name(_db, dataset_name)
-                        for row in ds_rows:
-                            if getattr(row, "type", "") == "dataset":
-                                found_dataset_id = row.id  # type: ignore[assignment]
-                                break
-                if not found_dataset_id:
-                    for art_id, art_data in artifacts_db.items():
-                        meta = art_data.get("metadata", {})
-                        if meta.get("type") == "dataset" and meta.get("name") == dataset_name:
-                            found_dataset_id = art_id
-                            break
-                # Only draw node/edge if dataset is present in system
-                if found_dataset_id:
-                    nodes.append(
-                        ArtifactLineageNode(
-                            artifact_id=found_dataset_id, name=dataset_name, source="config_json"
-                        )
-                    )
-                    edges.append(
-                        ArtifactLineageEdge(
-                            from_node_artifact_id=found_dataset_id,
-                            to_node_artifact_id=id,
-                            relationship="fine_tuning_dataset",
-                        )
-                    )
-    except Exception:
-        # Fall back to single-node graph
-        pass
+    for p in parents[:10]:
+        parent_name = (p or "").rstrip("/").split("/")[-1] or p
+        parent_id = f"external-{parent_name}"
+        nodes.append(ArtifactLineageNode(artifact_id=parent_id, name=parent_name, source="config_json"))
+        edges.append(
+            ArtifactLineageEdge(
+                from_node_artifact_id=parent_id, to_node_artifact_id=id, relationship="base_model"
+            )
+        )
     return ArtifactLineageGraph(nodes=nodes, edges=edges)
 
 
@@ -3890,36 +3913,71 @@ async def artifact_license_check(
 ) -> bool:
     """Check license compatibility between model and GitHub repo (BASELINE)"""
     _validate_artifact_id_or_400(id)
-    # Check if artifact exists
+    # Ensure artifact exists and is a model
+    exists = False
     if USE_S3 and s3_storage:
         existing_data = s3_storage.get_artifact_metadata(id)
-        if not existing_data:
-            raise HTTPException(status_code=404, detail="Artifact does not exist.")
-        if existing_data.get("metadata", {}).get("type") != "model":
+        if existing_data:
+            exists = True
+            if existing_data.get("metadata", {}).get("type") != "model":
+                raise HTTPException(status_code=400, detail="Not a model artifact.")
+    if not exists and id in artifacts_db:
+        exists = True
+        if artifacts_db[id].get("metadata", {}).get("type") != "model":
             raise HTTPException(status_code=400, detail="Not a model artifact.")
-    elif USE_SQLITE:
+    if not exists and USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            art = db_crud.get_artifact(_db, id)
+            if art:
+                exists = True
+                if art.type != "model":
+                    raise HTTPException(status_code=400, detail="Not a model artifact.")
+    if not exists:
+        raise HTTPException(status_code=404, detail="Artifact does not exist.")
+    # Resolve model metadata and basic license string if present
+    model_license: Optional[str] = None
+    if USE_S3 and s3_storage:
+        existing_data = s3_storage.get_artifact_metadata(id)
+        if existing_data:
+            if existing_data.get("metadata", {}).get("type") != "model":
+                raise HTTPException(status_code=400, detail="Not a model artifact.")
+            hf_list = existing_data.get("data", {}).get("hf_data", [])
+            if hf_list and isinstance(hf_list[0], dict):
+                model_license = hf_list[0].get("license")
+    if model_license is None and id in artifacts_db:
+        a = artifacts_db[id]
+        if a.get("metadata", {}).get("type") != "model":
+            raise HTTPException(status_code=400, detail="Not a model artifact.")
+        hf_list = a.get("data", {}).get("hf_data", [])
+        if hf_list and isinstance(hf_list[0], dict):
+            model_license = hf_list[0].get("license")
+    if model_license is None and USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
             if not art:
                 raise HTTPException(status_code=404, detail="Artifact does not exist.")
             if art.type != "model":
                 raise HTTPException(status_code=400, detail="Not a model artifact.")
-    else:
-        if id not in artifacts_db:
-            raise HTTPException(status_code=404, detail="Artifact does not exist.")
-        artifact_data = artifacts_db[id]
-        if artifact_data["metadata"]["type"] != "model":
-            raise HTTPException(status_code=400, detail="Not a model artifact.")
 
-    # Use license metric score where 0.5+ means compatible enough
+    # Evaluate GitHub repo license using existing metric
     try:
-        model_data = {"url": request.github_url, "hf_data": [], "gh_data": []}
         if create_eval_context_from_model_data is None:
             raise RuntimeError("License evaluation unavailable")
-        ctx = create_eval_context_from_model_data(model_data)
+        gh_ctx = create_eval_context_from_model_data({"url": request.github_url, "hf_data": [], "gh_data": []})
         from src.metrics.license_check import metric as license_metric  # local import to avoid cycles
-        license_score = await license_metric(ctx)
-        return bool(license_score >= 0.5)
+        import src.config_parsers_nlp.spdx as spdx  # to classify model license when available
+
+        gh_score = await license_metric(gh_ctx)
+        model_ok = True
+        if model_license:
+            score, _ = spdx.classify_license(model_license)
+            try:
+                model_ok = float(score) >= 0.5
+            except Exception:
+                model_ok = False
+
+        # Simple compatibility rule: both sides acceptable (>=0.5)
+        return bool(gh_score >= 0.5 and model_ok)
     except HTTPException:
         raise
     except Exception:
@@ -4178,7 +4236,12 @@ async def model_artifact_rate(id: str, request: Request) -> Dict[str, Any]:
             model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
             logger.info("DEBUG_RATE: Calling calculate_phase2_metrics...")
             sys.stdout.flush()
-            metrics, metric_latencies = await calculate_phase2_metrics(model_data)
+            metrics_result = await calculate_phase2_metrics(model_data)
+            if isinstance(metrics_result, tuple):
+                metrics, metric_latencies = metrics_result
+            else:
+                metrics = metrics_result  # type: ignore[assignment]
+                metric_latencies = {}
             logger.info(f"DEBUG_RATE: calculate_phase2_metrics returned {len(metrics)} metrics: {list(metrics.keys())}")
             sys.stdout.flush()
             # Compute size_score dict explicitly with latency measurement

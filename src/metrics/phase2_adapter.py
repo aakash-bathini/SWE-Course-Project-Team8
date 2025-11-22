@@ -125,18 +125,21 @@ async def orchestrate_phase2_metrics(model_data: Dict[str, Any]) -> Dict[str, An
     """
     try:
         # Calculate all metrics
-        metrics = await calculate_phase2_metrics(model_data)
+        metrics_dict, latencies_dict = await calculate_phase2_metrics(model_data)
 
         # Calculate net score
-        net_score = calculate_phase2_net_score(metrics)
+        net_score_value, net_score_latency = calculate_phase2_net_score(metrics_dict)
 
         return {
-            "net_score": net_score,
-            "sub_scores": metrics,
+            "net_score": net_score_value,
+            "sub_scores": metrics_dict,
             "confidence_intervals": {
-                "net_score": {"lower": max(0, net_score - 0.1), "upper": min(1, net_score + 0.1)}
+                "net_score": {
+                    "lower": max(0.0, net_score_value - 0.1),
+                    "upper": min(1.0, net_score_value + 0.1),
+                }
             },
-            "latency_ms": 150,  # Mock latency for now
+            "latency_ms": int((sum(latencies_dict.values()) + net_score_latency) * 1000),
         }
     except Exception as e:
         logger.error(f"Phase 2 metric orchestration failed: {e}")
