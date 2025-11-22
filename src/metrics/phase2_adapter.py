@@ -72,9 +72,10 @@ async def calculate_phase2_metrics(
                     # For metrics that return dictionaries (like size_score), use max value
                     if score:
                         # Filter to only numeric values to avoid type comparison errors
-                        numeric_values = [
-                            float(v) for v in score.values() if isinstance(v, (int, float))
-                        ]
+                        numeric_values = []
+                        for v in score.values():
+                            if isinstance(v, (int, float)):
+                                numeric_values.append(float(v))
                         results[metric_id] = max(numeric_values) if numeric_values else 0.0
                     else:
                         results[metric_id] = 0.0
