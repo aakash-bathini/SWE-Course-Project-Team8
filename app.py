@@ -308,17 +308,29 @@ class ModelRating(BaseModel):
     name: str
     category: str
     net_score: float
+    net_score_latency: float
     ramp_up_time: float
+    ramp_up_time_latency: float
     bus_factor: float
+    bus_factor_latency: float
     performance_claims: float
+    performance_claims_latency: float
     license: float
+    license_latency: float
     dataset_and_code_score: float
+    dataset_and_code_score_latency: float
     dataset_quality: float
+    dataset_quality_latency: float
     code_quality: float
+    code_quality_latency: float
     reproducibility: float
+    reproducibility_latency: float
     reviewedness: float
+    reviewedness_latency: float
     tree_score: float
+    tree_score_latency: float
     size_score: Dict[str, float]
+    size_score_latency: float
 
 
 class ArtifactCost(BaseModel):
@@ -794,9 +806,27 @@ def generate_download_url(
     """
     Generate download URL for an artifact.
     Per Q&A/spec, only models support server-side downloads. For non-models, return None.
+    Per Q&A: "You can provide an 'Object URL' of the S3 objects."
     """
     if artifact_type != "model":
         return None
+
+    # If S3 storage is available, return S3 object URL
+    if USE_S3 and s3_storage and hasattr(s3_storage, 'bucket_name') and s3_storage.bucket_name:
+        # Generate S3 object URL
+        # The artifact files are stored at: artifacts/{artifact_id}/files/{file_key}
+        # For download, we'll use a generic key that represents the full artifact package
+        # Format: https://{bucket}.s3.{region}.amazonaws.com/{key}
+        region = os.environ.get("AWS_REGION", "us-east-1")
+        bucket_name = s3_storage.bucket_name
+        # Use a standard key for the artifact package
+        key = f"artifacts/{artifact_id}/package.zip"
+        # Generate S3 object URL
+        s3_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{key}"
+        logger.info(f"Generated S3 download URL for artifact {artifact_id}: {s3_url}")
+        return s3_url
+
+    # Fallback to API endpoint if S3 not available
     if request:
         base_url = str(request.base_url).rstrip("/")
         return f"{base_url}/models/{artifact_id}/download"
@@ -1778,9 +1808,13 @@ async def artifacts_list(
     if not results and USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             db_items = db_crud.list_by_queries(_db, [q.model_dump() for q in queries])
-            for art in db_items:
+            for db_art in db_items:
                 results.append(
-                    ArtifactMetadata(name=art.name, id=art.id, type=ArtifactType(art.type))
+                    ArtifactMetadata(
+                        name=str(db_art.name),
+                        id=db_art.id,
+                        type=ArtifactType(db_art.type),
+                    )
                 )
 
     if not results:
@@ -1813,6 +1847,35 @@ async def artifacts_list(
                                     type=ArtifactType(artifact_type_str),
                                 )
                             )
+
+    # Strict filtering to ensure exact name matching (as required by autograder/spec)
+    # Storage layers (especially S3/SQLite) might perform case-insensitive matching
+    filtered_results: List[ArtifactMetadata] = []
+    seen_ids = set()
+
+    for item in results:
+        if item.id in seen_ids:
+            continue
+
+        matches_any_query = False
+        for q in queries:
+            # Name match: specific name must match EXACTLY, "*" matches everything
+            name_match = (q.name == "*") or (item.name == q.name)
+
+            # Type match: if types specified, must be in list
+            type_match = True
+            if q.types:
+                type_match = any(item.type == t for t in q.types)
+
+            if name_match and type_match:
+                matches_any_query = True
+                break
+
+        if matches_any_query:
+            filtered_results.append(item)
+            seen_ids.add(item.id)
+
+    results = filtered_results
 
     # Simple pagination implementation per spec using an "offset" page index and fixed page size
     # Check if too many artifacts BEFORE pagination (Q&A guidance: 10-100 is reasonable)
@@ -1875,8 +1938,12 @@ async def models_ingest(
 
         model_data = {"url": hf_url, "hf_data": [hf_data], "gh_data": gh_data}
 
-        # Calculate all metrics
-        metrics = await calculate_phase2_metrics(model_data)
+        # Calculate all metrics (support both tuple and dict return types)
+        metrics_result = await calculate_phase2_metrics(model_data)
+        if isinstance(metrics_result, tuple):
+            metrics, _ = metrics_result
+        else:
+            metrics = metrics_result  # type: ignore[assignment]
 
         # Filter out latency metrics and sentinel negatives
         # Latency metrics have "_latency" suffix or are "net_score_latency", "size_score_latency", etc.
@@ -2503,7 +2570,7 @@ async def artifact_by_name(
         preview = hf_candidates[:3]
         logger.info(
             f"DEBUG_BYNAME:   in_memory artifact: id={aid}, name='{aname}' (lc='{aname_lc}'), "
-            f"type={atype}, hf_candidates={preview} (+{max(len(hf_candidates)-len(preview), 0)} more), "
+            f"type={atype}, hf_candidates={preview} (+{max(len(hf_candidates) - len(preview), 0)} more), "
             f"matches={candidate_match or metadata_match}"
         )
     if len(artifacts_db) > 30:
@@ -2649,7 +2716,7 @@ async def artifact_by_name(
                 # Case-insensitive safeguard
                 if idx < 10:  # Log first 10 items in detail
                     logger.info(
-                        f"DEBUG_BYNAME:   SQLite item #{idx+1}: id={a.id}, name='{a.name}', "
+                        f"DEBUG_BYNAME:   SQLite item #{idx + 1}: id={a.id}, name='{a.name}', "
                         f"type={a.type}, comparing with '{search_name_lc}'"
                     )
                 if str(a.name).lower() == search_name_lc:
@@ -2665,7 +2732,7 @@ async def artifact_by_name(
     logger.info(f"DEBUG_BYNAME: Total matches found: {len(matches)} for name='{search_name}'")
     if matches:
         for idx, match in enumerate(matches):
-            logger.info(f"DEBUG_BYNAME:   Match #{idx+1}: id={match.id}, name='{match.name}', type={match.type}")
+            logger.info(f"DEBUG_BYNAME:   Match #{idx + 1}: id={match.id}, name='{match.name}', type={match.type}")
     else:
         logger.warning(
             f"DEBUG_BYNAME: ✗ NO MATCHES FOUND for name='{search_name}', USE_S3={USE_S3}, "
@@ -2753,7 +2820,7 @@ async def artifact_by_regex(
         hf_candidates = _get_hf_name_candidates(adata)
         logger.info(
             f"DEBUG_REGEX:   in_memory artifact: id={aid}, name='{aname}', "
-            f"type={atype}, hf_candidates={hf_candidates[:3]} (+{max(len(hf_candidates)-3, 0)} more)"
+            f"type={atype}, hf_candidates={hf_candidates[:3]} (+{max(len(hf_candidates) - 3, 0)} more)"
         )
     if len(artifacts_db) > 20:
         logger.info(f"DEBUG_REGEX:   ... and {len(artifacts_db) - 20} more in-memory artifacts")
@@ -3765,80 +3832,66 @@ async def artifact_lineage(
 ) -> ArtifactLineageGraph:
     """Get lineage graph for a model artifact (BASELINE)"""
     _validate_artifact_id_or_400(id)
-    # Check if artifact exists and get URL
-    url = None
-    artifact_name = None
-    if USE_SQLITE:
+    # Resolve artifact and collect HF metadata
+    artifact_name: Optional[str] = None
+    model_data: Dict[str, Any] = {"url": None, "hf_data": [], "gh_data": []}
+
+    # Priority: S3 > SQLite > in-memory (rich metadata only from S3/memory)
+    if USE_S3 and s3_storage:
+        s3_meta = s3_storage.get_artifact_metadata(id)
+        if s3_meta:
+            if s3_meta.get("metadata", {}).get("type") != "model":
+                raise HTTPException(status_code=400, detail="Not a model artifact.")
+            artifact_name = s3_meta.get("metadata", {}).get("name")
+            model_data["url"] = s3_meta.get("data", {}).get("url")
+            model_data["hf_data"] = s3_meta.get("data", {}).get("hf_data", [])
+            model_data["gh_data"] = s3_meta.get("data", {}).get("gh_data", [])
+    if not artifact_name and id in artifacts_db:
+        a = artifacts_db[id]
+        if a.get("metadata", {}).get("type") != "model":
+            raise HTTPException(status_code=400, detail="Not a model artifact.")
+        artifact_name = a.get("metadata", {}).get("name")
+        model_data["url"] = a.get("data", {}).get("url")
+        model_data["hf_data"] = a.get("data", {}).get("hf_data", [])
+        model_data["gh_data"] = a.get("data", {}).get("gh_data", [])
+    if not artifact_name and USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
             if not art:
                 raise HTTPException(status_code=404, detail="Artifact does not exist.")
             if art.type != "model":
                 raise HTTPException(status_code=400, detail="Not a model artifact.")
-            url = art.url
-            artifact_name = art.name
-    else:
-        if id not in artifacts_db:
-            raise HTTPException(status_code=404, detail="Artifact does not exist.")
-        artifact_data = artifacts_db[id]
-        if artifact_data["metadata"]["type"] != "model":
-            raise HTTPException(status_code=400, detail="Not a model artifact.")
-        url = artifact_data["data"]["url"]
-        artifact_name = artifact_data["metadata"]["name"]
+            artifact_name = str(art.name)
 
-    # Build lineage using available HF metadata when possible
+    if not artifact_name:
+        raise HTTPException(status_code=404, detail="Artifact does not exist.")
+
+    # Extract parents using treescore helper
+    parents: List[str] = []
+    try:
+        if create_eval_context_from_model_data is None:
+            raise RuntimeError("Lineage extraction unavailable")
+        ctx = create_eval_context_from_model_data(model_data)  # type: ignore[arg-type]
+        from src.metrics.treescore import _extract_parent_models  # local to avoid cycles
+
+        parents = _extract_parent_models(ctx)
+    except Exception:
+        parents = []
+
+    # Build graph: self node + parent nodes and edges (parent -> child)
     nodes: List[ArtifactLineageNode] = [
         ArtifactLineageNode(artifact_id=id, name=artifact_name or id, source="config_json")
     ]
     edges: List[ArtifactLineageEdge] = []
-    try:
-        if url and isinstance(url, str) and "huggingface.co" in url.lower():
-            if scrape_hf_url is not None:
-                hf_data, _ = scrape_hf_url(url)
-            for ds in (hf_data.get("datasets") or [])[:5]:
-                # Only include datasets that exist in the local registry (per Q&A)
-                dataset_name = str(ds)
-                found_dataset_id: Optional[str] = None
-                # Priority: S3 > SQLite > in-memory
-                if USE_S3 and s3_storage:
-                    try:
-                        matches = s3_storage.list_artifacts_by_queries(
-                            [{"name": dataset_name, "types": ["dataset"]}]
-                        )
-                        if matches:
-                            found_dataset_id = str(matches[0].get("metadata", {}).get("id", ""))
-                    except Exception:
-                        found_dataset_id = None
-                if not found_dataset_id and USE_SQLITE:
-                    with next(get_db()) as _db:  # type: ignore[misc]
-                        ds_rows = db_crud.list_by_name(_db, dataset_name)
-                        for row in ds_rows:
-                            if getattr(row, "type", "") == "dataset":
-                                found_dataset_id = row.id  # type: ignore[assignment]
-                                break
-                if not found_dataset_id:
-                    for art_id, art_data in artifacts_db.items():
-                        meta = art_data.get("metadata", {})
-                        if meta.get("type") == "dataset" and meta.get("name") == dataset_name:
-                            found_dataset_id = art_id
-                            break
-                # Only draw node/edge if dataset is present in system
-                if found_dataset_id:
-                    nodes.append(
-                        ArtifactLineageNode(
-                            artifact_id=found_dataset_id, name=dataset_name, source="config_json"
-                        )
-                    )
-                    edges.append(
-                        ArtifactLineageEdge(
-                            from_node_artifact_id=found_dataset_id,
-                            to_node_artifact_id=id,
-                            relationship="fine_tuning_dataset",
-                        )
-                    )
-    except Exception:
-        # Fall back to single-node graph
-        pass
+    for p in parents[:10]:
+        parent_name = (p or "").rstrip("/").split("/")[-1] or p
+        parent_id = f"external-{parent_name}"
+        nodes.append(ArtifactLineageNode(artifact_id=parent_id, name=parent_name, source="config_json"))
+        edges.append(
+            ArtifactLineageEdge(
+                from_node_artifact_id=parent_id, to_node_artifact_id=id, relationship="base_model"
+            )
+        )
     return ArtifactLineageGraph(nodes=nodes, edges=edges)
 
 
@@ -3860,36 +3913,71 @@ async def artifact_license_check(
 ) -> bool:
     """Check license compatibility between model and GitHub repo (BASELINE)"""
     _validate_artifact_id_or_400(id)
-    # Check if artifact exists
+    # Ensure artifact exists and is a model
+    exists = False
     if USE_S3 and s3_storage:
         existing_data = s3_storage.get_artifact_metadata(id)
-        if not existing_data:
-            raise HTTPException(status_code=404, detail="Artifact does not exist.")
-        if existing_data.get("metadata", {}).get("type") != "model":
+        if existing_data:
+            exists = True
+            if existing_data.get("metadata", {}).get("type") != "model":
+                raise HTTPException(status_code=400, detail="Not a model artifact.")
+    if not exists and id in artifacts_db:
+        exists = True
+        if artifacts_db[id].get("metadata", {}).get("type") != "model":
             raise HTTPException(status_code=400, detail="Not a model artifact.")
-    elif USE_SQLITE:
+    if not exists and USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            art = db_crud.get_artifact(_db, id)
+            if art:
+                exists = True
+                if art.type != "model":
+                    raise HTTPException(status_code=400, detail="Not a model artifact.")
+    if not exists:
+        raise HTTPException(status_code=404, detail="Artifact does not exist.")
+    # Resolve model metadata and basic license string if present
+    model_license: Optional[str] = None
+    if USE_S3 and s3_storage:
+        existing_data = s3_storage.get_artifact_metadata(id)
+        if existing_data:
+            if existing_data.get("metadata", {}).get("type") != "model":
+                raise HTTPException(status_code=400, detail="Not a model artifact.")
+            hf_list = existing_data.get("data", {}).get("hf_data", [])
+            if hf_list and isinstance(hf_list[0], dict):
+                model_license = hf_list[0].get("license")
+    if model_license is None and id in artifacts_db:
+        a = artifacts_db[id]
+        if a.get("metadata", {}).get("type") != "model":
+            raise HTTPException(status_code=400, detail="Not a model artifact.")
+        hf_list = a.get("data", {}).get("hf_data", [])
+        if hf_list and isinstance(hf_list[0], dict):
+            model_license = hf_list[0].get("license")
+    if model_license is None and USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
             if not art:
                 raise HTTPException(status_code=404, detail="Artifact does not exist.")
             if art.type != "model":
                 raise HTTPException(status_code=400, detail="Not a model artifact.")
-    else:
-        if id not in artifacts_db:
-            raise HTTPException(status_code=404, detail="Artifact does not exist.")
-        artifact_data = artifacts_db[id]
-        if artifact_data["metadata"]["type"] != "model":
-            raise HTTPException(status_code=400, detail="Not a model artifact.")
 
-    # Use license metric score where 0.5+ means compatible enough
+    # Evaluate GitHub repo license using existing metric
     try:
-        model_data = {"url": request.github_url, "hf_data": [], "gh_data": []}
         if create_eval_context_from_model_data is None:
             raise RuntimeError("License evaluation unavailable")
-        ctx = create_eval_context_from_model_data(model_data)
+        gh_ctx = create_eval_context_from_model_data({"url": request.github_url, "hf_data": [], "gh_data": []})
         from src.metrics.license_check import metric as license_metric  # local import to avoid cycles
-        license_score = await license_metric(ctx)
-        return bool(license_score >= 0.5)
+        import src.config_parsers_nlp.spdx as spdx  # to classify model license when available
+
+        gh_score = await license_metric(gh_ctx)
+        model_ok = True
+        if model_license:
+            score, _ = spdx.classify_license(model_license)
+            try:
+                model_ok = float(score) >= 0.5
+            except Exception:
+                model_ok = False
+
+        # Simple compatibility rule: both sides acceptable (>=0.5)
+        return bool(gh_score >= 0.5 and model_ok)
     except HTTPException:
         raise
     except Exception:
@@ -4100,6 +4188,8 @@ async def model_artifact_rate(id: str, request: Request) -> Dict[str, Any]:
     }
 
     metrics: Dict[str, float] = {}
+    metric_latencies: Dict[str, float] = {}
+    size_latency: float = 0.0
     logger.info(f"DEBUG_RATE: Starting metrics calculation - calculate_phase2_metrics={calculate_phase2_metrics is not None}, "
                 f"create_eval_context={create_eval_context_from_model_data is not None}, size_metric={size_metric is not None}")
     sys.stdout.flush()
@@ -4146,14 +4236,22 @@ async def model_artifact_rate(id: str, request: Request) -> Dict[str, Any]:
             model_data = {"url": url, "hf_data": [hf_data] if hf_data else [], "gh_data": []}
             logger.info("DEBUG_RATE: Calling calculate_phase2_metrics...")
             sys.stdout.flush()
-            metrics = await calculate_phase2_metrics(model_data)
+            metrics_result = await calculate_phase2_metrics(model_data)
+            if isinstance(metrics_result, tuple):
+                metrics, metric_latencies = metrics_result
+            else:
+                metrics = metrics_result  # type: ignore[assignment]
+                metric_latencies = {}
             logger.info(f"DEBUG_RATE: calculate_phase2_metrics returned {len(metrics)} metrics: {list(metrics.keys())}")
             sys.stdout.flush()
-            # Compute size_score dict explicitly
+            # Compute size_score dict explicitly with latency measurement
             logger.info("DEBUG_RATE: Creating eval context and computing size_score...")
             sys.stdout.flush()
+            import time
             ctx = create_eval_context_from_model_data(model_data)
+            size_start_time = time.time()
             size_scores_result = await size_metric.metric(ctx)
+            size_latency = time.time() - size_start_time
             logger.info(f"DEBUG_RATE: size_metric returned: {type(size_scores_result)}, value={size_scores_result}")
             sys.stdout.flush()
             if isinstance(size_scores_result, dict):
@@ -4177,21 +4275,25 @@ async def model_artifact_rate(id: str, request: Request) -> Dict[str, Any]:
         if not metrics:
             logger.warning("DEBUG_RATE: Metrics dict is empty after exception, using empty dict (will default to 0.0)")
             metrics = {}
+            metric_latencies = {}
         else:
             logger.info(f"DEBUG_RATE: Partial metrics available after exception: {list(metrics.keys())}")
+        # Ensure size_latency is defined even on exception
+        if 'size_latency' not in locals():
+            size_latency = 0.0
         sys.stdout.flush()
 
     logger.info(f"DEBUG_RATE: Computing net_score - metrics available: {bool(metrics)}, "
                 f"calculate_phase2_net_score available: {calculate_phase2_net_score is not None}")
     sys.stdout.flush()
-    raw_net_score = (
-        calculate_phase2_net_score(metrics)
-        if (metrics and calculate_phase2_net_score is not None)
-        else 0.0
-    )
+    if metrics and calculate_phase2_net_score is not None:
+        net_score, net_score_latency = calculate_phase2_net_score(metrics)
+    else:
+        net_score = 0.0
+        net_score_latency = 0.0
     # Ensure net_score is in [0, 1] range (handling potential -1 sentinels or floating point issues)
-    net_score = max(0.0, min(1.0, raw_net_score))
-    logger.info(f"DEBUG_RATE: Computed net_score={net_score} (raw={raw_net_score})")
+    net_score = max(0.0, min(1.0, net_score))
+    logger.info(f"DEBUG_RATE: Computed net_score={net_score}, latency={net_score_latency}")
     sys.stdout.flush()
 
     # If rating completed, update status to READY (for both PENDING and initial READY status)
@@ -4232,13 +4334,17 @@ async def model_artifact_rate(id: str, request: Request) -> Dict[str, Any]:
             logger.warning(f"DEBUG_RATE: Error converting metric '{name}': {e}")
             return 0.0
 
+    def get_latency(name: str) -> float:
+        """Get latency for a metric, defaulting to 0.0 if not found"""
+        return float(metric_latencies.get(name, 0.0))
+
     # Validate that artifact_name is not None/empty before creating ModelRating
     if not artifact_name:
         logger.error(f"DEBUG_RATE: ✗ CRITICAL ERROR - artifact_name is empty/None for id={id}")
         sys.stdout.flush()
         raise HTTPException(status_code=500, detail="Artifact name is missing.")
 
-    logger.info("DEBUG_RATE: BUILDING_RESPONSE - Constructing ModelRating with spec-compliant fields (NO _latency fields)")
+    logger.info("DEBUG_RATE: BUILDING_RESPONSE - Constructing ModelRating with spec-compliant fields (WITH _latency fields)")
     logger.info(f"DEBUG_RATE: METRICS_READY - net_score={net_score}, category={category}, artifact_name={artifact_name}")
 
     try:
@@ -4246,17 +4352,29 @@ async def model_artifact_rate(id: str, request: Request) -> Dict[str, Any]:
             name=artifact_name,
             category=category or "unknown",
             net_score=net_score,
+            net_score_latency=net_score_latency,
             ramp_up_time=get_m("ramp_up_time"),
+            ramp_up_time_latency=get_latency("ramp_up_time"),
             bus_factor=get_m("bus_factor"),
+            bus_factor_latency=get_latency("bus_factor"),
             performance_claims=get_m("performance_claims"),
+            performance_claims_latency=get_latency("performance_claims"),
             license=get_m("license"),
+            license_latency=get_latency("license"),
             dataset_and_code_score=get_m("dataset_and_code_score"),
+            dataset_and_code_score_latency=get_latency("dataset_and_code_score"),
             dataset_quality=get_m("dataset_quality"),
+            dataset_quality_latency=get_latency("dataset_quality"),
             code_quality=get_m("code_quality"),
+            code_quality_latency=get_latency("code_quality"),
             reproducibility=get_m("reproducibility"),
+            reproducibility_latency=get_latency("reproducibility"),
             reviewedness=get_m("reviewedness"),
+            reviewedness_latency=get_latency("reviewedness"),
             tree_score=get_m("tree_score"),
+            tree_score_latency=get_latency("tree_score"),
             size_score=size_scores,
+            size_score_latency=size_latency,
         )
         logger.info(
             f"DEBUG_RATE: ✓ SUCCESS - ModelRating created successfully for artifact: id={id}, "
@@ -4371,9 +4489,10 @@ async def artifact_cost(
     mb = float(required_bytes) / (1024.0 * 1024.0)
     standalone_cost = round(mb, 1)
     total_cost = standalone_cost  # no dependency graph persisted yet
-    result = {id: ArtifactCost(total_cost=total_cost)}
     if dependency:
-        result[id].standalone_cost = standalone_cost
+        result = {id: ArtifactCost(total_cost=total_cost, standalone_cost=standalone_cost)}
+    else:
+        result = {id: ArtifactCost(total_cost=total_cost)}
     return result
 
 

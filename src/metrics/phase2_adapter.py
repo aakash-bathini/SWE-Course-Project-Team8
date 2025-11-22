@@ -1,11 +1,12 @@
 # src/metrics/phase2_adapter.py
 """
-Phase 2 adapter for original Phase 1 metrics
-Converts web-based model data to EvalContext format for original metrics
+Phase 2 adapter for original Phase 1 metrics.
+Converts web-based model data to EvalContext format for original metrics.
 """
 
 import logging
-from typing import Dict, Any, Optional, Literal
+import time
+from typing import Dict, Any, Optional, Literal, Tuple
 from src.models.model_types import EvalContext
 from src.metrics.registry import get_all_metrics
 from src.scoring.weights import calculate_net_score
@@ -40,9 +41,12 @@ def create_eval_context_from_model_data(model_data: Dict[str, Any]) -> EvalConte
         return EvalContext(url=model_data.get("url", ""))
 
 
-async def calculate_phase2_metrics(model_data: Dict[str, Any]) -> Dict[str, float]:
+async def calculate_phase2_metrics(
+    model_data: Dict[str, Any]
+) -> Tuple[Dict[str, float], Dict[str, float]]:
     """
     Calculate metrics using original Phase 1 metric functions
+    Returns tuple of (metrics_dict, latencies_dict) where latencies are in seconds
     """
     try:
         # Create EvalContext from model data
@@ -51,19 +55,27 @@ async def calculate_phase2_metrics(model_data: Dict[str, Any]) -> Dict[str, floa
         # Get all original metrics
         metrics = get_all_metrics()
 
-        # Calculate each metric
+        # Calculate each metric with latency measurement
         results: Dict[str, float] = {}
+        latencies: Dict[str, float] = {}
         for metric_id, metric_fn in metrics:
             try:
+                start_time = time.time()
                 score = await metric_fn(eval_context)
+                elapsed_time = time.time() - start_time
+
+                # Store latency in seconds
+                latencies[metric_id] = elapsed_time
+
                 # Handle different return types
                 if isinstance(score, dict):
                     # For metrics that return dictionaries (like size_score), use max value
                     if score:
                         # Filter to only numeric values to avoid type comparison errors
-                        numeric_values = [
-                            float(v) for v in score.values() if isinstance(v, (int, float))
-                        ]
+                        numeric_values = []
+                        for v in score.values():
+                            if isinstance(v, (int, float)):
+                                numeric_values.append(float(v))
                         results[metric_id] = max(numeric_values) if numeric_values else 0.0
                     else:
                         results[metric_id] = 0.0
@@ -74,18 +86,23 @@ async def calculate_phase2_metrics(model_data: Dict[str, Any]) -> Dict[str, floa
             except Exception as e:
                 logger.error(f"Failed to calculate {metric_id}: {e}")
                 results[metric_id] = 0.0
+                # Still record latency even if metric failed
+                if metric_id not in latencies:
+                    latencies[metric_id] = 0.0
 
-        return results
+        return results, latencies
     except Exception as e:
         logger.error(f"Failed to calculate Phase 2 metrics: {e}")
-        return {}
+        return {}, {}
 
 
-def calculate_phase2_net_score(metrics: Dict[str, float]) -> float:
+def calculate_phase2_net_score(metrics: Dict[str, float]) -> Tuple[float, float]:
     """
     Calculate net score using original Phase 1 weights
+    Returns tuple of (net_score, latency_in_seconds)
     """
     try:
+        start_time = time.time()
         # Handle size_score which might be a dict
         processed_metrics = {}
         for key, value in metrics.items():
@@ -95,10 +112,12 @@ def calculate_phase2_net_score(metrics: Dict[str, float]) -> float:
             else:
                 processed_metrics[key] = value
 
-        return calculate_net_score(processed_metrics)
+        net_score = calculate_net_score(processed_metrics)
+        elapsed_time = time.time() - start_time
+        return net_score, elapsed_time
     except Exception as e:
         logger.error(f"Failed to calculate net score: {e}")
-        return 0.0
+        return 0.0, 0.0
 
 
 async def orchestrate_phase2_metrics(model_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -107,18 +126,21 @@ async def orchestrate_phase2_metrics(model_data: Dict[str, Any]) -> Dict[str, An
     """
     try:
         # Calculate all metrics
-        metrics = await calculate_phase2_metrics(model_data)
+        metrics_dict, latencies_dict = await calculate_phase2_metrics(model_data)
 
         # Calculate net score
-        net_score = calculate_phase2_net_score(metrics)
+        net_score_value, net_score_latency = calculate_phase2_net_score(metrics_dict)
 
         return {
-            "net_score": net_score,
-            "sub_scores": metrics,
+            "net_score": net_score_value,
+            "sub_scores": metrics_dict,
             "confidence_intervals": {
-                "net_score": {"lower": max(0, net_score - 0.1), "upper": min(1, net_score + 0.1)}
+                "net_score": {
+                    "lower": max(0.0, net_score_value - 0.1),
+                    "upper": min(1.0, net_score_value + 0.1),
+                }
             },
-            "latency_ms": 150,  # Mock latency for now
+            "latency_ms": int((sum(latencies_dict.values()) + net_score_latency) * 1000),
         }
     except Exception as e:
         logger.error(f"Phase 2 metric orchestration failed: {e}")
