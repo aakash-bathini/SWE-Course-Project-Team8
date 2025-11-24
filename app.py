@@ -4460,87 +4460,87 @@ async def model_artifact_rate(id: str, request: Request) -> Dict[str, Any]:
         )
         sys.stdout.flush()
 
-            def get_m(name: str) -> float:
-        v = metrics.get(name)
-        try:
-            result = float(v) if isinstance(v, (int, float)) else 0.0
-            # Special handling: 'reviewedness' MUST return -1 if no GitHub repo (per spec)
-            if name == "reviewedness" and result == -1.0:
-                return -1.0
-
-            # For others, ensure non-negative (autograder might reject -1 used as sentinel)
-            return max(0.0, result)
-        except Exception as e:
-            logger.warning(f"DEBUG_RATE: Error converting metric '{name}': {e}")
-            return 0.0
-
-            def get_latency(name: str) -> float:
-        """Get latency for a metric, defaulting to 0.0 if not found"""
-        return float(metric_latencies.get(name, 0.0))
-
-            # Validate that artifact_name is not None/empty before creating ModelRating
-            if not artifact_name:
-                logger.error(f"DEBUG_RATE: ✗ CRITICAL ERROR - artifact_name is empty/None for id={id}")
-                sys.stdout.flush()
-                raise HTTPException(status_code=500, detail="Artifact name is missing.")
-
-            logger.info("DEBUG_RATE: BUILDING_RESPONSE - Constructing ModelRating with spec-compliant fields (WITH _latency fields)")
-            logger.info(f"DEBUG_RATE: METRICS_READY - net_score={net_score}, category={category}, artifact_name={artifact_name}")
-
+        def get_m(name: str) -> float:
+            v = metrics.get(name)
             try:
-                rating = ModelRating(
-                    name=artifact_name,
-                    category=category or "unknown",
-                    net_score=net_score,
-                    net_score_latency=net_score_latency,
-                    ramp_up_time=get_m("ramp_up_time"),
-                    ramp_up_time_latency=get_latency("ramp_up_time"),
-                    bus_factor=get_m("bus_factor"),
-                    bus_factor_latency=get_latency("bus_factor"),
-                    performance_claims=get_m("performance_claims"),
-                    performance_claims_latency=get_latency("performance_claims"),
-                    license=get_m("license"),
-                    license_latency=get_latency("license"),
-                    dataset_and_code_score=get_m("dataset_and_code_score"),
-                    dataset_and_code_score_latency=get_latency("dataset_and_code_score"),
-                    dataset_quality=get_m("dataset_quality"),
-                    dataset_quality_latency=get_latency("dataset_quality"),
-                    code_quality=get_m("code_quality"),
-                    code_quality_latency=get_latency("code_quality"),
-                    reproducibility=get_m("reproducibility"),
-                    reproducibility_latency=get_latency("reproducibility"),
-                    reviewedness=get_m("reviewedness"),
-                    reviewedness_latency=get_latency("reviewedness"),
-                    tree_score=get_m("tree_score"),
-                    tree_score_latency=get_latency("tree_score"),
-                    size_score=size_scores,
-                    size_score_latency=size_latency,
-                )
-                logger.info(
-                    f"DEBUG_RATE: ✓ SUCCESS - ModelRating created successfully for artifact: id={id}, "
-                    f"name='{artifact_name}', net_score={net_score}, category='{rating.category}'"
-                )
-                # Log the EXACT JSON response being sent to autograder
-                import json
-                rating_json = rating.model_dump()
-                logger.info(f"DEBUG_RATE: RESPONSE_JSON_CLEAN: {json.dumps(rating_json)}")
-                logger.info(f"DEBUG_RATE: RESPONSE_SCHEMA_CHECK - Has net_score: {'net_score' in rating_json}, Has net_score_latency: {'net_score_latency' in rating_json}")
-                logger.info(f"DEBUG_RATE: RESPONSE_FIELD_COUNT: {len(rating_json)} fields total")
-                logger.info("DEBUG_RATE: ===== FUNCTION END - Returning 200 with ModelRating (as dict) =====")
-                sys.stdout.flush()
-                
-                # Cache the rating result for concurrent requests
-                rating_cache[id] = rating_json
-                
-                return rating_json
+                result = float(v) if isinstance(v, (int, float)) else 0.0
+                # Special handling: 'reviewedness' MUST return -1 if no GitHub repo (per spec)
+                if name == "reviewedness" and result == -1.0:
+                    return -1.0
+
+                # For others, ensure non-negative (autograder might reject -1 used as sentinel)
+                return max(0.0, result)
             except Exception as e:
-                logger.error(f"DEBUG_RATE: ✗ CRITICAL ERROR - Failed to create ModelRating: {type(e).__name__}: {e}", exc_info=True)
-                logger.error(
-                    f"DEBUG_RATE:   artifact_name='{artifact_name}', category='{category}', "
-                    f"net_score={net_score}, size_scores={size_scores}"
-                )
-                sys.stdout.flush()
-                raise HTTPException(status_code=500, detail=f"Failed to generate rating: {str(e)}")
+                logger.warning(f"DEBUG_RATE: Error converting metric '{name}': {e}")
+                return 0.0
+
+        def get_latency(name: str) -> float:
+            """Get latency for a metric, defaulting to 0.0 if not found"""
+            return float(metric_latencies.get(name, 0.0))
+
+        # Validate that artifact_name is not None/empty before creating ModelRating
+        if not artifact_name:
+            logger.error(f"DEBUG_RATE: ✗ CRITICAL ERROR - artifact_name is empty/None for id={id}")
+            sys.stdout.flush()
+            raise HTTPException(status_code=500, detail="Artifact name is missing.")
+
+        logger.info("DEBUG_RATE: BUILDING_RESPONSE - Constructing ModelRating with spec-compliant fields (WITH _latency fields)")
+        logger.info(f"DEBUG_RATE: METRICS_READY - net_score={net_score}, category={category}, artifact_name={artifact_name}")
+
+        try:
+            rating = ModelRating(
+                name=artifact_name,
+                category=category or "unknown",
+                net_score=net_score,
+                net_score_latency=net_score_latency,
+                ramp_up_time=get_m("ramp_up_time"),
+                ramp_up_time_latency=get_latency("ramp_up_time"),
+                bus_factor=get_m("bus_factor"),
+                bus_factor_latency=get_latency("bus_factor"),
+                performance_claims=get_m("performance_claims"),
+                performance_claims_latency=get_latency("performance_claims"),
+                license=get_m("license"),
+                license_latency=get_latency("license"),
+                dataset_and_code_score=get_m("dataset_and_code_score"),
+                dataset_and_code_score_latency=get_latency("dataset_and_code_score"),
+                dataset_quality=get_m("dataset_quality"),
+                dataset_quality_latency=get_latency("dataset_quality"),
+                code_quality=get_m("code_quality"),
+                code_quality_latency=get_latency("code_quality"),
+                reproducibility=get_m("reproducibility"),
+                reproducibility_latency=get_latency("reproducibility"),
+                reviewedness=get_m("reviewedness"),
+                reviewedness_latency=get_latency("reviewedness"),
+                tree_score=get_m("tree_score"),
+                tree_score_latency=get_latency("tree_score"),
+                size_score=size_scores,
+                size_score_latency=size_latency,
+            )
+            logger.info(
+                f"DEBUG_RATE: ✓ SUCCESS - ModelRating created successfully for artifact: id={id}, "
+                f"name='{artifact_name}', net_score={net_score}, category='{rating.category}'"
+            )
+            # Log the EXACT JSON response being sent to autograder
+            import json
+            rating_json = rating.model_dump()
+            logger.info(f"DEBUG_RATE: RESPONSE_JSON_CLEAN: {json.dumps(rating_json)}")
+            logger.info(f"DEBUG_RATE: RESPONSE_SCHEMA_CHECK - Has net_score: {'net_score' in rating_json}, Has net_score_latency: {'net_score_latency' in rating_json}")
+            logger.info(f"DEBUG_RATE: RESPONSE_FIELD_COUNT: {len(rating_json)} fields total")
+            logger.info("DEBUG_RATE: ===== FUNCTION END - Returning 200 with ModelRating (as dict) =====")
+            sys.stdout.flush()
+            
+            # Cache the rating result for concurrent requests
+            rating_cache[id] = rating_json
+            
+            return rating_json
+        except Exception as e:
+            logger.error(f"DEBUG_RATE: ✗ CRITICAL ERROR - Failed to create ModelRating: {type(e).__name__}: {e}", exc_info=True)
+            logger.error(
+                f"DEBUG_RATE:   artifact_name='{artifact_name}', category='{category}', "
+                f"net_score={net_score}, size_scores={size_scores}"
+            )
+            sys.stdout.flush()
+            raise HTTPException(status_code=500, detail=f"Failed to generate rating: {str(e)}")
 
 
 @app.get("/package/{id}/rate")
