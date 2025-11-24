@@ -4128,8 +4128,23 @@ async def model_license_check_alias(
 @app.get("/artifact/model/{id}/rate")
 @app.get("/artifacts/model/{id}/rate")
 @app.get("/models/{id}/rate")
-async def model_artifact_rate(id: str, request: Request) -> Dict[str, Any]:
+async def model_artifact_rate(
+    id: str,
+    request: Request,
+    user: Dict[str, Any] = Depends(verify_token),
+) -> Dict[str, Any]:
     """Get ratings for this model artifact (BASELINE)"""
+    # Validate path parameter format per OpenAPI ArtifactID pattern
+    _validate_artifact_id_or_400(id)
+    # Enforce authentication/authorization consistent with other read endpoints
+    if not check_permission(user, "search"):
+        logger.warning(
+            "DEBUG_RATE: Permission denied for user %s when rating artifact %s",
+            user.get("username"),
+            id,
+        )
+        raise HTTPException(status_code=401, detail="You do not have permission to search.")
+
     # CRITICAL: Log IMMEDIATELY at function start to see what autograder is sending
     logger.info("DEBUG_RATE: ===== FUNCTION START =====")
     logger.info(f"DEBUG_RATE: FULL URL: {request.url}")
@@ -4599,7 +4614,8 @@ async def package_rate_alias(id: str, request: Request, user: Dict[str, Any] = D
             raise HTTPException(status_code=404, detail="Artifact does not exist.")
         if artifacts_db[id]["metadata"]["type"] != "model":
             raise HTTPException(status_code=400, detail="Not a model artifact.")
-    return await model_artifact_rate(id, request)  # type: ignore[arg-type]
+    # Delegate to primary rating endpoint, passing through the authenticated user context
+    return await model_artifact_rate(id, request, user)  # type: ignore[arg-type]
 
 
 @app.get("/artifact/{artifact_type}/{id}/cost", response_model=Dict[str, ArtifactCost])
