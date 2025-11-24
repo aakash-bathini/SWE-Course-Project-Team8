@@ -132,11 +132,13 @@ class TestErrorHandling:
             assert url == "/models/test_id/download"
 
     def test_generate_download_url_non_model(self):
-        """Test generate_download_url for non-model artifacts"""
+        """Test generate_download_url for non-model artifacts (should return URL per Q&A)"""
         from app import generate_download_url
 
         url = generate_download_url("dataset", "test_id", None)
-        assert url is None
+        # Per Q&A: all artifacts should have download_url
+        assert url is not None
+        assert url == "/artifacts/dataset/test_id/download"
 
 
 class TestStorageInitialization:

@@ -81,11 +81,13 @@ class TestGenerateDownloadURL:
     """Test generate_download_url function"""
 
     def test_generate_download_url_non_model(self):
-        """Test generate_download_url for non-model"""
+        """Test generate_download_url for non-model (should return URL per Q&A)"""
         from app import generate_download_url
 
         result = generate_download_url("dataset", "test_id", None)
-        assert result is None
+        # Per Q&A: all artifacts should have download_url
+        assert result is not None
+        assert result == "/artifacts/dataset/test_id/download"
 
     def test_generate_download_url_model_no_request(self):
         """Test generate_download_url for model without request"""
