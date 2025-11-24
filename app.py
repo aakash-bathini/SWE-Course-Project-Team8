@@ -3302,13 +3302,36 @@ async def artifact_create(
             pass  # Use in-memory count if S3 fails
     artifact_id = f"{artifact_type.value}-{type_count + 1}-{int(datetime.now().timestamp() * 1_000_000)}"
 
-    # Extract name from URL (handle trailing slashes and URL encoding)
-    # For HuggingFace URLs, try to use repo_id from scraped data (canonical name)
-    # Otherwise, extract from URL path
+    # Determine artifact name.
+    # Per spec + Q&A, the autograder may provide the exact expected name at upload time.
+    # Prefer a client-supplied name when present; otherwise, derive from URL as before.
     artifact_name = "unknown"
     hf_data: Optional[List[Dict[str, Any]]] = None
 
-    if artifact_data.url:
+    client_name: Optional[str] = None
+    try:
+        raw_payload = await request.json()
+        if isinstance(raw_payload, dict):
+            # Support both top-level "name" and nested "metadata": {"name": ...}
+            top_level_name = raw_payload.get("name")
+            if isinstance(top_level_name, str) and top_level_name.strip():
+                client_name = top_level_name
+            else:
+                metadata_obj = raw_payload.get("metadata")
+                if isinstance(metadata_obj, dict):
+                    metadata_name = metadata_obj.get("name")
+                    if isinstance(metadata_name, str) and metadata_name.strip():
+                        client_name = metadata_name
+    except Exception:
+        client_name = None
+
+    if isinstance(client_name, str) and client_name.strip():
+        # Use the exact client-provided name (no case-folding), trimmed of outer whitespace
+        artifact_name = client_name.strip()
+    elif artifact_data.url:
+        # Fallback: extract name from URL (handle trailing slashes and URL encoding)
+        # For HuggingFace URLs, try to use repo_id from scraped data (canonical name)
+        # Otherwise, extract from URL path
         url_clean = artifact_data.url.rstrip("/")
         if "huggingface.co" in url_clean.lower():
             # Per spec example: URL is "https://huggingface.co/google-bert/bert-base-uncased"
