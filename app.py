@@ -4050,7 +4050,7 @@ async def artifact_license_check(
     try:
         if create_eval_context_from_model_data is None:
             raise RuntimeError("License evaluation unavailable")
-        
+
         # Scrape GitHub data for license evaluation
         gh_data = None
         if scrape_github_url is not None:
@@ -4059,7 +4059,7 @@ async def artifact_license_check(
             except Exception as e:
                 logger.warning(f"Failed to scrape GitHub URL {request.github_url}: {e}")
                 gh_data = None
-        
+
         # Create eval context with GitHub data
         gh_ctx = create_eval_context_from_model_data({
             "url": request.github_url,
@@ -4189,17 +4189,17 @@ async def model_artifact_rate(id: str, request: Request) -> Dict[str, Any]:
     if status == "INVALID":
         logger.warning(f"DEBUG_RATE: Artifact {id} has INVALID status, returning 404")
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
-    
+
     # Check if rating is already cached (for concurrent requests)
     if id in rating_cache:
         logger.info(f"DEBUG_RATE: Returning cached rating for id={id}")
         return rating_cache[id]
-    
+
     # For PENDING or READY status (or no status), compute metrics on first call (lazy evaluation approach 3)
     # Use locking to prevent concurrent requests from computing metrics multiple times
     if id not in rating_locks:
         rating_locks[id] = threading.Lock()
-    
+
     # Acquire lock to prevent concurrent computation
     # All computation must happen inside the lock to prevent race conditions
     with rating_locks[id]:
@@ -4207,7 +4207,7 @@ async def model_artifact_rate(id: str, request: Request) -> Dict[str, Any]:
         if id in rating_cache:
             logger.info(f"DEBUG_RATE: Returning cached rating for id={id} (after lock)")
             return rating_cache[id]
-        
+
         # Check if artifact exists - Check all storage layers
         # Priority: in-memory (fastest, same-request) > S3 (production) > SQLite (local)
         url = None
@@ -4528,10 +4528,10 @@ async def model_artifact_rate(id: str, request: Request) -> Dict[str, Any]:
             logger.info(f"DEBUG_RATE: RESPONSE_FIELD_COUNT: {len(rating_json)} fields total")
             logger.info("DEBUG_RATE: ===== FUNCTION END - Returning 200 with ModelRating (as dict) =====")
             sys.stdout.flush()
-            
+
             # Cache the rating result for concurrent requests
             rating_cache[id] = rating_json
-            
+
             return rating_json
         except Exception as e:
             logger.error(f"DEBUG_RATE: ✗ CRITICAL ERROR - Failed to create ModelRating: {type(e).__name__}: {e}", exc_info=True)
