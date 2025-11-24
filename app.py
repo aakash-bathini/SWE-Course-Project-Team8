@@ -805,13 +805,10 @@ def generate_download_url(
 ) -> Optional[str]:
     """
     Generate download URL for an artifact.
-    Per Q&A/spec, only models support server-side downloads. For non-models, return None.
     Per Q&A: "You can provide an 'Object URL' of the S3 objects."
+    All artifacts should have download_url in the response per spec.
     """
-    if artifact_type != "model":
-        return None
-
-    # If S3 storage is available, return S3 object URL
+    # If S3 storage is available, return S3 object URL for all artifact types
     if USE_S3 and s3_storage and hasattr(s3_storage, 'bucket_name') and s3_storage.bucket_name:
         # Generate S3 object URL
         # The artifact files are stored at: artifacts/{artifact_id}/files/{file_key}
@@ -823,20 +820,28 @@ def generate_download_url(
         key = f"artifacts/{artifact_id}/package.zip"
         # Generate S3 object URL
         s3_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{key}"
-        logger.info(f"Generated S3 download URL for artifact {artifact_id}: {s3_url}")
+        logger.info(f"Generated S3 download URL for artifact {artifact_id} (type: {artifact_type}): {s3_url}")
         return s3_url
 
     # Fallback to API endpoint if S3 not available
     if request:
         base_url = str(request.base_url).rstrip("/")
-        return f"{base_url}/models/{artifact_id}/download"
+        # For models, use the model-specific download endpoint
+        if artifact_type == "model":
+            return f"{base_url}/models/{artifact_id}/download"
+        # For other types, use a generic download endpoint
+        return f"{base_url}/artifacts/{artifact_type}/{artifact_id}/download"
     # Fallback: try to get from environment variable or use relative path
     api_url = os.environ.get("API_GATEWAY_URL") or os.environ.get("REACT_APP_API_URL")
     if api_url:
         base_url = api_url.rstrip("/")
-        return f"{base_url}/models/{artifact_id}/download"
+        if artifact_type == "model":
+            return f"{base_url}/models/{artifact_id}/download"
+        return f"{base_url}/artifacts/{artifact_type}/{artifact_id}/download"
     # Last resort: relative path (client will need to resolve)
-    return f"/models/{artifact_id}/download"
+    if artifact_type == "model":
+        return f"/models/{artifact_id}/download"
+    return f"/artifacts/{artifact_type}/{artifact_id}/download"
 
 
 # Authentication functions (Milestone 3 - with call count tracking)
@@ -2595,10 +2600,11 @@ async def artifact_by_name(
         stored_name = _ensure_artifact_display_name(artifact_data)
         stored_type = artifact_data["metadata"].get("type", "")
         hf_candidates = _get_hf_name_candidates(artifact_data)
-        # Per spec, byName matches on the stored name (case-insensitive)
-        # Also match against hf_model_name variants for ingested models
-        name_matches = stored_name.lower() == search_name_lc
-        hf_name_matches = any(candidate.lower() == search_name_lc for candidate in hf_candidates)
+        # Per Q&A: "The name of the artifact must exactly match."
+        # Use case-sensitive exact matching for stored name
+        name_matches = stored_name == search_name
+        # Also check HF candidates with exact matching
+        hf_name_matches = any(candidate == search_name for candidate in hf_candidates)
         if in_memory_checked <= 10:  # Log first 10 checks in detail
             logger.info(
                 f"DEBUG_BYNAME:   In-memory check #{in_memory_checked}: id={artifact_id}, "
@@ -2665,10 +2671,11 @@ async def artifact_by_name(
                     )
                 continue
             hf_candidates = _get_hf_name_candidates(art_data)
-            # Per spec, byName matches on the stored name (case-insensitive)
-            # Also match against hf_model_name variants for ingested models
-            name_matches = stored_name.lower() == search_name_lc
-            hf_name_matches = any(candidate.lower() == search_name_lc for candidate in hf_candidates)
+            # Per Q&A: "The name of the artifact must exactly match."
+            # Use case-sensitive exact matching for stored name
+            name_matches = stored_name == search_name
+            # Also check HF candidates with exact matching
+            hf_name_matches = any(candidate == search_name for candidate in hf_candidates)
             if s3_checked <= 10:  # Log first 10 checks in detail
                 logger.info(
                     f"DEBUG_BYNAME:   S3 check #{s3_checked}: id={artifact_id}, "
@@ -2709,17 +2716,20 @@ async def artifact_by_name(
         logger.info(f"DEBUG_BYNAME: MATCHING PROCESS - Checking SQLite with search_name='{search_name}'")
         sys.stdout.flush()
         with next(get_db()) as _db:  # type: ignore[misc]
-            items = db_crud.list_by_name(_db, search_name)
-            logger.info(f"DEBUG_BYNAME:   SQLite list_by_name returned {len(items)} items")
+            # Per Q&A: "The name of the artifact must exactly match."
+            # Use case-sensitive exact matching - query directly with == instead of list_by_name
+            from src.db import models as db_models
+            items = _db.query(db_models.Artifact).filter(db_models.Artifact.name == search_name).all()
+            logger.info(f"DEBUG_BYNAME:   SQLite query returned {len(items)} items with exact name match")
             sqlite_matches = 0
             for idx, a in enumerate(items):
-                # Case-insensitive safeguard
+                # Per Q&A: exact case-sensitive matching (already filtered by query)
                 if idx < 10:  # Log first 10 items in detail
                     logger.info(
                         f"DEBUG_BYNAME:   SQLite item #{idx + 1}: id={a.id}, name='{a.name}', "
-                        f"type={a.type}, comparing with '{search_name_lc}'"
+                        f"type={a.type}, comparing with '{search_name}'"
                     )
-                if str(a.name).lower() == search_name_lc:
+                if str(a.name) == search_name:
                     sqlite_matches += 1
                     logger.info(f"DEBUG_BYNAME:   ✓ MATCH FOUND in SQLite: id={a.id}, name='{a.name}', type={a.type}")
                     if not any(m.id == a.id for m in matches):
@@ -3717,6 +3727,9 @@ async def artifact_delete(
             }
         )
         del artifacts_db[id]
+        # Also remove from artifact_status if present
+        if id in artifact_status:
+            del artifact_status[id]
 
     return {"message": "Artifact is deleted."}
 
@@ -3883,15 +3896,66 @@ async def artifact_lineage(
         ArtifactLineageNode(artifact_id=id, name=artifact_name or id, source="config_json")
     ]
     edges: List[ArtifactLineageEdge] = []
+
+    # Check if parent models exist in registry (by name matching)
     for p in parents[:10]:
         parent_name = (p or "").rstrip("/").split("/")[-1] or p
-        parent_id = f"external-{parent_name}"
-        nodes.append(ArtifactLineageNode(artifact_id=parent_id, name=parent_name, source="config_json"))
-        edges.append(
-            ArtifactLineageEdge(
-                from_node_artifact_id=parent_id, to_node_artifact_id=id, relationship="base_model"
+        parent_id = None
+
+        # Try to find parent in registry by name (exact match)
+        # Check all storage layers
+        if USE_S3 and s3_storage:
+            try:
+                all_artifacts = s3_storage.list_artifacts_by_queries([{"name": "*", "types": ["model"]}])
+                for art_data in all_artifacts:
+                    stored_name = _ensure_artifact_display_name(art_data)
+                    if stored_name == parent_name:
+                        parent_id = art_data.get("metadata", {}).get("id")
+                        break
+            except Exception:
+                pass
+
+        # Check in-memory
+        if not parent_id:
+            for aid, adata in artifacts_db.items():
+                if adata.get("metadata", {}).get("type") == "model":
+                    stored_name = _ensure_artifact_display_name(adata)
+                    if stored_name == parent_name:
+                        parent_id = aid
+                        break
+
+        # Check SQLite
+        if not parent_id and USE_SQLITE:
+            try:
+                with next(get_db()) as _db:  # type: ignore[misc]
+                    from src.db import models as db_models
+                    parent_arts = _db.query(db_models.Artifact).filter(
+                        db_models.Artifact.name == parent_name,
+                        db_models.Artifact.type == "model"
+                    ).all()
+                    if parent_arts:
+                        parent_id = parent_arts[0].id
+            except Exception:
+                pass
+
+        # If parent found in registry, use its ID; otherwise use external ID
+        if parent_id:
+            nodes.append(ArtifactLineageNode(artifact_id=parent_id, name=parent_name, source="config_json"))
+            edges.append(
+                ArtifactLineageEdge(
+                    from_node_artifact_id=parent_id, to_node_artifact_id=id, relationship="base_model"
+                )
             )
-        )
+        else:
+            # External dependency
+            parent_id = f"external-{parent_name}"
+            nodes.append(ArtifactLineageNode(artifact_id=parent_id, name=parent_name, source="config_json"))
+            edges.append(
+                ArtifactLineageEdge(
+                    from_node_artifact_id=parent_id, to_node_artifact_id=id, relationship="base_model"
+                )
+            )
+
     return ArtifactLineageGraph(nodes=nodes, edges=edges)
 
 
@@ -4488,9 +4552,83 @@ async def artifact_cost(
             required_bytes = 0
     mb = float(required_bytes) / (1024.0 * 1024.0)
     standalone_cost = round(mb, 1)
-    total_cost = standalone_cost  # no dependency graph persisted yet
+    total_cost = standalone_cost
+
+    # If dependency=true, calculate total cost including dependencies from lineage
     if dependency:
-        result = {id: ArtifactCost(total_cost=total_cost, standalone_cost=standalone_cost)}
+        dependency_costs: Dict[str, float] = {id: standalone_cost}
+        total_dependency_cost = standalone_cost
+
+        # Get lineage to find dependencies (only for models)
+        if artifact_type == ArtifactType.MODEL:
+            try:
+                lineage_graph = await artifact_lineage(id, user)
+                # For each parent node in lineage, calculate its cost
+                for edge in lineage_graph.edges:
+                    parent_id = edge.from_node_artifact_id
+                    # Skip external dependencies (they don't have costs in our registry)
+                    if parent_id.startswith("external-"):
+                        continue
+                    # Skip if already calculated
+                    if parent_id in dependency_costs:
+                        continue
+
+                    # Calculate cost for parent artifact (standalone only, no recursion)
+                    try:
+                        # Get parent artifact URL
+                        parent_url = None
+                        if USE_S3 and s3_storage:
+                            parent_data = s3_storage.get_artifact_metadata(parent_id)
+                            if parent_data:
+                                parent_url = parent_data.get("data", {}).get("url", "")
+                        elif USE_SQLITE:
+                            with next(get_db()) as _db:  # type: ignore[misc]
+                                parent_art = db_crud.get_artifact(_db, parent_id)
+                                if parent_art:
+                                    parent_url = parent_art.url
+                        elif parent_id in artifacts_db:
+                            parent_url = artifacts_db[parent_id]["data"].get("url", "")
+
+                        if parent_url:
+                            # Calculate size for parent
+                            parent_hf_data = None
+                            if isinstance(parent_url, str) and "huggingface.co" in parent_url.lower():
+                                try:
+                                    if scrape_hf_url is not None:
+                                        parent_hf_data, _ = scrape_hf_url(parent_url)
+                                except Exception:
+                                    parent_hf_data = None
+                            parent_model_data = {"url": parent_url, "hf_data": [parent_hf_data] if parent_hf_data else [], "gh_data": []}
+                            parent_required_bytes = 0
+                            if create_eval_context_from_model_data is not None and size_metric is not None:
+                                try:
+                                    parent_ctx = create_eval_context_from_model_data(parent_model_data)
+                                    await size_metric.metric(parent_ctx)
+                                    parent_required_bytes = int(getattr(parent_ctx, "size_required_bytes", 0))
+                                except Exception:
+                                    parent_required_bytes = 0
+                            parent_mb = float(parent_required_bytes) / (1024.0 * 1024.0)
+                            parent_cost = round(parent_mb, 1)
+                            dependency_costs[parent_id] = parent_cost
+                            total_dependency_cost += parent_cost
+                    except Exception as e:
+                        # If parent cost calculation fails, skip it
+                        logger.warning(f"Failed to calculate cost for dependency {parent_id}: {e}")
+                        pass
+
+                total_cost = round(total_dependency_cost, 1)
+            except Exception as e:
+                # If lineage calculation fails, just use standalone cost
+                logger.warning(f"Failed to get lineage for cost calculation: {e}")
+                pass
+
+        # Build result with all dependencies
+        result = {}
+        for aid, cost in dependency_costs.items():
+            if aid == id:
+                result[aid] = ArtifactCost(total_cost=total_cost, standalone_cost=standalone_cost)
+            else:
+                result[aid] = ArtifactCost(total_cost=cost, standalone_cost=cost)
     else:
         result = {id: ArtifactCost(total_cost=total_cost)}
     return result
