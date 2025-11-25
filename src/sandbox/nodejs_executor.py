@@ -64,9 +64,7 @@ const ZIP_FILE_PATH = process.argv[5];
 """
 
         # Write wrapper to temporary file
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".js", delete=False, encoding="utf-8"
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False, encoding="utf-8") as f:
             f.write(wrapper_code)
             temp_js_file = f.name
 
@@ -121,8 +119,7 @@ const ZIP_FILE_PATH = process.argv[5];
     except FileNotFoundError:
         logger.error(f"Node.js not found at {NODEJS_BIN}")
         raise RuntimeError(
-            f"Node.js v24 not found. Please ensure Node.js is installed and in PATH. "
-            f"Tried: {NODEJS_BIN}"
+            f"Node.js v24 not found. Please ensure Node.js is installed and in PATH. " f"Tried: {NODEJS_BIN}"
         )
 
     except Exception as e:

@@ -343,7 +343,7 @@ class TestLicenseCheck:
             json={"github_url": "https://github.com/test/repo"},
             headers=headers,
         )
-        assert resp.status_code in [200, 404, 500]
+        assert resp.status_code in [200, 404, 502]  # 502 per OpenAPI spec for external license info failures
 
 
 class TestReset:

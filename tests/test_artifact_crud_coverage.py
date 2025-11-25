@@ -118,9 +118,7 @@ class TestArtifactUpdate:
                 "metadata": {"name": "updated_name", "id": artifact_id, "type": "model"},
                 "data": {"url": "https://example.com/updated"},
             }
-            response = client.put(
-                f"/artifacts/model/{artifact_id}", json=update_data, headers=headers
-            )
+            response = client.put(f"/artifacts/model/{artifact_id}", json=update_data, headers=headers)
             assert response.status_code == 200
 
     def test_update_artifact_not_found(self):
@@ -156,9 +154,7 @@ class TestArtifactUpdate:
                 "metadata": {"name": "test", "id": artifact_id, "type": "dataset"},
                 "data": {"url": "https://example.com/test"},
             }
-            response = client.put(
-                f"/artifacts/dataset/{artifact_id}", json=update_data, headers=headers
-            )
+            response = client.put(f"/artifacts/dataset/{artifact_id}", json=update_data, headers=headers)
             assert response.status_code in [400, 404]
 
 
@@ -266,9 +262,7 @@ class TestModelsEnumerate:
             data1 = response1.json()
             if data1.get("next_cursor"):
                 # Get next page
-                response2 = client.get(
-                    f"/models?cursor={data1['next_cursor']}&limit=1", headers=headers
-                )
+                response2 = client.get(f"/models?cursor={data1['next_cursor']}&limit=1", headers=headers)
                 assert response2.status_code == 200
 
     def test_models_enumerate_with_limit(self):
@@ -317,9 +311,7 @@ class TestArtifactList:
         headers = _get_headers()
         client = TestClient(app)
 
-        response = client.post(
-            "/artifacts", json=[{"name": "*", "types": ["model"]}], headers=headers
-        )
+        response = client.post("/artifacts", json=[{"name": "*", "types": ["model"]}], headers=headers)
         assert response.status_code == 200
 
     def test_artifacts_list_with_offset(self):

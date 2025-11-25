@@ -10,9 +10,7 @@ def _auth_headers(client: TestClient) -> dict:
         "/authenticate",
         json={
             "user": {"name": "ece30861defaultadminuser", "is_admin": True},
-            "secret": {
-                "password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"
-            },
+            "secret": {"password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"},
         },
     )
     return {"X-Authorization": r.json()} if r.status_code == 200 else {}
@@ -36,9 +34,7 @@ def test_artifact_audit_path():
     headers = _auth_headers(client)
 
     # Create model
-    created = client.post(
-        "/artifact/model", json={"url": "https://example.org/model-b"}, headers=headers
-    )
+    created = client.post("/artifact/model", json={"url": "https://example.org/model-b"}, headers=headers)
     if created.status_code != 201:
         return
     mid = created.json()["metadata"]["id"]

@@ -194,12 +194,14 @@ async def metric(ctx: EvalContext) -> float:
         elif downloads > 100000 or likes > 100:  # Moderate engagement models
             score = min(1.0, score + 0.15)  # Moderate boost for models like whisper-tiny
             logging.info(
-                f"Moderate-engagement model detected (downloads: {downloads}, likes: {likes}), boosting performance score"
+                f"Moderate-engagement model detected (downloads: {downloads}, "
+                f"likes: {likes}), boosting performance score"
             )
         elif downloads < 10000 and likes < 10:  # Very low engagement models
             score = min(score, 0.15)  # Cap at 0.15 for very low engagement models
             logging.info(
-                f"Very low-engagement model detected (downloads: {downloads}, likes: {likes}), capping performance score at 0.15"
+                f"Very low-engagement model detected (downloads: {downloads}, "
+                f"likes: {likes}), capping performance score at 0.15"
             )
 
         score = max(0.0, min(1.0, score))
@@ -222,7 +224,8 @@ async def metric(ctx: EvalContext) -> float:
         base_score = (quality + specificity) / 2.0
         boosted_score = min(1.0, base_score + 0.28)  # Fine-tuned boost to get closer to 0.92
         logging.info(
-            f"High-engagement model detected in LLM path (downloads: {downloads}, likes: {likes}), boosting performance score"
+            f"High-engagement model detected in LLM path (downloads: {downloads}, "
+            f"likes: {likes}), boosting performance score"
         )
         boosted_score = max(boosted_score, 0.6)
         return float(round(boosted_score, 2))
@@ -232,7 +235,8 @@ async def metric(ctx: EvalContext) -> float:
         base_score = (quality + specificity) / 2.0
         boosted_score = min(1.0, base_score + 0.15)  # Moderate boost for models like whisper-tiny
         logging.info(
-            f"Moderate-engagement model detected in LLM path (downloads: {downloads}, likes: {likes}), boosting performance score"
+            f"Moderate-engagement model detected in LLM path (downloads: {downloads}, "
+            f"likes: {likes}), boosting performance score"
         )
         return float(round(boosted_score, 2))
 

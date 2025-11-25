@@ -229,6 +229,4 @@ class TestHelperFunctionsCoverage:
 
         for version, query in test_cases:
             result = matches_version_query(version, query)
-            assert isinstance(
-                result, bool
-            ), f"Expected bool for {version}, {query}, got {type(result)}"
+            assert isinstance(result, bool), f"Expected bool for {version}, {query}, got {type(result)}"

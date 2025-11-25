@@ -37,8 +37,7 @@ def analyze_download_velocity(
         recent_downloads = [
             d
             for d in download_history
-            if isinstance(d.get("downloaded_at"), str)
-            and datetime.fromisoformat(d["downloaded_at"]) >= window_start
+            if isinstance(d.get("downloaded_at"), str) and datetime.fromisoformat(d["downloaded_at"]) >= window_start
         ]
 
         if len(recent_downloads) == 0:
@@ -121,18 +120,13 @@ def detect_bot_farm(
                         pass
 
             if len(timestamps) >= 5:
-                time_diffs = [
-                    (timestamps[i + 1] - timestamps[i]).total_seconds()
-                    for i in range(len(timestamps) - 1)
-                ]
+                time_diffs = [(timestamps[i + 1] - timestamps[i]).total_seconds() for i in range(len(timestamps) - 1)]
                 avg_time_between = statistics.mean(time_diffs) if time_diffs else float("inf")
 
                 # Suspicious if average < 2 seconds between downloads
                 if avg_time_between < 2.0:
                     indicators_detected += 1
-                    logger.warning(
-                        f"Bot indicator: Rapid downloads ({avg_time_between:.1f}s apart)"
-                    )
+                    logger.warning(f"Bot indicator: Rapid downloads ({avg_time_between:.1f}s apart)")
 
         # Indicator 2: Repeated username pattern
         usernames = [d.get("downloader_username", "unknown") for d in download_history]
@@ -145,9 +139,7 @@ def detect_bot_farm(
             max_count = max(username_counts.values())
             if max_count > len(usernames) * 0.5:
                 indicators_detected += 1
-                logger.warning(
-                    f"Bot indicator: One user dominated {max_count}/{len(usernames)} downloads"
-                )
+                logger.warning(f"Bot indicator: One user dominated {max_count}/{len(usernames)} downloads")
 
         # Indicator 3: Too many downloads from same uploader
         # (This would require uploader info in history - skip for now)
@@ -231,9 +223,7 @@ def calculate_package_confusion_score(
         # Low search presence = higher risk (confusion attacks are less popular)
         search_presence_score = (1.0 - search_presence) * 0.2
 
-        overall_score = min(
-            bot_farm_score + diversity_score + velocity_score + search_presence_score, 1.0
-        )
+        overall_score = min(bot_farm_score + diversity_score + velocity_score + search_presence_score, 1.0)
 
         # Determine if suspicious based on score
         sensitivity_threshold = 0.7

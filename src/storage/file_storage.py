@@ -53,10 +53,7 @@ def save_uploaded_file(artifact_id: str, file_content: bytes, filename: str) -> 
         checksum = calculate_checksum(file_path)
         file_size = os.path.getsize(file_path)
 
-        logger.info(
-            f"Saved file {filename} for artifact {artifact_id}: "
-            f"{file_size} bytes, checksum {checksum}"
-        )
+        logger.info(f"Saved file {filename} for artifact {artifact_id}: " f"{file_size} bytes, checksum {checksum}")
 
         return {"path": file_path, "filename": filename, "size": file_size, "checksum": checksum}
 
@@ -179,18 +176,12 @@ def filter_files_by_aspect(artifact_dir: str, aspect: str) -> list[str]:
 
             elif aspect == "datasets":
                 # Common dataset file extensions
-                if any(
-                    filename.endswith(ext)
-                    for ext in [".csv", ".json", ".jsonl", ".txt", ".parquet", ".arrow"]
-                ):
+                if any(filename.endswith(ext) for ext in [".csv", ".json", ".jsonl", ".txt", ".parquet", ".arrow"]):
                     filtered_files.append(file_path)
 
             elif aspect == "code":
                 # Code files
-                if any(
-                    filename.endswith(ext)
-                    for ext in [".py", ".ipynb", ".sh", ".yaml", ".yml", ".toml"]
-                ):
+                if any(filename.endswith(ext) for ext in [".py", ".ipynb", ".sh", ".yaml", ".yml", ".toml"]):
                     filtered_files.append(file_path)
 
         return filtered_files

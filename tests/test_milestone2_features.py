@@ -249,9 +249,7 @@ async def test_reproducibility_metric_no_code():
     from src.models.model_types import EvalContext
 
     # Create context without code
-    context = EvalContext(
-        url="https://huggingface.co/test", hf_data=[{"readme_text": "# Model\n\nNo code here."}]
-    )
+    context = EvalContext(url="https://huggingface.co/test", hf_data=[{"readme_text": "# Model\n\nNo code here."}])
 
     score = await metric(context)
 

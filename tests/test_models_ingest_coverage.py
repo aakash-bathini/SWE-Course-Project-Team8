@@ -143,9 +143,7 @@ class TestModelsIngest:
                     return_value=mock_metrics,
                 ):
                     with patch("app.get_db", side_effect=Exception("DB error")):
-                        response = client.post(
-                            "/models/ingest?model_name=test/model", headers=headers
-                        )
+                        response = client.post("/models/ingest?model_name=test/model", headers=headers)
                         # Should fall back to in-memory count
                         assert response.status_code in [201, 500]
 
@@ -183,9 +181,7 @@ class TestModelsIngest:
                 ):
                     with patch.object(s3_storage, "count_artifacts_by_type", return_value=10):
                         with patch.dict(os.environ, {"USE_SQLITE": "0"}):
-                            response = client.post(
-                                "/models/ingest?model_name=test/model", headers=headers
-                            )
+                            response = client.post("/models/ingest?model_name=test/model", headers=headers)
                             assert response.status_code in [201, 500]
 
     def test_ingest_s3_save_failure(self):
@@ -221,9 +217,7 @@ class TestModelsIngest:
                     return_value=mock_metrics,
                 ):
                     with patch.object(s3_storage, "save_artifact_metadata", return_value=False):
-                        response = client.post(
-                            "/models/ingest?model_name=test/model", headers=headers
-                        )
+                        response = client.post("/models/ingest?model_name=test/model", headers=headers)
                         # Should still succeed but log error
                         assert response.status_code in [201, 500]
 
@@ -265,9 +259,7 @@ class TestModelsIngest:
                         "get_artifact_directory",
                         side_effect=Exception("Storage error"),
                     ):
-                        response = client.post(
-                            "/models/ingest?model_name=test/model", headers=headers
-                        )
+                        response = client.post("/models/ingest?model_name=test/model", headers=headers)
                         # Should still succeed but log warning
                         assert response.status_code in [201, 500]
 
@@ -375,9 +367,7 @@ class TestModelsIngest:
                     return_value=mock_metrics,
                 ):
                     with patch.dict(os.environ, {"USE_SQLITE": "1"}):
-                        response = client.post(
-                            "/models/ingest?model_name=test/model", headers=headers
-                        )
+                        response = client.post("/models/ingest?model_name=test/model", headers=headers)
                         # Should succeed and log audit
                         assert response.status_code in [201, 500]
 

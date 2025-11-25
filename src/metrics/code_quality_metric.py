@@ -8,9 +8,7 @@ from src.models.model_types import EvalContext
 async def run_cmd(cmd: str, cwd: str = ".") -> tuple[str, str, int]:
     """Run a shell command and capture output safely."""
     try:
-        result = subprocess.run(
-            cmd, cwd=cwd, shell=True, capture_output=True, text=True, check=False
-        )
+        result = subprocess.run(cmd, cwd=cwd, shell=True, capture_output=True, text=True, check=False)
         return result.stdout, result.stderr, result.returncode
     except Exception as e:
         logging.error(f"Command failed {cmd}: {e}")
@@ -20,9 +18,7 @@ async def run_cmd(cmd: str, cwd: str = ".") -> tuple[str, str, int]:
 async def compute_linting_score(repo_path: str) -> float:
     """Run flake8 and isort, compute normalized linting score [0,1]."""
     py_files = list(Path(repo_path).rglob("*.py"))
-    loc = (
-        sum(sum(1 for _ in open(f, "r", encoding="utf-8", errors="ignore")) for f in py_files) or 1
-    )
+    loc = sum(sum(1 for _ in open(f, "r", encoding="utf-8", errors="ignore")) for f in py_files) or 1
 
     # Run flake8
     flake_out, flake_err, _ = await run_cmd("flake8 .", cwd=repo_path)
@@ -43,9 +39,7 @@ async def compute_typing_score(repo_path: str) -> float:
     errors = mypy_out.count(": error:") + mypy_err.count(": error:")
 
     py_files = list(Path(repo_path).rglob("*.py"))
-    loc = (
-        sum(sum(1 for _ in open(f, "r", encoding="utf-8", errors="ignore")) for f in py_files) or 1
-    )
+    loc = sum(sum(1 for _ in open(f, "r", encoding="utf-8", errors="ignore")) for f in py_files) or 1
 
     score = max(0.0, 1.0 - (errors / loc))
     return round(score, 3)
@@ -156,9 +150,7 @@ async def metric(ctx: EvalContext) -> float:
     )
 
     # Weighted combination
-    code_score = (
-        0.3 * linting_score + 0.25 * typing_score + 0.25 * tests_score + 0.2 * maintainability_score
-    )
+    code_score = 0.3 * linting_score + 0.25 * typing_score + 0.25 * tests_score + 0.2 * maintainability_score
 
     code_score = max(0.0, min(1.0, code_score))
 

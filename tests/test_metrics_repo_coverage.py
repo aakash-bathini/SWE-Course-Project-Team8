@@ -48,9 +48,7 @@ def _sample_ctx() -> EvalContext:
         "contributors": {"alice": 50, "bob": 40, "carl": 10},
         "maintainability_score": 0.4,
     }
-    return EvalContext(
-        url="https://huggingface.co/org/model", category="MODEL", hf_data=[hf], gh_data=[gh]
-    )
+    return EvalContext(url="https://huggingface.co/org/model", category="MODEL", hf_data=[hf], gh_data=[gh])
 
 
 @pytest.mark.asyncio
@@ -91,9 +89,7 @@ def test_phase2_adapter_runs_metrics():
     model_data = {"url": ctx.url, "hf_data": ctx.hf_data, "gh_data": ctx.gh_data}
     import asyncio
 
-    metrics, latencies = asyncio.get_event_loop().run_until_complete(
-        calculate_phase2_metrics(model_data)
-    )
+    metrics, latencies = asyncio.get_event_loop().run_until_complete(calculate_phase2_metrics(model_data))
     assert isinstance(metrics, dict)
 
 

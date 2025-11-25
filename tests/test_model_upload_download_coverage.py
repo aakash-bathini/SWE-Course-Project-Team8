@@ -154,9 +154,7 @@ class TestModelUpload:
         files = {"file": ("test.zip", zip_content, "application/zip")}
 
         # Mock file_storage to raise exception
-        with patch.object(
-            file_storage, "save_uploaded_file", side_effect=Exception("Storage error")
-        ):
+        with patch.object(file_storage, "save_uploaded_file", side_effect=Exception("Storage error")):
             response = client.post("/models/upload", files=files, headers=headers)
             assert response.status_code == 500
 
@@ -261,9 +259,7 @@ class TestModelDownload:
             # Mock filter_files_by_aspect to return empty list
             with patch.object(file_storage, "filter_files_by_aspect", return_value=[]):
                 with patch("os.path.exists", return_value=True):
-                    response = client.get(
-                        f"/models/{test_id}/download?aspect=weights", headers=headers
-                    )
+                    response = client.get(f"/models/{test_id}/download?aspect=weights", headers=headers)
                     assert response.status_code == 404
         finally:
             if test_id in artifacts_db:
@@ -317,9 +313,7 @@ class TestModelDownload:
 
         try:
             # Mock file_storage to raise exception
-            with patch.object(
-                file_storage, "get_artifact_directory", side_effect=Exception("Storage error")
-            ):
+            with patch.object(file_storage, "get_artifact_directory", side_effect=Exception("Storage error")):
                 response = client.get(f"/models/{test_id}/download", headers=headers)
                 assert response.status_code == 500
         finally:
@@ -351,13 +345,9 @@ class TestModelDownload:
             try:
                 # Mock file operations to succeed
                 with patch("os.path.exists", return_value=True):
-                    with patch.object(
-                        file_storage, "filter_files_by_aspect", return_value=["file1.bin"]
-                    ):
+                    with patch.object(file_storage, "filter_files_by_aspect", return_value=["file1.bin"]):
                         with patch.object(file_storage, "create_zip_from_files", return_value=None):
-                            with patch.object(
-                                file_storage, "calculate_checksum", return_value="abc123"
-                            ):
+                            with patch.object(file_storage, "calculate_checksum", return_value="abc123"):
                                 with patch("tempfile.NamedTemporaryFile") as mock_temp:
                                     mock_file = MagicMock()
                                     mock_file.name = tmp_path

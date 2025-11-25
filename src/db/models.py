@@ -71,9 +71,7 @@ class SensitiveModel(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     js_program = relationship("JSProgram", back_populates="sensitive_models")
-    download_history = relationship(
-        "DownloadHistory", back_populates="sensitive_model", cascade="all, delete-orphan"
-    )
+    download_history = relationship("DownloadHistory", back_populates="sensitive_model", cascade="all, delete-orphan")
 
 
 class DownloadHistory(Base):
@@ -82,9 +80,7 @@ class DownloadHistory(Base):
     __tablename__ = "download_history"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    sensitive_model_id = Column(
-        String, ForeignKey("sensitive_models.id"), nullable=False, index=True
-    )
+    sensitive_model_id = Column(String, ForeignKey("sensitive_models.id"), nullable=False, index=True)
     downloader_username = Column(String, ForeignKey("users.username"), nullable=False)
     downloaded_at = Column(DateTime, default=datetime.utcnow)
     js_exit_code = Column(Integer, nullable=True)

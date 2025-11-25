@@ -30,9 +30,7 @@ def test_lambda_handler_safe_error():
 
 
 def test_orchestrator_wrapper():
-    ctx = EvalContext(
-        url="https://huggingface.co/org/model", category="MODEL", hf_data=[{}], gh_data=[{}]
-    )
+    ctx = EvalContext(url="https://huggingface.co/org/model", category="MODEL", hf_data=[{}], gh_data=[{}])
     model_data = {"url": ctx.url, "hf_data": ctx.hf_data, "gh_data": ctx.gh_data}
     result = asyncio.get_event_loop().run_until_complete(orchestrate(model_data))
     assert isinstance(result, dict)

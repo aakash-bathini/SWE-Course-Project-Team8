@@ -13,9 +13,7 @@ def _auth_headers() -> dict:
         "/authenticate",
         json={
             "user": {"name": "ece30861defaultadminuser", "is_admin": True},
-            "secret": {
-                "password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"
-            },
+            "secret": {"password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"},
         },
     )
     if resp.status_code == 200:
@@ -31,9 +29,7 @@ def test_models_alias_endpoints_smoke():
     client = TestClient(app)
 
     # Create a model artifact to reference
-    create = client.post(
-        "/artifact/model", json={"url": "https://huggingface.co/test-model"}, headers=headers
-    )
+    create = client.post("/artifact/model", json={"url": "https://huggingface.co/test-model"}, headers=headers)
     if create.status_code != 201:
         # If creation failed for any reason, skip alias checks gracefully
         return

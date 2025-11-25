@@ -218,9 +218,7 @@ def scrape_hf_url(url: str) -> Tuple[Dict[str, Any], str]:
     size = sum(int(f["size"]) for f in files if f["size"] is not None)
 
     tags = getattr(info, "tags", []) or []
-    datasets = [
-        t.split("dataset:", 1)[-1] for t in tags if isinstance(t, str) and t.startswith("dataset:")
-    ]
+    datasets = [t.split("dataset:", 1)[-1] for t in tags if isinstance(t, str) and t.startswith("dataset:")]
 
     # README
     readme_text: str | None = None

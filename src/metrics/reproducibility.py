@@ -87,9 +87,7 @@ def _test_code_execution(code: str) -> str:
     """
     try:
         # Create a temporary file with the code
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".py", delete=False, encoding="utf-8"
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
             temp_file = f.name
             # Add basic error handling and imports
             test_code = f"""
@@ -111,9 +109,7 @@ except Exception as e:
 
         try:
             # Run with timeout to prevent hanging
-            result = subprocess.run(
-                ["python", temp_file], capture_output=True, timeout=5, text=True
-            )
+            result = subprocess.run(["python", temp_file], capture_output=True, timeout=5, text=True)
 
             if result.returncode == 0:
                 return "perfect"

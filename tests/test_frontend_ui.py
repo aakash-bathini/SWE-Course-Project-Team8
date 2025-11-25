@@ -66,14 +66,10 @@ class TestFrontendAccessibility:
 
             # Check for ARIA attributes
             username_field = driver.find_element(By.ID, "username")
-            assert username_field.get_attribute(
-                "aria-describedby"
-            ), "Username field missing aria-describedby"
+            assert username_field.get_attribute("aria-describedby"), "Username field missing aria-describedby"
 
             password_field = driver.find_element(By.ID, "password")
-            assert (
-                password_field.get_attribute("type") == "password"
-            ), "Password field not properly configured"
+            assert password_field.get_attribute("type") == "password", "Password field not properly configured"
 
             print("✅ Login page has ARIA labels")
         except Exception as e:
@@ -97,9 +93,7 @@ class TestFrontendAccessibility:
 
             password_field = driver.find_element(By.ID, "password")
             autocomplete = password_field.get_attribute("autocomplete")
-            assert (
-                autocomplete == "current-password"
-            ), f"Password field autocomplete: {autocomplete}"
+            assert autocomplete == "current-password", f"Password field autocomplete: {autocomplete}"
 
             print("✅ Form fields have autocomplete attributes")
         except Exception as e:
@@ -182,10 +176,7 @@ class TestFrontendIntegration:
             # Basic sanity check that page can be loaded
 
             # Allow some errors (CORS, network) but check page loaded
-            page_loaded = (
-                "health" in driver.page_source.lower()
-                or len(driver.find_elements(By.TAG_NAME, "body")) > 0
-            )
+            page_loaded = "health" in driver.page_source.lower() or len(driver.find_elements(By.TAG_NAME, "body")) > 0
             assert page_loaded, "Page did not load"
 
             print("✅ Frontend can reach backend")

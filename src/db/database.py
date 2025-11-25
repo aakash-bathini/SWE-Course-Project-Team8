@@ -37,9 +37,7 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite:///tmp"):
 # For SQLite, check_same_thread must be False when used with FastAPI
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    connect_args=(
-        {"check_same_thread": False} if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else {}
-    ),
+    connect_args=({"check_same_thread": False} if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else {}),
     pool_pre_ping=True,  # Verify connections before using them
 )
 

@@ -75,9 +75,7 @@ class TestLambdaHandler:
         from app import handler, _mangum_handler
 
         if _mangum_handler:
-            with patch.object(
-                _mangum_handler, "__call__", return_value={"statusCode": "200", "body": "test"}
-            ):
+            with patch.object(_mangum_handler, "__call__", return_value={"statusCode": "200", "body": "test"}):
                 response = handler({}, None)
                 assert isinstance(response["statusCode"], int)
 
@@ -188,9 +186,7 @@ class TestArtifactCreateStoragePaths:
         artifact_data = {"url": "https://huggingface.co/test/model"}
 
         if s3_storage:
-            with patch.object(
-                s3_storage, "count_artifacts_by_type", side_effect=Exception("S3 error")
-            ):
+            with patch.object(s3_storage, "count_artifacts_by_type", side_effect=Exception("S3 error")):
                 with patch.dict(os.environ, {"USE_SQLITE": "0"}):
                     response = client.post("/artifact/model", json=artifact_data, headers=headers)
                     # Should fall back to in-memory count
@@ -251,9 +247,7 @@ class TestArtifactUpdateStoragePaths:
             }
 
             with patch.dict(os.environ, {"USE_SQLITE": "1"}):
-                response = client.put(
-                    f"/artifacts/model/{test_id}", json=update_data, headers=headers
-                )
+                response = client.put(f"/artifacts/model/{test_id}", json=update_data, headers=headers)
                 assert response.status_code in [200, 404, 500]
         finally:
             if test_id in artifacts_db:
@@ -330,9 +324,7 @@ class TestArtifactDeleteStoragePaths:
                         with patch.object(db_crud, "get_artifact", return_value=mock_artifact):
                             with patch.object(db_crud, "log_audit", return_value=None):
                                 with patch.object(db_crud, "delete_artifact", return_value=None):
-                                    response = client.delete(
-                                        f"/artifacts/model/{test_id}", headers=headers
-                                    )
+                                    response = client.delete(f"/artifacts/model/{test_id}", headers=headers)
                                     assert response.status_code in [200, 404, 500]
         finally:
             if test_id in artifacts_db:

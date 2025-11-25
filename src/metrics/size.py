@@ -46,20 +46,25 @@ RANGE = rf"{NUM}\s*(?:-|–|—|to|~)\s*{NUM}"  # capture both ends
 # 1) Memory requirements (explicit verbs, labels, ranges, bare forms, GPU lines)
 MEM_REQ_PATTERNS = [
     # with verbs + units + mem words
-    rf"(?:requires|required|need(?:s)?|minimum|min|at\s*least|>=|≥|≧|no\s*less\s*than|recommended|recommendation)\s*:?\s*(?:~\s*)?(?:{RANGE}|{NUM})\s*{UNIT}\s*(?:of\s*)?{MEM_WORD}\b",
+    rf"(?:requires|required|need(?:s)?|minimum|min|at\s*least|>=|≥|≧|"
+    rf"no\s*less\s*than|recommended|recommendation)\s*:?\s*(?:~\s*)?"
+    rf"(?:{RANGE}|{NUM})\s*{UNIT}\s*(?:of\s*)?{MEM_WORD}\b",
     # label forms: "VRAM: 12GB", "RAM - 16 GB"
     rf"{MEM_WORD}\s*[:=-]\s*(?:~\s*)?(?:{RANGE}|{NUM})\s*{UNIT}\b",
     # bare numeric + unit + (optional 'of') + mem word
     rf"(?:{RANGE}|{NUM})\s*{UNIT}\s*(?:\+?\s+)?(?:of\s*)?{MEM_WORD}\b",
     # GPU line with memory: "RTX 4090 24GB", "V100 16 GB"
-    rf"(?:nvidia|rtx|gtx|tesla|quadro|titan|a\d{{2,4}}|t4|p100|v100)[^,\n;()]*?(?:{RANGE}|{NUM})\s*{UNIT}\s*(?:{MEM_WORD})?\b",
+    rf"(?:nvidia|rtx|gtx|tesla|quadro|titan|a\d{{2,4}}|t4|p100|v100)"
+    rf"[^,\n;()]*?(?:{RANGE}|{NUM})\s*{UNIT}\s*(?:{MEM_WORD})?\b",
     # multi-GPU notation: "2x 8GB VRAM"
     rf"(\d+)\s*[xX×]\s*(?:{NUM})\s*{UNIT}\s*(?:{MEM_WORD})\b",
 ]
 
 # 2) Disk/storage requirements (same variability)
 DISK_REQ_PATTERNS = [
-    rf"(?:requires|required|need(?:s)?|minimum|min|at\s*least|>=|≥|≧|no\s*less\s*than|recommended|recommendation)\s*:?\s*(?:~\s*)?(?:{RANGE}|{NUM})\s*{UNIT}\s*(?:of\s*)?{DISK_WORD}\b",
+    rf"(?:requires|required|need(?:s)?|minimum|min|at\s*least|>=|≥|≧|"
+    rf"no\s*less\s*than|recommended|recommendation)\s*:?\s*(?:~\s*)?"
+    rf"(?:{RANGE}|{NUM})\s*{UNIT}\s*(?:of\s*)?{DISK_WORD}\b",
     rf"{DISK_WORD}\s*[:=-]\s*(?:~\s*)?(?:{RANGE}|{NUM})\s*{UNIT}\b",
     rf"(?:{RANGE}|{NUM})\s*{UNIT}\s*(?:\+?\s*)?(?:of\s*)?{DISK_WORD}\b",
     # verbs around download/size wording
@@ -204,9 +209,7 @@ def _extract_disk_requirements(*texts: Optional[str]) -> int:
     return max_req
 
 
-def _score_required_vs_budget(
-    required_bytes: int, budgets: Dict[str, int], util_thresh: float
-) -> Dict[str, float]:
+def _score_required_vs_budget(required_bytes: int, budgets: Dict[str, int], util_thresh: float) -> Dict[str, float]:
     scores = {}
     for device, budget in budgets.items():
         cap = util_thresh * budget

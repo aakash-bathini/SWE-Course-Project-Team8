@@ -209,9 +209,7 @@ class TestEndpointEdgeCases:
         client = TestClient(app)
 
         try:
-            response = client.post(
-                "/artifact/byRegEx", json={"regex": "[invalid(regex"}, headers=headers
-            )
+            response = client.post("/artifact/byRegEx", json={"regex": "[invalid(regex"}, headers=headers)
             assert response.status_code in [400, 200, 404]
         except Exception:
             pass  # Endpoint may not exist or behave differently
@@ -233,9 +231,7 @@ class TestEndpointEdgeCases:
 
         long_pattern = "a" * 501  # Exceeds MAX_REGEX_LENGTH
         try:
-            response = client.post(
-                "/artifact/byRegEx", json={"regex": long_pattern}, headers=headers
-            )
+            response = client.post("/artifact/byRegEx", json={"regex": long_pattern}, headers=headers)
             assert response.status_code in [400, 200, 404]
         except Exception:
             pass  # Endpoint may not exist or behave differently
@@ -281,9 +277,7 @@ class TestEndpointEdgeCases:
             artifact_id = create_response.json()["metadata"]["id"]
 
             # Get cost with dependencies
-            response = client.get(
-                f"/artifact/model/{artifact_id}/cost?dependency=true", headers=headers
-            )
+            response = client.get(f"/artifact/model/{artifact_id}/cost?dependency=true", headers=headers)
             assert response.status_code in [
                 200,
                 404,
@@ -439,9 +433,7 @@ class TestHelperFunctions:
         """Test UserRegistrationRequest model"""
         from app import UserRegistrationRequest
 
-        req = UserRegistrationRequest(
-            username="newuser", password="password123", permissions=["upload"]
-        )
+        req = UserRegistrationRequest(username="newuser", password="password123", permissions=["upload"])
         assert req.username == "newuser"
         assert req.permissions == ["upload"]
 
@@ -601,7 +593,7 @@ class TestMetricsIntegration:
                 ]
                 for field in required_fields:
                     assert field in data, f"Missing required field: {field}"
-                
+
                 # Check size_score is an object with required keys
                 assert isinstance(data.get("size_score"), dict), "size_score must be a dict"
                 size_score_keys = ["raspberry_pi", "jetson_nano", "desktop_pc", "aws_server"]
