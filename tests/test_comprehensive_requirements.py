@@ -442,9 +442,7 @@ class TestTokenExpiration:
         # Make another call - should fail (1000 >= 1000)
         resp2 = client.get("/models", headers=headers)
         # Should fail with 403
-        assert (
-            resp2.status_code == 403
-        ), f"Second call should fail with 403, got {resp2.status_code}"
+        assert resp2.status_code == 403, f"Second call should fail with 403, got {resp2.status_code}"
 
         # Reset for other tests
         token_call_counts[token_hash] = 0
@@ -689,14 +687,10 @@ class TestDefaultUser:
             "/authenticate",
             json={
                 "user": {"name": "ece30861defaultadminuser", "is_admin": True},
-                "secret": {
-                    "password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"
-                },
+                "secret": {"password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"},
             },
         )
-        assert (
-            resp.status_code == 200
-        ), f"Authentication failed with status {resp.status_code}: {resp.text}"
+        assert resp.status_code == 200, f"Authentication failed with status {resp.status_code}: {resp.text}"
         token = resp.json()
         assert token.startswith("bearer ") or len(token) > 0
 
@@ -714,14 +708,10 @@ class TestDefaultUser:
             "/authenticate",
             json={
                 "user": {"name": "ece30861defaultadminuser", "is_admin": True},
-                "secret": {
-                    "password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"
-                },
+                "secret": {"password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"},
             },
         )
-        assert (
-            resp.status_code == 200
-        ), f"Authentication failed after reset with status {resp.status_code}: {resp.text}"
+        assert resp.status_code == 200, f"Authentication failed after reset with status {resp.status_code}: {resp.text}"
 
 
 # ============================================================================

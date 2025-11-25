@@ -20,9 +20,7 @@ def test_byregex_invalid_pattern_returns_400():
             "/authenticate",
             json={
                 "user": {"name": "ece30861defaultadminuser", "is_admin": True},
-                "secret": {
-                    "password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"
-                },
+                "secret": {"password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"},
             },
         )
         if auth.status_code == 200:
@@ -62,9 +60,7 @@ def test_models_license_check_alias_success():
         "/authenticate",
         json={
             "user": {"name": "ece30861defaultadminuser", "is_admin": True},
-            "secret": {
-                "password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"
-            },
+            "secret": {"password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"},
         },
     )
     if auth.status_code != 200:
@@ -72,9 +68,7 @@ def test_models_license_check_alias_success():
     headers = {"X-Authorization": auth.json()}
 
     # Create a model
-    created = client.post(
-        "/artifact/model", json={"url": "https://huggingface.co/test-model"}, headers=headers
-    )
+    created = client.post("/artifact/model", json={"url": "https://huggingface.co/test-model"}, headers=headers)
     if created.status_code != 201:
         return
     mid = created.json()["metadata"]["id"]
@@ -85,4 +79,4 @@ def test_models_license_check_alias_success():
         json={"github_url": "https://github.com/test/repo"},
         headers=headers,
     )
-    assert r.status_code in [200, 500]  # permissive: metric may fail in CI without network
+    assert r.status_code in [200, 502]  # permissive: metric may fail in CI without network (502 per OpenAPI spec)

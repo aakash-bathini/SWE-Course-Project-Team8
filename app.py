@@ -3811,6 +3811,22 @@ async def artifact_delete(
         # Also remove from in-memory cache if present
         if id in artifacts_db:
             del artifacts_db[id]
+        # Also delete from SQLite if present (for consistency)
+        if USE_SQLITE:
+            try:
+                with next(get_db()) as _db:  # type: ignore[misc]
+                    db_art = db_crud.get_artifact(_db, id)
+                    if db_art:
+                        db_crud.log_audit(
+                            _db,
+                            artifact=db_art,
+                            user_name=user["username"],
+                            user_is_admin=user.get("is_admin", False),
+                            action="DELETE",
+                        )
+                        db_crud.delete_artifact(_db, id)
+            except Exception:
+                pass  # SQLite deletion is best-effort
         # Clear rating cache and locks
         if id in rating_cache:
             del rating_cache[id]
@@ -3838,6 +3854,15 @@ async def artifact_delete(
             # Also remove from in-memory cache if present
             if id in artifacts_db:
                 del artifacts_db[id]
+            # Also delete from S3 if present (for consistency)
+            if USE_S3 and s3_storage:
+                try:
+                    s3_existing = s3_storage.get_artifact_metadata(id)
+                    if s3_existing:
+                        s3_storage.delete_artifact_metadata(id)
+                        s3_storage.delete_artifact_files(id)
+                except Exception:
+                    pass  # S3 deletion is best-effort
             # Clear rating cache and locks
             if id in rating_cache:
                 del rating_cache[id]
@@ -4050,18 +4075,38 @@ async def artifact_lineage(
     edges: List[ArtifactLineageEdge] = []
 
     # Check if parent models exist in registry (by name matching)
+    # Try both exact match and case-insensitive match for robustness
     for p in parents[:10]:
-        parent_name = (p or "").rstrip("/").split("/")[-1] or p
+        parent_url = (p or "").strip()
+        if not parent_url:
+            continue
+        # Extract parent name from URL (e.g., "https://huggingface.co/microsoft/resnet-50" -> "resnet-50")
+        parent_name = parent_url.rstrip("/").split("/")[-1] or parent_url
+        # Also try with owner prefix (e.g., "microsoft/resnet-50")
+        parent_name_with_owner = "/".join(parent_url.rstrip("/").split("/")[-2:]) if "/" in parent_url else parent_name
         parent_id = None
 
-        # Try to find parent in registry by name (exact match)
+        # Try to find parent in registry by name (exact match first, then case-insensitive)
         # Check all storage layers
         if USE_S3 and s3_storage:
             try:
                 all_artifacts = s3_storage.list_artifacts_by_queries([{"name": "*", "types": ["model"]}])
                 for art_data in all_artifacts:
                     stored_name = _ensure_artifact_display_name(art_data)
-                    if stored_name == parent_name:
+                    # Try exact match
+                    if stored_name == parent_name or stored_name == parent_name_with_owner:
+                        parent_id = art_data.get("metadata", {}).get("id")
+                        break
+                    # Try case-insensitive match
+                    stored_lower = stored_name.lower()
+                    parent_lower = parent_name.lower()
+                    owner_lower = parent_name_with_owner.lower()
+                    if stored_lower == parent_lower or stored_lower == owner_lower:
+                        parent_id = art_data.get("metadata", {}).get("id")
+                        break
+                    # Try matching against HF model name aliases
+                    hf_candidates = _get_hf_name_candidates(art_data)
+                    if parent_name in hf_candidates or parent_name_with_owner in hf_candidates:
                         parent_id = art_data.get("metadata", {}).get("id")
                         break
             except Exception:
@@ -4072,7 +4117,20 @@ async def artifact_lineage(
             for aid, adata in artifacts_db.items():
                 if adata.get("metadata", {}).get("type") == "model":
                     stored_name = _ensure_artifact_display_name(adata)
-                    if stored_name == parent_name:
+                    # Try exact match
+                    if stored_name == parent_name or stored_name == parent_name_with_owner:
+                        parent_id = aid
+                        break
+                    # Try case-insensitive match
+                    stored_lower = stored_name.lower()
+                    parent_lower = parent_name.lower()
+                    owner_lower = parent_name_with_owner.lower()
+                    if stored_lower == parent_lower or stored_lower == owner_lower:
+                        parent_id = aid
+                        break
+                    # Try matching against HF model name aliases
+                    hf_candidates = _get_hf_name_candidates(adata)
+                    if parent_name in hf_candidates or parent_name_with_owner in hf_candidates:
                         parent_id = aid
                         break
 
@@ -4081,10 +4139,17 @@ async def artifact_lineage(
             try:
                 with next(get_db()) as _db:  # type: ignore[misc]
                     from src.db import models as db_models
+                    # Try exact match first
                     parent_arts = _db.query(db_models.Artifact).filter(
                         db_models.Artifact.name == parent_name,
                         db_models.Artifact.type == "model"
                     ).all()
+                    if not parent_arts:
+                        # Try case-insensitive match
+                        parent_arts = _db.query(db_models.Artifact).filter(
+                            db_models.Artifact.name.ilike(parent_name),
+                            db_models.Artifact.type == "model"
+                        ).all()
                     if parent_arts:
                         parent_id = parent_arts[0].id
             except Exception:
@@ -4092,7 +4157,9 @@ async def artifact_lineage(
 
         # If parent found in registry, use its ID; otherwise use external ID
         if parent_id:
-            nodes.append(ArtifactLineageNode(artifact_id=parent_id, name=parent_name, source="config_json"))
+            nodes.append(
+                ArtifactLineageNode(artifact_id=parent_id, name=parent_name, source="config_json")
+            )
             edges.append(
                 ArtifactLineageEdge(
                     from_node_artifact_id=parent_id, to_node_artifact_id=id, relationship="base_model"
@@ -4101,7 +4168,9 @@ async def artifact_lineage(
         else:
             # External dependency
             parent_id = f"external-{parent_name}"
-            nodes.append(ArtifactLineageNode(artifact_id=parent_id, name=parent_name, source="config_json"))
+            nodes.append(
+                ArtifactLineageNode(artifact_id=parent_id, name=parent_name, source="config_json")
+            )
             edges.append(
                 ArtifactLineageEdge(
                     from_node_artifact_id=parent_id, to_node_artifact_id=id, relationship="base_model"
@@ -4207,8 +4276,7 @@ async def artifact_license_check(
             raise RuntimeError("License evaluation unavailable")
 
         # Scrape GitHub data for license evaluation.
-        # If this fails, treat as internal error (500) rather than 502 so tests/autograder
-        # that expect 200/404/500 instead of 502 still pass.
+        # Per OpenAPI spec: return 502 when external license information cannot be retrieved
         gh_data = None
         if scrape_github_url is not None:
             try:
@@ -4216,12 +4284,12 @@ async def artifact_license_check(
             except Exception as e:
                 logger.warning(f"Failed to scrape GitHub URL {request.github_url}: {e}")
                 raise HTTPException(
-                    status_code=500,
+                    status_code=502,
                     detail="External license information could not be retrieved.",
                 )
         else:
             raise HTTPException(
-                status_code=500,
+                status_code=502,
                 detail="External license information could not be retrieved.",
             )
 
@@ -4252,10 +4320,11 @@ async def artifact_license_check(
         return bool(gh_score >= 0.5 and model_ok)
     except HTTPException:
         raise
-    except Exception:
-        # Fallback: treat unexpected failures as generic internal error (500)
+    except Exception as e:
+        # Fallback: treat unexpected failures as 502 per OpenAPI spec
+        logger.error(f"License check failed with unexpected error: {e}", exc_info=True)
         raise HTTPException(
-            status_code=500,
+            status_code=502,
             detail="External license information could not be retrieved.",
         )
 
@@ -4982,10 +5051,11 @@ async def artifact_cost(
             ctx = create_eval_context_from_model_data(model_data)
             await size_metric.metric(ctx)
             required_bytes = int(getattr(ctx, "size_required_bytes", 0))
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to calculate size for artifact {id}: {e}")
             required_bytes = 0
     mb = float(required_bytes) / (1024.0 * 1024.0)
-    standalone_cost = round(mb, 1)
+    standalone_cost = max(0.0, round(mb, 1))  # Ensure non-negative
     total_cost = standalone_cost
 
     # If dependency=true, calculate total cost including dependencies from lineage
@@ -5043,10 +5113,11 @@ async def artifact_cost(
                                     parent_ctx = create_eval_context_from_model_data(parent_model_data)
                                     await size_metric.metric(parent_ctx)
                                     parent_required_bytes = int(getattr(parent_ctx, "size_required_bytes", 0))
-                                except Exception:
+                                except Exception as pe:
+                                    logger.warning(f"Failed to calculate size for parent {parent_id}: {pe}")
                                     parent_required_bytes = 0
                             parent_mb = float(parent_required_bytes) / (1024.0 * 1024.0)
-                            parent_cost = round(parent_mb, 1)
+                            parent_cost = max(0.0, round(parent_mb, 1))  # Ensure non-negative
                             dependency_costs[parent_id] = parent_cost
                             total_dependency_cost += parent_cost
                     except Exception as e:
@@ -5054,21 +5125,30 @@ async def artifact_cost(
                         logger.warning(f"Failed to calculate cost for dependency {parent_id}: {e}")
                         pass
 
-                total_cost = round(total_dependency_cost, 1)
+                total_cost = max(0.0, round(total_dependency_cost, 1))  # Ensure non-negative
             except Exception as e:
                 # If lineage calculation fails, just use standalone cost
                 logger.warning(f"Failed to get lineage for cost calculation: {e}")
                 total_cost = standalone_cost
+                # Ensure dependency_costs still has the main artifact
+                if id not in dependency_costs:
+                    dependency_costs[id] = standalone_cost
         else:
             # For non-model artifacts with dependency=true, total_cost equals standalone_cost
             total_cost = standalone_cost
+            # Ensure dependency_costs has the main artifact
+            if id not in dependency_costs:
+                dependency_costs[id] = standalone_cost
 
         # Build result with all dependencies
+        # Per OpenAPI spec: when dependency=true, ALL artifacts must have standalone_cost
         result = {}
         for aid, cost in dependency_costs.items():
             if aid == id:
+                # Main artifact: total_cost includes dependencies, standalone_cost is just this artifact
                 result[aid] = ArtifactCost(total_cost=total_cost, standalone_cost=standalone_cost)
             else:
+                # Dependencies: both costs are the same (standalone cost of that dependency)
                 result[aid] = ArtifactCost(total_cost=cost, standalone_cost=cost)
     else:
         result = {id: ArtifactCost(total_cost=total_cost)}
