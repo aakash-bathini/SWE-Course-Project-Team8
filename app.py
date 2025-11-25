@@ -3833,76 +3833,76 @@ async def artifact_update(
                 )
 
             try:
-            # Re-scrape HuggingFace data
-            hf_data, repo_type = scrape_hf_url(update_url)
+                # Re-scrape HuggingFace data
+                hf_data, repo_type = scrape_hf_url(update_url)
 
-            # Fetch GitHub data if available
-            gh_data: List[Dict[str, Any]] = []
-            github_links = hf_data.get("github_links", [])
-            if github_links and isinstance(github_links, list) and len(github_links) > 0:
-                github_url = github_links[0]
-                if scrape_github_url is not None:
-                    try:
-                        gh_profile = scrape_github_url(github_url)
-                        if isinstance(gh_profile, dict):
-                            gh_data = [gh_profile]
-                    except Exception:
-                        gh_data = []
+                # Fetch GitHub data if available
+                gh_data: List[Dict[str, Any]] = []
+                github_links = hf_data.get("github_links", [])
+                if github_links and isinstance(github_links, list) and len(github_links) > 0:
+                    github_url = github_links[0]
+                    if scrape_github_url is not None:
+                        try:
+                            gh_profile = scrape_github_url(github_url)
+                            if isinstance(gh_profile, dict):
+                                gh_data = [gh_profile]
+                        except Exception:
+                            gh_data = []
 
-            model_data = {"url": update_url, "hf_data": [hf_data], "gh_data": gh_data}
+                model_data = {"url": update_url, "hf_data": [hf_data], "gh_data": gh_data}
 
-            # Calculate metrics
-            metrics_result = await calculate_phase2_metrics(model_data)
-            if isinstance(metrics_result, tuple):
-                metrics, _ = metrics_result
-            else:
-                metrics = metrics_result  # type: ignore[assignment]
+                # Calculate metrics
+                metrics_result = await calculate_phase2_metrics(model_data)
+                if isinstance(metrics_result, tuple):
+                    metrics, _ = metrics_result
+                else:
+                    metrics = metrics_result  # type: ignore[assignment]
 
-            # Filter out latency metrics and check threshold
-            non_latency_metrics = {
-                k: v
-                for k, v in metrics.items()
-                if (not k.endswith("_latency") and k != "net_score_latency")
-            }
-            metrics_to_check = {
-                k: float(v)
-                for k, v in non_latency_metrics.items()
-                if isinstance(v, (int, float)) and float(v) >= 0.0
-            }
+                # Filter out latency metrics and check threshold
+                non_latency_metrics = {
+                    k: v
+                    for k, v in metrics.items()
+                    if (not k.endswith("_latency") and k != "net_score_latency")
+                }
+                metrics_to_check = {
+                    k: float(v)
+                    for k, v in non_latency_metrics.items()
+                    if isinstance(v, (int, float)) and float(v) >= 0.0
+                }
 
-            # Per Q&A: Fail update if rating < 0.5, keep older version
-            failing_metrics = [k for k, v in metrics_to_check.items() if v < 0.5]
-            if failing_metrics:
+                # Per Q&A: Fail update if rating < 0.5, keep older version
+                failing_metrics = [k for k, v in metrics_to_check.items() if v < 0.5]
+                if failing_metrics:
+                    raise HTTPException(
+                        status_code=424,
+                        detail=(
+                            "Updated model does not meet 0.5 threshold requirement. "
+                            f"Failing metrics: {', '.join(failing_metrics)}. "
+                            "Update rejected, older version retained."
+                        ),
+                    )
+
+                # Update artifact with new metadata (rating passed)
+                updated_artifact_entry = {
+                    "metadata": artifact.metadata.model_dump(),
+                    "data": {
+                        **artifact.data.model_dump(),
+                        "hf_data": [hf_data],
+                        "gh_data": gh_data,
+                    },
+                    "updated_at": datetime.now().isoformat(),
+                    "updated_by": user["username"],
+                }
+
+            except HTTPException:
+                raise
+            except Exception as e:
+                # If re-ingest fails for any reason, keep old version
+                logger.error(f"Failed to re-ingest artifact {id} during update: {e}")
                 raise HTTPException(
-                    status_code=424,
-                    detail=(
-                        "Updated model does not meet 0.5 threshold requirement. "
-                        f"Failing metrics: {', '.join(failing_metrics)}. "
-                        "Update rejected, older version retained."
-                    ),
+                    status_code=500,
+                    detail=f"Failed to re-ingest artifact. Older version retained. Error: {str(e)}",
                 )
-
-            # Update artifact with new metadata (rating passed)
-            updated_artifact_entry = {
-                "metadata": artifact.metadata.model_dump(),
-                "data": {
-                    **artifact.data.model_dump(),
-                    "hf_data": [hf_data],
-                    "gh_data": gh_data,
-                },
-                "updated_at": datetime.now().isoformat(),
-                "updated_by": user["username"],
-            }
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            # If re-ingest fails for any reason, keep old version
-            logger.error(f"Failed to re-ingest artifact {id} during update: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to re-ingest artifact. Older version retained. Error: {str(e)}",
-            )
     else:
         # For non-model artifacts, just update metadata
         updated_artifact_entry = {
