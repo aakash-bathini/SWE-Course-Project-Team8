@@ -3021,7 +3021,7 @@ async def artifact_by_regex(
             pattern_name = raw_pattern.strip("^$")  # Remove anchors for comparison
             exact_name_match = (name == pattern_name)
             exact_hf_match = any(candidate == pattern_name for candidate in hf_candidates)
-            
+
             if exact_name_match or exact_hf_match:
                 match_source = "exact metadata name" if exact_name_match else f"exact hf alias '{pattern_name}'"
                 logger.info(
