@@ -3820,15 +3820,19 @@ async def artifact_update(
 
     # Per Q&A: For models, re-ingest and check rating thresholds
     # If rating fails, keep the older version
+    # Only re-ingest if it's a HuggingFace URL (models ingested via /models/ingest)
     if artifact_type == ArtifactType.MODEL:
-        # Re-scrape and re-calculate metrics
         update_url = artifact.data.url
-        if scrape_hf_url is None or calculate_phase2_metrics is None:
-            raise HTTPException(
-                status_code=501, detail="Model rating not available in this environment."
-            )
+        is_hf_url = isinstance(update_url, str) and "huggingface.co" in update_url.lower()
 
-        try:
+        # Only re-ingest if it's a HuggingFace URL
+        if is_hf_url:
+            if scrape_hf_url is None or calculate_phase2_metrics is None:
+                raise HTTPException(
+                    status_code=501, detail="Model rating not available in this environment."
+                )
+
+            try:
             # Re-scrape HuggingFace data
             hf_data, repo_type = scrape_hf_url(update_url)
 
