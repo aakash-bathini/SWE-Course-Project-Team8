@@ -3015,8 +3015,29 @@ async def artifact_by_regex(
                 )
 
         if name_only:
-            # Exact match: allow stored name or HF aliases to trigger match
-            if name_matches or hf_name_matches:
+            # Exact match: For patterns like ^name$, we need STRICT case-sensitive matching
+            # Only match if the stored name EXACTLY equals the pattern (without ^ and $)
+            # OR if an HF alias exactly matches
+            pattern_name = raw_pattern.strip("^$")  # Remove anchors for comparison
+            exact_name_match = (name == pattern_name)
+            exact_hf_match = any(candidate == pattern_name for candidate in hf_candidates)
+            
+            if exact_name_match or exact_hf_match:
+                match_source = "exact metadata name" if exact_name_match else f"exact hf alias '{pattern_name}'"
+                logger.info(
+                    f"DEBUG_REGEX:   ✓ EXACT MATCH FOUND in-memory: id={artifact_id}, "
+                    f"{match_source} exactly matches pattern='{raw_pattern}'"
+                )
+                matches.append(
+                    ArtifactMetadata(
+                        name=name,
+                        id=artifact_id,
+                        type=ArtifactType(artifact_data["metadata"]["type"]),
+                    )
+                )
+                seen_ids.add(artifact_id)
+            elif name_matches or hf_name_matches:
+                # Fallback: regex match (in case pattern has special characters)
                 match_source = "metadata name" if name_matches else f"hf alias '{matched_candidate}'"
                 logger.info(
                     f"DEBUG_REGEX:   ✓ MATCH FOUND in-memory: id={artifact_id}, "
@@ -4590,6 +4611,13 @@ async def model_artifact_rate(
                 f"DEBUG_RATE: ✗ ARTIFACT NOT FOUND: id={id}, USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}, "
                 f"in_memory_count={len(artifacts_db)}"
             )
+            # Log all available artifact IDs for debugging
+            if USE_S3 and s3_storage:
+                try:
+                    all_s3_ids = s3_storage.list_artifacts()
+                    logger.warning(f"DEBUG_RATE: Available S3 artifact IDs (first 50): {all_s3_ids[:50]}")
+                except Exception as e:
+                    logger.warning(f"DEBUG_RATE: Could not list S3 artifacts: {e}")
             sys.stdout.flush()
             raise HTTPException(status_code=404, detail="Artifact does not exist.")
         # Select best URL for metrics & classification (prefer original HF URL when present)
@@ -4693,6 +4721,8 @@ async def model_artifact_rate(
                 # NEW: If we still have no HF metadata but we know the canonical HF URL,
                 # fall back to scraping once so that metrics align with the autograder's
                 # expectations for known benchmark models.
+                # CRITICAL: Always attempt scraping if hf_data is missing and we have a HF URL
+                # This ensures metrics are calculated correctly even if stored metadata is incomplete
                 if hf_data is None and metrics_url and "huggingface.co" in metrics_url.lower():
                     try:
                         if scrape_hf_url is not None:
@@ -4700,9 +4730,16 @@ async def model_artifact_rate(
                                 "DEBUG_RATE: Fallback scraping HF metadata for metrics_url=%s",
                                 metrics_url,
                             )
+                            sys.stdout.flush()
                             scraped_hf_data, _ = scrape_hf_url(metrics_url)
-                            if isinstance(scraped_hf_data, dict):
+                            if isinstance(scraped_hf_data, dict) and scraped_hf_data:
                                 hf_data = scraped_hf_data
+                                logger.info(
+                                    "DEBUG_RATE: ✓ Successfully scraped HF metadata, "
+                                    f"keys: {list(hf_data.keys())[:10]}"
+                                )
+                            else:
+                                logger.warning("DEBUG_RATE: Scraped HF data is empty or invalid")
                     except Exception as scrape_err:
                         logger.warning(
                             "DEBUG_RATE: HF scrape fallback failed for %s: %s",
@@ -4714,19 +4751,36 @@ async def model_artifact_rate(
                 # If no GitHub profile was stored, but HF metadata includes GitHub links,
                 # attempt a single GitHub scrape so that reviewedness / bus_factor /
                 # license metrics match the professor's reference implementation.
-                if gh_profile is None and hf_data and isinstance(hf_data, dict):
-                    github_links = hf_data.get("github_links", [])
-                    if isinstance(github_links, list) and github_links:
-                        github_url = github_links[0]
+                # CRITICAL: Always attempt scraping if gh_profile is missing and we have a GitHub URL
+                # This ensures metrics are calculated correctly even if stored metadata is incomplete
+                if gh_profile is None:
+                    # First try to get GitHub URL from hf_data
+                    github_url = None
+                    if hf_data and isinstance(hf_data, dict):
+                        github_links = hf_data.get("github_links", [])
+                        if isinstance(github_links, list) and github_links:
+                            github_url = github_links[0]
+                    # Also check if metrics_url itself is a GitHub URL
+                    if not github_url and metrics_url and "github.com" in metrics_url.lower():
+                        github_url = metrics_url
+                    # Attempt scraping if we have a GitHub URL
+                    if github_url:
                         try:
                             if scrape_github_url is not None:
                                 logger.info(
                                     "DEBUG_RATE: Fallback scraping GitHub metadata for url=%s",
                                     github_url,
                                 )
+                                sys.stdout.flush()
                                 gh_scraped = scrape_github_url(github_url)
-                                if isinstance(gh_scraped, dict):
+                                if isinstance(gh_scraped, dict) and gh_scraped:
                                     gh_profile = gh_scraped
+                                    logger.info(
+                                        "DEBUG_RATE: ✓ Successfully scraped GitHub metadata, "
+                                        f"keys: {list(gh_profile.keys())[:10]}"
+                                    )
+                                else:
+                                    logger.warning("DEBUG_RATE: Scraped GitHub data is empty or invalid")
                         except Exception as gh_err:
                             logger.warning(
                                 "DEBUG_RATE: GitHub scrape fallback failed for %s: %s",
