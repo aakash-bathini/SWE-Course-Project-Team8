@@ -209,9 +209,7 @@ class TestEndpointEdgeCases:
         client = TestClient(app)
 
         try:
-            response = client.post(
-                "/artifact/byRegEx", json={"regex": "[invalid(regex"}, headers=headers
-            )
+            response = client.post("/artifact/byRegEx", json={"regex": "[invalid(regex"}, headers=headers)
             assert response.status_code in [400, 200, 404]
         except Exception:
             pass  # Endpoint may not exist or behave differently
@@ -233,9 +231,7 @@ class TestEndpointEdgeCases:
 
         long_pattern = "a" * 501  # Exceeds MAX_REGEX_LENGTH
         try:
-            response = client.post(
-                "/artifact/byRegEx", json={"regex": long_pattern}, headers=headers
-            )
+            response = client.post("/artifact/byRegEx", json={"regex": long_pattern}, headers=headers)
             assert response.status_code in [400, 200, 404]
         except Exception:
             pass  # Endpoint may not exist or behave differently
@@ -281,9 +277,7 @@ class TestEndpointEdgeCases:
             artifact_id = create_response.json()["metadata"]["id"]
 
             # Get cost with dependencies
-            response = client.get(
-                f"/artifact/model/{artifact_id}/cost?dependency=true", headers=headers
-            )
+            response = client.get(f"/artifact/model/{artifact_id}/cost?dependency=true", headers=headers)
             assert response.status_code in [
                 200,
                 404,
@@ -439,9 +433,7 @@ class TestHelperFunctions:
         """Test UserRegistrationRequest model"""
         from app import UserRegistrationRequest
 
-        req = UserRegistrationRequest(
-            username="newuser", password="password123", permissions=["upload"]
-        )
+        req = UserRegistrationRequest(username="newuser", password="password123", permissions=["upload"])
         assert req.username == "newuser"
         assert req.permissions == ["upload"]
 
@@ -544,7 +536,7 @@ class TestMetricsIntegration:
     """Test metrics integration paths"""
 
     def test_rate_endpoint_with_all_metrics(self):
-        """Test rate endpoint returns all 11 metrics"""
+        """Test rate endpoint returns all 26 fields per OpenAPI spec (11 metrics + 12 latencies + size_score + name + category)"""
         from app import app
         from src.auth.jwt_auth import auth
 
@@ -569,19 +561,41 @@ class TestMetricsIntegration:
             response = client.get(f"/artifact/model/{artifact_id}/rate", headers=headers)
             if response.status_code == 200:
                 data = response.json()
-                # Check for all 11 metrics
-                required_metrics = [
+                # Check for all required fields per OpenAPI spec v3.4.6
+                # Required fields: name, category, 11 metrics, 12 latencies, size_score
+                required_fields = [
+                    "name",
+                    "category",
                     "net_score",
+                    "net_score_latency",
                     "ramp_up_time",
+                    "ramp_up_time_latency",
                     "bus_factor",
+                    "bus_factor_latency",
                     "performance_claims",
+                    "performance_claims_latency",
                     "license",
+                    "license_latency",
                     "dataset_and_code_score",
+                    "dataset_and_code_score_latency",
                     "dataset_quality",
+                    "dataset_quality_latency",
                     "code_quality",
+                    "code_quality_latency",
                     "reproducibility",
+                    "reproducibility_latency",
                     "reviewedness",
+                    "reviewedness_latency",
                     "tree_score",
+                    "tree_score_latency",
+                    "size_score",
+                    "size_score_latency",
                 ]
-                for metric in required_metrics:
-                    assert metric in data, f"Missing metric: {metric}"
+                for field in required_fields:
+                    assert field in data, f"Missing required field: {field}"
+
+                # Check size_score is an object with required keys
+                assert isinstance(data.get("size_score"), dict), "size_score must be a dict"
+                size_score_keys = ["raspberry_pi", "jetson_nano", "desktop_pc", "aws_server"]
+                for key in size_score_keys:
+                    assert key in data["size_score"], f"Missing size_score key: {key}"

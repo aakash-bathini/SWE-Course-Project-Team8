@@ -24,9 +24,7 @@ def _get_headers():
         "/authenticate",
         json={
             "user": {"name": "ece30861defaultadminuser", "is_admin": True},
-            "secret": {
-                "password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"
-            },
+            "secret": {"password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"},
         },
     )
     if auth_response.status_code == 200:
@@ -121,9 +119,7 @@ class TestLineageGraph:
                 model_id = model_response.json()["metadata"]["id"]
 
                 # Get lineage
-                lineage_response = client.get(
-                    f"/artifact/model/{model_id}/lineage", headers=headers
-                )
+                lineage_response = client.get(f"/artifact/model/{model_id}/lineage", headers=headers)
                 assert lineage_response.status_code == 200
                 lineage_data = lineage_response.json()
                 # Should have nodes and edges
@@ -170,9 +166,7 @@ class TestSizeCost:
             artifact_id = create_response.json()["metadata"]["id"]
 
             # Get cost with dependencies
-            response = client.get(
-                f"/artifact/model/{artifact_id}/cost?dependency=true", headers=headers
-            )
+            response = client.get(f"/artifact/model/{artifact_id}/cost?dependency=true", headers=headers)
             assert response.status_code == 200
             data = response.json()
             assert artifact_id in data
@@ -249,11 +243,9 @@ class TestLicenseCheck:
 
             # Check license
             payload = {"github_url": "https://github.com/test/repo"}
-            response = client.post(
-                f"/artifact/model/{artifact_id}/license-check", json=payload, headers=headers
-            )
-            # In CI or offline environments GitHub access may fail; allow 200 or 500.
-            assert response.status_code in [200, 500]
+            response = client.post(f"/artifact/model/{artifact_id}/license-check", json=payload, headers=headers)
+            # In CI or offline environments GitHub access may fail; allow 200 or 502 (per OpenAPI spec).
+            assert response.status_code in [200, 502]
             if response.status_code == 200:
                 # Should return boolean on success
                 result = response.json()
@@ -267,9 +259,7 @@ class TestLicenseCheck:
         client = TestClient(app)
 
         payload = {"github_url": "https://github.com/test/repo"}
-        response = client.post(
-            "/artifact/model/nonexistent-999/license-check", json=payload, headers=headers
-        )
+        response = client.post("/artifact/model/nonexistent-999/license-check", json=payload, headers=headers)
         assert response.status_code in [404, 403]
 
     def test_license_check_non_model_artifact(self):
@@ -287,9 +277,7 @@ class TestLicenseCheck:
             artifact_id = create_response.json()["metadata"]["id"]
             # Try to check license (should fail for non-model)
             payload = {"github_url": "https://github.com/test/repo"}
-            response = client.post(
-                f"/artifact/model/{artifact_id}/license-check", json=payload, headers=headers
-            )
+            response = client.post(f"/artifact/model/{artifact_id}/license-check", json=payload, headers=headers)
             assert response.status_code in [400, 404]
 
     def test_license_check_missing_github_url(self):
@@ -308,9 +296,7 @@ class TestLicenseCheck:
 
             # Check license without github_url
             payload = {}
-            response = client.post(
-                f"/artifact/model/{artifact_id}/license-check", json=payload, headers=headers
-            )
+            response = client.post(f"/artifact/model/{artifact_id}/license-check", json=payload, headers=headers)
             # Should fail validation
             assert response.status_code in [400, 422]
 
@@ -434,9 +420,7 @@ class TestHealthEndpoints:
         headers = _get_headers()
         client = TestClient(app)
 
-        response = client.get(
-            "/health/components?windowMinutes=30&includeTimeline=true", headers=headers
-        )
+        response = client.get("/health/components?windowMinutes=30&includeTimeline=true", headers=headers)
         assert response.status_code == 200
         data = response.json()
         assert "components" in data

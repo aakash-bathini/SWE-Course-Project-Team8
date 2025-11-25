@@ -4,8 +4,6 @@ Handles token generation, validation, and user authentication
 """
 
 from datetime import datetime, timedelta, timezone
-
-UTC = timezone.utc  # Python 3.9 compatibility
 from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -13,6 +11,8 @@ import logging
 import os
 import secrets
 import hashlib
+
+UTC = timezone.utc  # Python 3.9 compatibility
 
 logger = logging.getLogger(__name__)
 
@@ -75,9 +75,7 @@ class JWTAuth:
             # Format: $2b$12$test_fallback_{salt}_{sha_hash[:40]}
             return f"$2b$12$test_fallback_{salt}_{sha_hash[:40]}"
 
-    def create_access_token(
-        self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None
-    ) -> str:
+    def create_access_token(self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
         """Create a JWT access token"""
         to_encode = data.copy()
 
@@ -162,9 +160,7 @@ def verify_demo_token(token: str) -> Optional[Dict[str, Any]]:
 
 
 # User management functions
-def authenticate_user(
-    username: str, password: str, users_db: Dict[str, Any]
-) -> Optional[Dict[str, Any]]:
+def authenticate_user(username: str, password: str, users_db: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Authenticate a user against the database"""
     if username not in users_db:
         return None

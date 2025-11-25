@@ -34,9 +34,7 @@ async def metric(context: EvalContext) -> float:
         for parent_url in parent_urls[:5]:  # Limit to 5 parents for performance
             try:
                 # Create context for parent model
-                parent_context = EvalContext(
-                    url=parent_url, category=context.category, hf_data=[], gh_data=[]
-                )
+                parent_context = EvalContext(url=parent_url, category=context.category, hf_data=[], gh_data=[])
 
                 # Calculate parent score (simplified - use basic metrics)
                 parent_score = await _calculate_parent_score(parent_context)

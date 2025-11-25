@@ -41,9 +41,7 @@ def create_eval_context_from_model_data(model_data: Dict[str, Any]) -> EvalConte
         return EvalContext(url=model_data.get("url", ""))
 
 
-async def calculate_phase2_metrics(
-    model_data: Dict[str, Any]
-) -> Tuple[Dict[str, float], Dict[str, float]]:
+async def calculate_phase2_metrics(model_data: Dict[str, Any]) -> Tuple[Dict[str, float], Dict[str, float]]:
     """
     Calculate metrics using original Phase 1 metric functions
     Returns tuple of (metrics_dict, latencies_dict) where latencies are in seconds

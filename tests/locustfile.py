@@ -22,9 +22,7 @@ class RegistryUser(HttpUser):
         # Use default admin credentials
         auth_payload = {
             "user": {"name": "ece30861defaultadminuser", "is_admin": True},
-            "secret": {
-                "password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"
-            },
+            "secret": {"password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"},
         }
         response = self.client.put("/authenticate", json=auth_payload)
         if response.status_code == 200:
@@ -69,9 +67,7 @@ class RegistryUser(HttpUser):
         if not self.token:
             return
         payload = {"regex": ".*"}
-        self.client.post(
-            "/artifact/byRegEx", json=payload, headers=self.headers, name="POST /artifact/byRegEx"
-        )
+        self.client.post("/artifact/byRegEx", json=payload, headers=self.headers, name="POST /artifact/byRegEx")
 
     @task(1)
     def get_model_lineage(self):

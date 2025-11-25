@@ -84,9 +84,7 @@ class S3Storage:
             key = f"users/{username}.json"
             safe_data = _make_json_safe(data)
             payload = json.dumps(safe_data, indent=2)
-            self.s3_client.put_object(
-                Bucket=self.bucket_name, Key=key, Body=payload, ContentType="application/json"
-            )
+            self.s3_client.put_object(Bucket=self.bucket_name, Key=key, Body=payload, ContentType="application/json")
             return True
         except Exception as e:
             if logger:
@@ -211,9 +209,7 @@ class S3Storage:
 
         if not self._ensure_bucket_exists():
             if logger:
-                logger.error(
-                    f"Cannot save artifact {artifact_id}: Bucket {self.bucket_name} does not exist"
-                )
+                logger.error(f"Cannot save artifact {artifact_id}: Bucket {self.bucket_name} does not exist")
             return False
 
         try:
@@ -228,16 +224,12 @@ class S3Storage:
                 ContentType="application/json",
             )
             if logger:
-                logger.info(
-                    f"✅ Successfully saved artifact metadata to S3: {key} (artifact_id={artifact_id})"
-                )
+                logger.info(f"✅ Successfully saved artifact metadata to S3: {key} (artifact_id={artifact_id})")
             return True
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
             if logger:
-                logger.error(
-                    f"❌ S3 ClientError saving artifact {artifact_id} to {key}: {error_code} - {e}"
-                )
+                logger.error(f"❌ S3 ClientError saving artifact {artifact_id} to {key}: {error_code} - {e}")
             return False
         except Exception as e:
             if logger:
@@ -266,9 +258,7 @@ class S3Storage:
             response = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
             metadata = json.loads(response["Body"].read().decode("utf-8"))
             if logger:
-                logger.info(
-                    f"✅ Retrieved artifact metadata from S3: {key} (artifact_id={artifact_id})"
-                )
+                logger.info(f"✅ Retrieved artifact metadata from S3: {key} (artifact_id={artifact_id})")
             return metadata
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
@@ -278,9 +268,7 @@ class S3Storage:
                     logger.warning(f"⚠️ Artifact not found in S3: {key} (artifact_id={artifact_id})")
                 return None
             if logger:
-                logger.error(
-                    f"❌ S3 ClientError retrieving artifact {artifact_id} from {key}: {error_code} - {e}"
-                )
+                logger.error(f"❌ S3 ClientError retrieving artifact {artifact_id} from {key}: {error_code} - {e}")
             return None
         except Exception as e:
             if logger:
@@ -345,29 +333,19 @@ class S3Storage:
                     if key.endswith("/metadata.json"):
                         # Extract artifact_id: artifacts/{id}/metadata.json -> {id}
                         parts = key.split("/")
-                        if (
-                            len(parts) >= 3
-                            and parts[0] == "artifacts"
-                            and parts[-1] == "metadata.json"
-                        ):
+                        if len(parts) >= 3 and parts[0] == "artifacts" and parts[-1] == "metadata.json":
                             artifact_id = parts[1]
                             if artifact_id:  # Ensure not empty
                                 if artifact_type:
                                     # Need to fetch metadata to check type
                                     metadata = self.get_artifact_metadata(artifact_id)
-                                    if (
-                                        metadata
-                                        and metadata.get("metadata", {}).get("type")
-                                        == artifact_type
-                                    ):
+                                    if metadata and metadata.get("metadata", {}).get("type") == artifact_type:
                                         artifact_ids.append(artifact_id)
                                 else:
                                     artifact_ids.append(artifact_id)
 
             if logger:
-                logger.info(
-                    f"Listed {len(artifact_ids)} artifacts from S3 (filtered by type={artifact_type})"
-                )
+                logger.info(f"Listed {len(artifact_ids)} artifacts from S3 (filtered by type={artifact_type})")
             return artifact_ids
         except Exception as e:
             if logger:
@@ -395,9 +373,7 @@ class S3Storage:
             # Get all artifact IDs
             artifact_ids = self.list_artifacts()
             if logger:
-                logger.info(
-                    f"S3 list_artifacts_by_queries: Found {len(artifact_ids)} artifact IDs from S3"
-                )
+                logger.info(f"S3 list_artifacts_by_queries: Found {len(artifact_ids)} artifact IDs from S3")
 
             for artifact_id in artifact_ids:
                 if artifact_id in seen_ids:
@@ -517,17 +493,13 @@ class S3Storage:
                 readme_text = ""
                 hf_data = metadata.get("data", {}).get("hf_data", [])
                 if isinstance(hf_data, list) and len(hf_data) > 0:
-                    readme_text = (
-                        hf_data[0].get("readme_text", "") if isinstance(hf_data[0], dict) else ""
-                    )
+                    readme_text = hf_data[0].get("readme_text", "") if isinstance(hf_data[0], dict) else ""
 
                 # Check if pattern matches name, hf_model_name, or README
                 # Use both search() and fullmatch() to handle both partial and exact matches
                 name_matches = pattern.search(art_name) or pattern.fullmatch(art_name)
                 hf_name_matches = (
-                    (pattern.search(hf_model_name) or pattern.fullmatch(hf_model_name))
-                    if hf_model_name
-                    else False
+                    (pattern.search(hf_model_name) or pattern.fullmatch(hf_model_name)) if hf_model_name else False
                 )
                 readme_matches = pattern.search(readme_text) if readme_text else False
                 search_text = f"{art_name} {hf_model_name} {readme_text}"
@@ -568,9 +540,7 @@ class S3Storage:
                 # Delete in batches of 1000 (S3 limit)
                 for i in range(0, len(objects_to_delete), 1000):
                     batch = objects_to_delete[i : i + 1000]
-                    self.s3_client.delete_objects(
-                        Bucket=self.bucket_name, Delete={"Objects": batch}
-                    )
+                    self.s3_client.delete_objects(Bucket=self.bucket_name, Delete={"Objects": batch})
 
             if logger:
                 logger.info(f"Cleared {len(objects_to_delete)} objects from S3")
@@ -618,9 +588,7 @@ class S3Storage:
 
         try:
             key = f"artifacts/{artifact_id}/files/{file_key}"
-            self.s3_client.put_object(
-                Bucket=self.bucket_name, Key=key, Body=file_content, ContentType=content_type
-            )
+            self.s3_client.put_object(Bucket=self.bucket_name, Key=key, Body=file_content, ContentType=content_type)
             if logger:
                 logger.info(f"Uploaded file to S3: {key}")
             return True
@@ -685,9 +653,7 @@ class S3Storage:
 
                 objects_to_delete = [{"Key": obj["Key"]} for obj in page["Contents"]]
                 if objects_to_delete:
-                    self.s3_client.delete_objects(
-                        Bucket=self.bucket_name, Delete={"Objects": objects_to_delete}
-                    )
+                    self.s3_client.delete_objects(Bucket=self.bucket_name, Delete={"Objects": objects_to_delete})
                     deleted_count += len(objects_to_delete)
 
             if logger:

@@ -146,9 +146,7 @@ def test_download_sensitive_model_success(client, admin_token):
     model_id = upload_response.json()["id"]
 
     # Download model
-    response = client.get(
-        f"/sensitive-models/{model_id}/download", headers={"X-Authorization": admin_token}
-    )
+    response = client.get(f"/sensitive-models/{model_id}/download", headers={"X-Authorization": admin_token})
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
@@ -160,9 +158,7 @@ def test_download_nonexistent_model(client, admin_token):
     if not admin_token:
         pytest.skip("Admin token not available")
 
-    response = client.get(
-        "/sensitive-models/nonexistent_id/download", headers={"X-Authorization": admin_token}
-    )
+    response = client.get("/sensitive-models/nonexistent_id/download", headers={"X-Authorization": admin_token})
     assert response.status_code == 404
 
 
@@ -229,9 +225,7 @@ def test_get_history_nonexistent_model(client, admin_token):
     if not admin_token:
         pytest.skip("Admin token not available")
 
-    response = client.get(
-        "/download-history/nonexistent_id", headers={"X-Authorization": admin_token}
-    )
+    response = client.get("/download-history/nonexistent_id", headers={"X-Authorization": admin_token})
     assert response.status_code == 404
 
 
@@ -258,9 +252,7 @@ def test_create_js_program(client, admin_token):
 
 def test_create_js_program_no_auth(client):
     """Test creating JS program without auth fails"""
-    response = client.post(
-        "/js-programs", data={"name": "test_program", "code": "console.log('test');"}
-    )
+    response = client.post("/js-programs", data={"name": "test_program", "code": "console.log('test');"})
     assert response.status_code == 403
 
 
@@ -340,16 +332,12 @@ def test_delete_js_program(client, admin_token):
     program_id = create_response.json()["id"]
 
     # Delete program
-    delete_response = client.delete(
-        f"/js-programs/{program_id}", headers={"X-Authorization": admin_token}
-    )
+    delete_response = client.delete(f"/js-programs/{program_id}", headers={"X-Authorization": admin_token})
     assert delete_response.status_code == 200
     assert "deleted successfully" in delete_response.json()["message"]
 
     # Verify deleted
-    get_response = client.get(
-        f"/js-programs/{program_id}", headers={"X-Authorization": admin_token}
-    )
+    get_response = client.get(f"/js-programs/{program_id}", headers={"X-Authorization": admin_token})
     assert get_response.status_code == 404
 
 
@@ -421,9 +409,7 @@ def test_package_confusion_specific_model(client, admin_token):
         pytest.skip("Failed to upload second model")
 
     # Audit only model1
-    response = client.get(
-        f"/audit/package-confusion?model_id={model_id1}", headers={"X-Authorization": admin_token}
-    )
+    response = client.get(f"/audit/package-confusion?model_id={model_id1}", headers={"X-Authorization": admin_token})
     assert response.status_code == 200
     data = response.json()
     assert data["total_analyzed"] == 1
@@ -501,16 +487,12 @@ def test_full_m5_workflow(client, admin_token, user_token):
     model_id = upload_response.json()["id"]
 
     # 3. User downloads
-    download_response = client.get(
-        f"/sensitive-models/{model_id}/download", headers={"X-Authorization": user_token}
-    )
+    download_response = client.get(f"/sensitive-models/{model_id}/download", headers={"X-Authorization": user_token})
     assert download_response.status_code == 200
     assert download_response.json()["status"] == "success"
 
     # 4. Check history
-    history_response = client.get(
-        f"/download-history/{model_id}", headers={"X-Authorization": admin_token}
-    )
+    history_response = client.get(f"/download-history/{model_id}", headers={"X-Authorization": admin_token})
     assert history_response.status_code == 200
     assert history_response.json()["total_downloads"] == 1
 

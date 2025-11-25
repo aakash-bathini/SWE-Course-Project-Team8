@@ -186,9 +186,7 @@ class TestUserModels:
         """Test UserRegistrationRequest model"""
         from app import UserRegistrationRequest
 
-        req = UserRegistrationRequest(
-            username="newuser", password="password123", permissions=["upload"]
-        )
+        req = UserRegistrationRequest(username="newuser", password="password123", permissions=["upload"])
         assert req.username == "newuser"
         assert req.password == "password123"
         assert req.permissions == ["upload"]
@@ -273,9 +271,7 @@ class TestArtifactEndpoints:
             "metadata": {"name": "test", "id": "nonexistent-999", "type": "model"},
             "data": {"url": "https://example.com/test"},
         }
-        response = client.put(
-            "/artifacts/model/nonexistent-999", json=artifact_data, headers=headers
-        )
+        response = client.put("/artifacts/model/nonexistent-999", json=artifact_data, headers=headers)
         assert response.status_code == 404
 
     def test_artifact_delete_not_found(self):
@@ -411,9 +407,7 @@ class TestArtifactCostEdgeCases:
 
         headers = _get_headers()
         client = TestClient(app)
-        response = client.get(
-            "/artifact/model/nonexistent-999/cost?dependency=false", headers=headers
-        )
+        response = client.get("/artifact/model/nonexistent-999/cost?dependency=false", headers=headers)
         assert response.status_code in [404, 400, 500]
 
 

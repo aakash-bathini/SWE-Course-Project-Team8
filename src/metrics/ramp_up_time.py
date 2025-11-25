@@ -18,9 +18,7 @@ async def metric(ctx: EvalContext) -> float:
     # README subscore
 
     weights = {"install": 0.25, "usage": 0.35, "desc": 0.15, "io": 0.15, "links": 0.10}
-    install_s = _has_any(
-        readme_text, ["pip install", "conda install", "requirements.txt", "install"]
-    )
+    install_s = _has_any(readme_text, ["pip install", "conda install", "requirements.txt", "install"])
     usage_s = (
         1.0
         if ("```" in (readme_text or ""))
@@ -29,14 +27,11 @@ async def metric(ctx: EvalContext) -> float:
     )
     desc_s = (
         1.0
-        if len((readme_text or "").split()) >= 80
-        and _has_any(readme_text, ["overview", "summary", "description"])
+        if len((readme_text or "").split()) >= 80 and _has_any(readme_text, ["overview", "summary", "description"])
         else 0.0
     )
     io_s = _has_any(readme_text, ["inputs", "outputs", "tokeniz", "schema", "feature", "split"])
-    links_s = _has_any(
-        readme_text, ["docs", "documentation", "getting started", "read the docs", "wiki"]
-    )
+    links_s = _has_any(readme_text, ["docs", "documentation", "getting started", "read the docs", "wiki"])
     readme_score = sum(
         [
             weights["install"] * install_s,
@@ -49,7 +44,8 @@ async def metric(ctx: EvalContext) -> float:
 
     readme_score = max(0.0, min(1.0, readme_score))
     logging.info(
-        f"Repo README subscore: install={install_s}, usage={usage_s}, desc={desc_s}, io={io_s}, links={links_s} => {readme_score:.3f}"
+        f"Repo README subscore: install={install_s}, usage={usage_s}, "
+        f"desc={desc_s}, io={io_s}, links={links_s} => {readme_score:.3f}"
     )
 
     # examples subscore
@@ -95,25 +91,14 @@ async def metric(ctx: EvalContext) -> float:
 
     manifest_paths = [p.lower() for p in paths]
     has_reqs = any(p.endswith("requirements.txt") for p in manifest_paths)
-    has_env = any(
-        p.endswith("environment.yml") or p.endswith("environment.yaml") for p in manifest_paths
-    )
+    has_env = any(p.endswith("environment.yml") or p.endswith("environment.yaml") for p in manifest_paths)
     has_setup = any(p.endswith("setup.py") or p.endswith("setup.cfg") for p in manifest_paths)
     has_pyproj = any(p.endswith("pyproject.toml") for p in manifest_paths)
     has_conda = any(p.endswith("conda.yaml") or p.endswith("conda.yml") for p in manifest_paths)
     has_docker = any("dockerfile" in p or p.endswith(".docker") for p in manifest_paths)
     has_make = any(p.endswith("makefile") for p in manifest_paths)
     has_pipfile = any(p.endswith("pipfile") or p.endswith("pipfile.lock") for p in manifest_paths)
-    has_manifest = (
-        has_reqs
-        or has_env
-        or has_setup
-        or has_pyproj
-        or has_conda
-        or has_docker
-        or has_make
-        or has_pipfile
-    )
+    has_manifest = has_reqs or has_env or has_setup or has_pyproj or has_conda or has_docker or has_make or has_pipfile
 
     manifest_score = 0.0
     if has_manifest:
@@ -151,7 +136,10 @@ async def metric(ctx: EvalContext) -> float:
         ):
             manifest_score = 1.0
     logging.info(
-        f"Repo manifest subscore: has_reqs={has_reqs}, has_env={has_env}, has_setup={has_setup}, has_pyproj={has_pyproj}, has_conda={has_conda}, has_docker={has_docker}, has_make={has_make}, has_pipfile={has_pipfile} => {manifest_score:.3f}"
+        f"Repo manifest subscore: has_reqs={has_reqs}, has_env={has_env}, "
+        f"has_setup={has_setup}, has_pyproj={has_pyproj}, has_conda={has_conda}, "
+        f"has_docker={has_docker}, has_make={has_make}, has_pipfile={has_pipfile} "
+        f"=> {manifest_score:.3f}"
     )
 
     total_score = 0.5 * readme_score + 0.3 * examples_score + 0.2 * manifest_score
@@ -164,7 +152,7 @@ async def metric(ctx: EvalContext) -> float:
     # Well-known models typically have excellent ramp-up time due to community support
     if downloads > 1000000 or likes > 1000:  # Very popular models
         logging.info(
-            f"High-engagement model detected (downloads: {downloads}, likes: {likes}), boosting ramp-up score"
+            f"High-engagement model detected (downloads: {downloads}, " f"likes: {likes}), boosting ramp-up score"
         )
         # Boost the score significantly for well-known models (includes documentation boost)
         total_score = min(1.0, total_score + 0.55)  # Combined boost for high-engagement models

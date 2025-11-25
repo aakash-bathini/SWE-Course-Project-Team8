@@ -485,9 +485,7 @@ def test_user_cannot_delete_other_user(client: TestClient, admin_headers: Dict[s
     assert resp2.status_code == 401
 
 
-def test_multiple_users_with_different_permissions(
-    client: TestClient, admin_headers: Dict[str, str]
-):
+def test_multiple_users_with_different_permissions(client: TestClient, admin_headers: Dict[str, str]):
     """Multiple users can have different permission sets"""
     if not admin_headers:
         pytest.skip("Admin token not available")

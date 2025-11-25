@@ -192,9 +192,7 @@ class TestUserPermissionsUpdate:
         client = TestClient(app)
 
         update_data = {"permissions": ["upload", "search"]}
-        response = client.put(
-            "/user/nonexistent_999/permissions", json=update_data, headers=headers
-        )
+        response = client.put("/user/nonexistent_999/permissions", json=update_data, headers=headers)
         assert response.status_code in [200, 404, 400]
 
     def test_update_permissions_no_admin_permission(self):

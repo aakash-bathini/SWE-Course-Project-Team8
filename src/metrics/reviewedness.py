@@ -177,8 +177,7 @@ def _calculate_review_fraction(owner: str, repo: str) -> float:
         review_fraction = reviewed_commits / sample_size if sample_size > 0 else 0.0
 
         logger.info(
-            f"Reviewedness for {owner}/{repo}: {review_fraction:.2f} "
-            f"({reviewed_commits}/{sample_size} commits)"
+            f"Reviewedness for {owner}/{repo}: {review_fraction:.2f} " f"({reviewed_commits}/{sample_size} commits)"
         )
 
         return round(review_fraction, 2)

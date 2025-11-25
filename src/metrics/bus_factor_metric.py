@@ -81,8 +81,7 @@ async def metric(ctx: EvalContext) -> float:
     score = max(0.0, min(1.0, score))
 
     logging.info(
-        f"Bus Factor Metric -> contributors={len(contributors)}, "
-        f"top_share={top_share:.2f}, score={score:.2f}"
+        f"Bus Factor Metric -> contributors={len(contributors)}, " f"top_share={top_share:.2f}, score={score:.2f}"
     )
 
     return float(round(score, 2))

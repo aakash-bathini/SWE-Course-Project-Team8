@@ -99,23 +99,44 @@ class TestBaselineCRUD:
 
         if rate_resp.status_code == 200:
             data = rate_resp.json()
-            # Check for required fields
-            assert "name" in data
-            assert "net_score" in data
-            # Check Phase 2 metrics (may be present as metric or metric_latency)
-            # At least one form should be present
-            has_repro = "reproducibility" in data or "reproducibility_latency" in data
-            has_reviewed = "reviewedness" in data or "reviewedness_latency" in data
-            has_tree = (
-                "tree_score" in data
-                or "tree_score_latency" in data
-                or "treescore" in data
-                or "treescore_latency" in data
-            )
-            # At least one Phase 2 metric should be present (metrics may be async)
-            assert (
-                has_repro or has_reviewed or has_tree
-            ), f"Expected Phase 2 metrics, got: {list(data.keys())}"
+            # Check for all required fields per OpenAPI spec v3.4.6
+            # Required: name, category, 11 metrics, 12 latencies, size_score
+            required_fields = [
+                "name",
+                "category",
+                "net_score",
+                "net_score_latency",
+                "ramp_up_time",
+                "ramp_up_time_latency",
+                "bus_factor",
+                "bus_factor_latency",
+                "performance_claims",
+                "performance_claims_latency",
+                "license",
+                "license_latency",
+                "dataset_and_code_score",
+                "dataset_and_code_score_latency",
+                "dataset_quality",
+                "dataset_quality_latency",
+                "code_quality",
+                "code_quality_latency",
+                "reproducibility",
+                "reproducibility_latency",
+                "reviewedness",
+                "reviewedness_latency",
+                "tree_score",
+                "tree_score_latency",
+                "size_score",
+                "size_score_latency",
+            ]
+            for field in required_fields:
+                assert field in data, f"Missing required field: {field}"
+            # Check size_score structure
+            assert isinstance(data.get("size_score"), dict), "size_score must be a dict"
+            assert "raspberry_pi" in data["size_score"]
+            assert "jetson_nano" in data["size_score"]
+            assert "desktop_pc" in data["size_score"]
+            assert "aws_server" in data["size_score"]
 
     def test_download_with_aspects(self):
         """Test download with sub-aspects (full, weights, datasets, code)"""
@@ -322,7 +343,7 @@ class TestLicenseCheck:
             json={"github_url": "https://github.com/test/repo"},
             headers=headers,
         )
-        assert resp.status_code in [200, 404, 500]
+        assert resp.status_code in [200, 404, 502]  # 502 per OpenAPI spec for external license info failures
 
 
 class TestReset:
@@ -421,9 +442,7 @@ class TestTokenExpiration:
         # Make another call - should fail (1000 >= 1000)
         resp2 = client.get("/models", headers=headers)
         # Should fail with 403
-        assert (
-            resp2.status_code == 403
-        ), f"Second call should fail with 403, got {resp2.status_code}"
+        assert resp2.status_code == 403, f"Second call should fail with 403, got {resp2.status_code}"
 
         # Reset for other tests
         token_call_counts[token_hash] = 0
@@ -668,14 +687,10 @@ class TestDefaultUser:
             "/authenticate",
             json={
                 "user": {"name": "ece30861defaultadminuser", "is_admin": True},
-                "secret": {
-                    "password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"
-                },
+                "secret": {"password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"},
             },
         )
-        assert (
-            resp.status_code == 200
-        ), f"Authentication failed with status {resp.status_code}: {resp.text}"
+        assert resp.status_code == 200, f"Authentication failed with status {resp.status_code}: {resp.text}"
         token = resp.json()
         assert token.startswith("bearer ") or len(token) > 0
 
@@ -693,14 +708,10 @@ class TestDefaultUser:
             "/authenticate",
             json={
                 "user": {"name": "ece30861defaultadminuser", "is_admin": True},
-                "secret": {
-                    "password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"
-                },
+                "secret": {"password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;"},
             },
         )
-        assert (
-            resp.status_code == 200
-        ), f"Authentication failed after reset with status {resp.status_code}: {resp.text}"
+        assert resp.status_code == 200, f"Authentication failed after reset with status {resp.status_code}: {resp.text}"
 
 
 # ============================================================================

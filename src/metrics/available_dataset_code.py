@@ -5,7 +5,8 @@ from src.models.model_types import EvalContext
 from src.config_parsers_nlp.metric_helpers import _norm_parts, collect_paths
 
 DATASET_HOST_RE = re.compile(
-    r"(huggingface\.co/datasets/|kaggle\.com/datasets/|zenodo\.org/(record|doi)/|openml\.org/d/|datahub\.io|data\.gov|figshare\.com)",
+    r"(huggingface\.co/datasets/|kaggle\.com/datasets/|zenodo\.org/(record|doi)/|"
+    r"openml\.org/d/|datahub\.io|data\.gov|figshare\.com)",
     re.IGNORECASE,
 )
 WEAK_HOST_RE = re.compile(r"(drive\.google\.com|dropbox\.com)", re.IGNORECASE)
@@ -84,7 +85,9 @@ def _dataset_subscore(texts: List[str], ctx: EvalContext) -> float:
     if LOAD_SNIPPET_RE.search(blob):
         score += 0.1
     logging.info(
-        f"Repo dataset subscore: {score:.3f}, texts checked: {len(texts)}, hf datasets: {hf.get('datasets')}, blob len: {len(blob)}, snippet match: {bool(LOAD_SNIPPET_RE.search(blob))}"
+        f"Repo dataset subscore: {score:.3f}, texts checked: {len(texts)}, "
+        f"hf datasets: {hf.get('datasets')}, blob len: {len(blob)}, "
+        f"snippet match: {bool(LOAD_SNIPPET_RE.search(blob))}"
     )
     return min(1.0, score)
 
@@ -105,9 +108,7 @@ def _is_example_path(p: str) -> bool:
 
 def _code_subscore(texts: list[str], paths: set[str]) -> float:
     n = sum(1 for p in paths if isinstance(p, str) and _is_example_path(p))
-    base = (
-        0.0 if n == 0 else 0.3 if n == 1 else 0.5 if n <= 3 else 0.6
-    )  # 0.3 for 1, 0.5 for 2-3, 0.6 for 4+
+    base = 0.0 if n == 0 else 0.3 if n == 1 else 0.5 if n <= 3 else 0.6  # 0.3 for 1, 0.5 for 2-3, 0.6 for 4+
     blob = "\n\n".join(t for t in texts if isinstance(t, str))
     base += 0.3 if has_runnable_snippet(blob) else 0.0  # 0.3 for runnable snippet
 
@@ -126,7 +127,9 @@ def _code_subscore(texts: list[str], paths: set[str]) -> float:
         base += 0.1
 
     logging.info(
-        f"Repo code subscore: {base:.3f}, example files: {n}, has_nb: {has_nb}, has_py: {has_py}, diverse: {diverse}, blob len: {len(blob)}, runnable snippet: {has_runnable_snippet(blob)}"
+        f"Repo code subscore: {base:.3f}, example files: {n}, has_nb: {has_nb}, "
+        f"has_py: {has_py}, diverse: {diverse}, blob len: {len(blob)}, "
+        f"runnable snippet: {has_runnable_snippet(blob)}"
     )
     return min(1.0, base)
 
@@ -158,9 +161,7 @@ async def metric(ctx: EvalContext) -> float:
 
     # Well-known models typically have excellent dataset and code availability
     if downloads > 1000000 or likes > 1000:  # Very popular models
-        logging.info(
-            f"High-engagement model detected (downloads: {downloads}, likes: {likes}), using enhanced score"
-        )
+        logging.info(f"High-engagement model detected (downloads: {downloads}, likes: {likes}), using enhanced score")
         dscore = _dataset_subscore(texts, ctx)
         cscore = _code_subscore(texts, paths)
 
@@ -188,7 +189,5 @@ async def metric(ctx: EvalContext) -> float:
         logging.info("Low-engagement model detected, capping dataset/code score at 0.1")
     # Keep moderate engagement models unmodified; do not force to 0.0
 
-    logging.info(
-        f"Final dataset/code availability score: {final:.3f} (dataset: {dscore:.3f}, code: {cscore:.3f})"
-    )
+    logging.info(f"Final dataset/code availability score: {final:.3f} (dataset: {dscore:.3f}, code: {cscore:.3f})")
     return round(final, 2)

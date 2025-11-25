@@ -70,13 +70,9 @@ async def metric(ctx: EvalContext) -> float:
 
         if gh_spdx and not spdx_ids:
             spdx_ids = [gh_spdx]  # use github's detected license if nothing else found
-        score, rationale = (
-            spdx.classify_license(spdx_ids[0]) if spdx_ids else (0.0, "No license found")
-        )
+        score, rationale = spdx.classify_license(spdx_ids[0]) if spdx_ids else (0.0, "No license found")
         try:
-            logging.info(
-                f"license_check: source={source}, spdx_ids={spdx_ids}, hints={hints} => {rationale}"
-            )
+            logging.info(f"license_check: source={source}, spdx_ids={spdx_ids}, hints={hints} => {rationale}")
             return float(score)
         except Exception:
             return 0.0

@@ -127,9 +127,7 @@ class AWSDeployment:
         log_group_name = f"/aws/lambda/{function_name}"
 
         try:
-            self.cloudwatch_client.create_log_group(
-                logGroupName=log_group_name, retentionInDays=14  # Free tier limit
-            )
+            self.cloudwatch_client.create_log_group(logGroupName=log_group_name, retentionInDays=14)  # Free tier limit
             logger.info(f"CloudWatch log group created: {log_group_name}")
             return log_group_name
 
@@ -147,9 +145,7 @@ class AWSDeployment:
             with open(zip_file_path, "rb") as zip_file:
                 zip_content = zip_file.read()
 
-            response = self.lambda_client.update_function_code(
-                FunctionName=function_name, ZipFile=zip_content
-            )
+            response = self.lambda_client.update_function_code(FunctionName=function_name, ZipFile=zip_content)
 
             logger.info(f"Lambda function updated: {function_name}")
             return dict(response)
