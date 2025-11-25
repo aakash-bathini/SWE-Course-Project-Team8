@@ -3957,88 +3957,87 @@ async def artifact_delete(
 ):
     """Delete this artifact (NON-BASELINE)"""
     _validate_artifact_id_or_400(id)
-    # Check if artifact exists and get metadata
+    # Check if artifact exists and get metadata - check all storage layers
+    # Priority: in-memory (fastest, same-request) > S3 (production) > SQLite (local)
+    # This matches the lookup order used by artifact_retrieve for consistency
     artifact_metadata = None
-    if USE_S3 and s3_storage:
-        existing_data = s3_storage.get_artifact_metadata(id)
-        if not existing_data:
-            raise HTTPException(status_code=404, detail="Artifact does not exist.")
-        if existing_data.get("metadata", {}).get("type") != artifact_type.value:
-            raise HTTPException(status_code=400, detail="Artifact type mismatch.")
-        artifact_metadata = existing_data.get("metadata", {})
-        # Delete from S3
-        s3_storage.delete_artifact_metadata(id)
-        s3_storage.delete_artifact_files(id)
-        # Also remove from in-memory cache if present
-        if id in artifacts_db:
-            del artifacts_db[id]
-        # Also delete from SQLite if present (for consistency)
-        if USE_SQLITE:
-            try:
-                with next(get_db()) as _db:  # type: ignore[misc]
-                    db_art = db_crud.get_artifact(_db, id)
-                    if db_art:
-                        db_crud.log_audit(
-                            _db,
-                            artifact=db_art,
-                            user_name=user["username"],
-                            user_is_admin=user.get("is_admin", False),
-                            action="DELETE",
-                        )
-                        db_crud.delete_artifact(_db, id)
-            except Exception:
-                pass  # SQLite deletion is best-effort
-        # Clear rating cache and locks
-        if id in rating_cache:
-            del rating_cache[id]
-        if id in rating_locks:
-            del rating_locks[id]
-        if id in artifact_status:
-            del artifact_status[id]
-    elif USE_SQLITE:
-        with next(get_db()) as _db:  # type: ignore[misc]
-            art = db_crud.get_artifact(_db, id)
-            if not art:
-                raise HTTPException(status_code=404, detail="Artifact does not exist.")
-            if art.type != artifact_type.value:
-                raise HTTPException(status_code=400, detail="Artifact type mismatch.")
-            artifact_metadata = {"name": art.name, "id": art.id, "type": art.type}
-            # Log audit before deletion
-            db_crud.log_audit(
-                _db,
-                artifact=art,
-                user_name=user["username"],
-                user_is_admin=user.get("is_admin", False),
-                action="DELETE",
-            )
-            db_crud.delete_artifact(_db, id)
-            # Also remove from in-memory cache if present
-            if id in artifacts_db:
-                del artifacts_db[id]
-            # Also delete from S3 if present (for consistency)
-            if USE_S3 and s3_storage:
-                try:
-                    s3_existing = s3_storage.get_artifact_metadata(id)
-                    if s3_existing:
-                        s3_storage.delete_artifact_metadata(id)
-                        s3_storage.delete_artifact_files(id)
-                except Exception:
-                    pass  # S3 deletion is best-effort
-            # Clear rating cache and locks
-            if id in rating_cache:
-                del rating_cache[id]
-            if id in rating_locks:
-                del rating_locks[id]
-            if id in artifact_status:
-                del artifact_status[id]
-    else:
-        # In-memory fallback
-        if id not in artifacts_db:
-            raise HTTPException(status_code=404, detail="Artifact does not exist.")
+    artifact_found = False
+
+    # Check in-memory first
+    if id in artifacts_db:
         artifact_data = artifacts_db[id]
-        if artifact_data["metadata"]["type"] != artifact_type.value:
+        stored_type = artifact_data["metadata"].get("type")
+        if stored_type != artifact_type.value:
             raise HTTPException(status_code=400, detail="Artifact type mismatch.")
         artifact_metadata = artifact_data["metadata"]
+        artifact_found = True
+
+    # Check S3 if not found in-memory
+    if not artifact_found and USE_S3 and s3_storage:
+        existing_data = s3_storage.get_artifact_metadata(id)
+        if existing_data:
+            stored_type = existing_data.get("metadata", {}).get("type")
+            if stored_type != artifact_type.value:
+                raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+            artifact_metadata = existing_data.get("metadata", {})
+            artifact_found = True
+
+    # Check SQLite if not found in in-memory or S3
+    if not artifact_found and USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            art = db_crud.get_artifact(_db, id)
+            if art:
+                if art.type != artifact_type.value:
+                    raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+                artifact_metadata = {"name": art.name, "id": art.id, "type": art.type}
+                artifact_found = True
+
+    # If not found in any storage layer, return 404
+    if not artifact_found:
+        raise HTTPException(status_code=404, detail="Artifact does not exist.")
+
+    # Delete from all storage layers (for consistency)
+    # Delete from S3
+    if USE_S3 and s3_storage:
+        try:
+            s3_existing = s3_storage.get_artifact_metadata(id)
+            if s3_existing:
+                s3_storage.delete_artifact_metadata(id)
+                s3_storage.delete_artifact_files(id)
+        except Exception:
+            pass  # S3 deletion is best-effort
+
+    # Delete from SQLite
+    if USE_SQLITE:
+        try:
+            with next(get_db()) as _db:  # type: ignore[misc]
+                db_art = db_crud.get_artifact(_db, id)
+                if db_art:
+                    db_crud.log_audit(
+                        _db,
+                        artifact=db_art,
+                        user_name=user["username"],
+                        user_is_admin=user.get("is_admin", False),
+                        action="DELETE",
+                    )
+                    db_crud.delete_artifact(_db, id)
+        except Exception:
+            pass  # SQLite deletion is best-effort
+
+    # Delete from in-memory
+    if id in artifacts_db:
+        del artifacts_db[id]
+
+    # Clear rating cache and locks
+    if id in rating_cache:
+        del rating_cache[id]
+    if id in rating_locks:
+        del rating_locks[id]
+    if id in artifact_status:
+        del artifact_status[id]
+
+    # Log audit entry (for in-memory storage)
+    if not USE_SQLITE:
         audit_log.append(
             {
                 "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
@@ -4047,14 +4046,6 @@ async def artifact_delete(
                 "action": "DELETE",
             }
         )
-        del artifacts_db[id]
-        # Also remove from artifact_status, rating cache, and locks if present
-        if id in artifact_status:
-            del artifact_status[id]
-        if id in rating_cache:
-            del rating_cache[id]
-        if id in rating_locks:
-            del rating_locks[id]
 
     return {"message": "Artifact is deleted."}
 
@@ -4245,6 +4236,8 @@ async def artifact_lineage(
         parent_name = parent_url.rstrip("/").split("/")[-1] or parent_url
         # Also try with owner prefix (e.g., "microsoft/resnet-50")
         parent_name_with_owner = "/".join(parent_url.rstrip("/").split("/")[-2:]) if "/" in parent_url else parent_name
+        # Normalize parent URL for matching
+        parent_url_normalized = parent_url.lower().rstrip("/")
         parent_id = None
 
         # Try to find parent in registry by name (exact match first, then case-insensitive)
@@ -4254,8 +4247,14 @@ async def artifact_lineage(
                 all_artifacts = s3_storage.list_artifacts_by_queries([{"name": "*", "types": ["model"]}])
                 for art_data in all_artifacts:
                     stored_name = _ensure_artifact_display_name(art_data)
+                    stored_url = art_data.get("data", {}).get("url", "")
+                    stored_url_normalized = str(stored_url).lower().rstrip("/") if stored_url else ""
                     # Try exact match
                     if stored_name == parent_name or stored_name == parent_name_with_owner:
+                        parent_id = art_data.get("metadata", {}).get("id")
+                        break
+                    # Try URL match (most reliable for HF models)
+                    if stored_url_normalized and parent_url_normalized and stored_url_normalized == parent_url_normalized:
                         parent_id = art_data.get("metadata", {}).get("id")
                         break
                     # Try case-insensitive match
@@ -4278,8 +4277,14 @@ async def artifact_lineage(
             for aid, adata in artifacts_db.items():
                 if adata.get("metadata", {}).get("type") == "model":
                     stored_name = _ensure_artifact_display_name(adata)
+                    stored_url = adata.get("data", {}).get("url", "")
+                    stored_url_normalized = str(stored_url).lower().rstrip("/") if stored_url else ""
                     # Try exact match
                     if stored_name == parent_name or stored_name == parent_name_with_owner:
+                        parent_id = aid
+                        break
+                    # Try URL match (most reliable for HF models)
+                    if stored_url_normalized and parent_url_normalized and stored_url_normalized == parent_url_normalized:
                         parent_id = aid
                         break
                     # Try case-insensitive match
@@ -4441,7 +4446,17 @@ async def artifact_license_check(
         gh_data = None
         if scrape_github_url is not None:
             try:
-                gh_data = scrape_github_url(request.github_url)
+                # Use thread pool with timeout to prevent hanging on slow GitHub requests
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(scrape_github_url, request.github_url)
+                    gh_data = future.result(timeout=10.0)  # 10 second timeout
+            except concurrent.futures.TimeoutError:
+                logger.warning(f"GitHub scrape timeout for {request.github_url} (exceeded 10s)")
+                raise HTTPException(
+                    status_code=502,
+                    detail="External license information could not be retrieved.",
+                )
             except Exception as e:
                 logger.warning(f"Failed to scrape GitHub URL {request.github_url}: {e}")
                 raise HTTPException(
@@ -4912,15 +4927,35 @@ async def model_artifact_rate(
                                     github_url,
                                 )
                                 sys.stdout.flush()
-                                gh_scraped = scrape_github_url(github_url)
-                                if isinstance(gh_scraped, dict) and gh_scraped:
-                                    gh_profile = gh_scraped
-                                    logger.info(
-                                        "DEBUG_RATE: ✓ Successfully scraped GitHub metadata, "
-                                        f"keys: {list(gh_profile.keys())[:10]}"
+                                # Use thread pool with timeout to prevent hanging on slow GitHub requests
+                                import concurrent.futures
+                                try:
+                                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                                        future = executor.submit(scrape_github_url, github_url)
+                                        gh_scraped = future.result(timeout=10.0)  # 10 second timeout
+                                        if isinstance(gh_scraped, dict) and gh_scraped:
+                                            gh_profile = gh_scraped
+                                            logger.info(
+                                                "DEBUG_RATE: ✓ Successfully scraped GitHub metadata, "
+                                                f"keys: {list(gh_profile.keys())[:10]}"
+                                            )
+                                        else:
+                                            logger.warning("DEBUG_RATE: Scraped GitHub data is empty or invalid")
+                                except concurrent.futures.TimeoutError:
+                                    logger.warning(
+                                        "DEBUG_RATE: GitHub scrape timeout for %s (exceeded 10s)",
+                                        github_url,
                                     )
-                                else:
-                                    logger.warning("DEBUG_RATE: Scraped GitHub data is empty or invalid")
+                                    gh_profile = None
+                                except Exception as thread_err:
+                                    logger.warning(
+                                        "DEBUG_RATE: GitHub scrape thread error for %s: %s",
+                                        github_url,
+                                        thread_err,
+                                    )
+                                    gh_profile = None
+                            else:
+                                logger.warning("DEBUG_RATE: scrape_github_url function not available")
                         except Exception as gh_err:
                             logger.warning(
                                 "DEBUG_RATE: GitHub scrape fallback failed for %s: %s",
