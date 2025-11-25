@@ -99,23 +99,44 @@ class TestBaselineCRUD:
 
         if rate_resp.status_code == 200:
             data = rate_resp.json()
-            # Check for required fields
-            assert "name" in data
-            assert "net_score" in data
-            # Check Phase 2 metrics (may be present as metric or metric_latency)
-            # At least one form should be present
-            has_repro = "reproducibility" in data or "reproducibility_latency" in data
-            has_reviewed = "reviewedness" in data or "reviewedness_latency" in data
-            has_tree = (
-                "tree_score" in data
-                or "tree_score_latency" in data
-                or "treescore" in data
-                or "treescore_latency" in data
-            )
-            # At least one Phase 2 metric should be present (metrics may be async)
-            assert (
-                has_repro or has_reviewed or has_tree
-            ), f"Expected Phase 2 metrics, got: {list(data.keys())}"
+            # Check for all required fields per OpenAPI spec v3.4.6
+            # Required: name, category, 11 metrics, 12 latencies, size_score
+            required_fields = [
+                "name",
+                "category",
+                "net_score",
+                "net_score_latency",
+                "ramp_up_time",
+                "ramp_up_time_latency",
+                "bus_factor",
+                "bus_factor_latency",
+                "performance_claims",
+                "performance_claims_latency",
+                "license",
+                "license_latency",
+                "dataset_and_code_score",
+                "dataset_and_code_score_latency",
+                "dataset_quality",
+                "dataset_quality_latency",
+                "code_quality",
+                "code_quality_latency",
+                "reproducibility",
+                "reproducibility_latency",
+                "reviewedness",
+                "reviewedness_latency",
+                "tree_score",
+                "tree_score_latency",
+                "size_score",
+                "size_score_latency",
+            ]
+            for field in required_fields:
+                assert field in data, f"Missing required field: {field}"
+            # Check size_score structure
+            assert isinstance(data.get("size_score"), dict), "size_score must be a dict"
+            assert "raspberry_pi" in data["size_score"]
+            assert "jetson_nano" in data["size_score"]
+            assert "desktop_pc" in data["size_score"]
+            assert "aws_server" in data["size_score"]
 
     def test_download_with_aspects(self):
         """Test download with sub-aspects (full, weights, datasets, code)"""
