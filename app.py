@@ -1080,6 +1080,7 @@ async def health_components(
     components: List[HealthComponentDetail] = []
 
     # API component
+    # Per Q&A (James Davis): Use -1 for unsupported values
     api_component = HealthComponentDetail(
         id="api",
         display_name="FastAPI Service",
@@ -1087,18 +1088,20 @@ async def health_components(
         observed_at=now_iso,
         description="Handles REST API requests",
         metrics={
-            "uptime_seconds": 0,
-            "total_requests": 0,
+            "uptime_seconds": -1,  # Not tracked yet
+            "total_requests": -1,  # Not tracked yet
         },
         issues=[],
         logs=[
             HealthLogReference(
                 label="Application Log",
                 url="https://example.com/logs/app.log",
+                tail_available=False,
+                last_updated_at=None,
             )
         ],
         timeline=(
-            [HealthTimelineEntry(bucket=now_iso, value=0.0, unit="rpm")]
+            [HealthTimelineEntry(bucket=now_iso, value=-1, unit="rpm")]
             if includeTimeline
             else None
         ),
@@ -1106,6 +1109,7 @@ async def health_components(
     components.append(api_component)
 
     # Metrics component (placeholder)
+    # Per Q&A (James Davis): Use -1 for unsupported values
     metrics_component = HealthComponentDetail(
         id="metrics",
         display_name="Metrics Aggregator",
@@ -1113,12 +1117,12 @@ async def health_components(
         observed_at=now_iso,
         description="Aggregates request metrics",
         metrics={
-            "routes_tracked": 0,
+            "routes_tracked": -1,  # Not tracked yet
         },
         issues=[],
         logs=[],
         timeline=(
-            [HealthTimelineEntry(bucket=now_iso, value=0.0, unit="rpm")]
+            [HealthTimelineEntry(bucket=now_iso, value=-1, unit="rpm")]
             if includeTimeline
             else None
         ),
@@ -3760,23 +3764,153 @@ async def artifact_update(
     artifact: Artifact,
     user: Dict[str, Any] = Depends(verify_token),
 ):
-    """Update this content of the artifact (BASELINE)"""
+    """
+    Update this content of the artifact (BASELINE)
+    Per Q&A: This is more like getting an updated version. Re-download and ingest again.
+    If the updated model fails rating checks, fail the update and keep the older version.
+    URL should not change.
+    """
     _validate_artifact_id_or_400(id)
-    if id not in artifacts_db:
+    if not check_permission(user, "upload"):
+        raise HTTPException(status_code=401, detail="You do not have permission to upload.")
+
+    # Check if artifact exists - Priority: S3 (production) > SQLite (local) > in-memory
+    existing_artifact_data = None
+    if USE_S3 and s3_storage:
+        existing_artifact_data = s3_storage.get_artifact_metadata(id)
+    elif USE_SQLITE:
+        with next(get_db()) as _db:  # type: ignore[misc]
+            art = db_crud.get_artifact(_db, id)
+            if art:
+                existing_artifact_data = {
+                    "metadata": {"id": art.id, "name": str(art.name), "type": art.type},
+                    "data": {"url": str(art.url)},
+                }
+    elif id in artifacts_db:
+        existing_artifact_data = artifacts_db[id]
+
+    if not existing_artifact_data:
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
 
-    artifact_data = artifacts_db[id]
-    if artifact_data["metadata"]["type"] != artifact_type.value:
+    stored_type = existing_artifact_data.get("metadata", {}).get("type")
+    if stored_type != artifact_type.value:
         raise HTTPException(status_code=400, detail="Artifact type mismatch.")
 
-    # Update artifact
-    if not USE_SQLITE:
-        artifacts_db[id] = {
+    # Per Q&A: "The name and id must match" - validate both match
+    stored_name = existing_artifact_data.get("metadata", {}).get("name", "")
+    stored_id = existing_artifact_data.get("metadata", {}).get("id", "")
+    if artifact.metadata.id != id or artifact.metadata.id != stored_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Artifact ID in request body must match the path parameter and stored ID.",
+        )
+    if artifact.metadata.name != stored_name:
+        raise HTTPException(
+            status_code=400,
+            detail="Artifact name in request body must match the stored name.",
+        )
+
+    # Per Q&A: URL should not change
+    stored_url = existing_artifact_data.get("data", {}).get("url", "")
+    if artifact.data.url != stored_url:
+        raise HTTPException(
+            status_code=400,
+            detail="Artifact URL cannot be changed during update. URL must remain the same.",
+        )
+
+    # Per Q&A: For models, re-ingest and check rating thresholds
+    # If rating fails, keep the older version
+    if artifact_type == ArtifactType.MODEL:
+        # Re-scrape and re-calculate metrics
+        update_url = artifact.data.url
+        if scrape_hf_url is None or calculate_phase2_metrics is None:
+            raise HTTPException(
+                status_code=501, detail="Model rating not available in this environment."
+            )
+
+        try:
+            # Re-scrape HuggingFace data
+            hf_data, repo_type = scrape_hf_url(update_url)
+
+            # Fetch GitHub data if available
+            gh_data: List[Dict[str, Any]] = []
+            github_links = hf_data.get("github_links", [])
+            if github_links and isinstance(github_links, list) and len(github_links) > 0:
+                github_url = github_links[0]
+                if scrape_github_url is not None:
+                    try:
+                        gh_profile = scrape_github_url(github_url)
+                        if isinstance(gh_profile, dict):
+                            gh_data = [gh_profile]
+                    except Exception:
+                        gh_data = []
+
+            model_data = {"url": update_url, "hf_data": [hf_data], "gh_data": gh_data}
+
+            # Calculate metrics
+            metrics_result = await calculate_phase2_metrics(model_data)
+            if isinstance(metrics_result, tuple):
+                metrics, _ = metrics_result
+            else:
+                metrics = metrics_result  # type: ignore[assignment]
+
+            # Filter out latency metrics and check threshold
+            non_latency_metrics = {
+                k: v
+                for k, v in metrics.items()
+                if (not k.endswith("_latency") and k != "net_score_latency")
+            }
+            metrics_to_check = {
+                k: float(v)
+                for k, v in non_latency_metrics.items()
+                if isinstance(v, (int, float)) and float(v) >= 0.0
+            }
+
+            # Per Q&A: Fail update if rating < 0.5, keep older version
+            failing_metrics = [k for k, v in metrics_to_check.items() if v < 0.5]
+            if failing_metrics:
+                raise HTTPException(
+                    status_code=424,
+                    detail=(
+                        "Updated model does not meet 0.5 threshold requirement. "
+                        f"Failing metrics: {', '.join(failing_metrics)}. "
+                        "Update rejected, older version retained."
+                    ),
+                )
+
+            # Update artifact with new metadata (rating passed)
+            updated_artifact_entry = {
+                "metadata": artifact.metadata.model_dump(),
+                "data": {
+                    **artifact.data.model_dump(),
+                    "hf_data": [hf_data],
+                    "gh_data": gh_data,
+                },
+                "updated_at": datetime.now().isoformat(),
+                "updated_by": user["username"],
+            }
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            # If re-ingest fails for any reason, keep old version
+            logger.error(f"Failed to re-ingest artifact {id} during update: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to re-ingest artifact. Older version retained. Error: {str(e)}",
+            )
+    else:
+        # For non-model artifacts, just update metadata
+        updated_artifact_entry = {
             "metadata": artifact.metadata.model_dump(),
             "data": artifact.data.model_dump(),
             "updated_at": datetime.now().isoformat(),
             "updated_by": user["username"],
         }
+
+    # Save updated artifact
+    if USE_S3 and s3_storage:
+        s3_storage.save_artifact_metadata(id, updated_artifact_entry)
     if USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             db_crud.update_artifact(
@@ -3786,6 +3920,8 @@ async def artifact_update(
                 type_=artifact_type.value,
                 url=artifact.data.url,
             )
+    # Always update in-memory
+    artifacts_db[id] = updated_artifact_entry
 
     # Log audit entry
     audit_log.append(
@@ -5112,12 +5248,13 @@ async def artifact_cost(
     standalone_cost = max(0.0, round(mb, 1))  # Ensure non-negative
     total_cost = standalone_cost
 
-    # If dependency=true, calculate total cost including dependencies from lineage
+    # If dependency=true, calculate total cost including dependencies
+    # Per Q&A: Dependencies are code and dataset if linked, plus parent models from lineage
     if dependency:
         dependency_costs: Dict[str, float] = {id: standalone_cost}
         total_dependency_cost = standalone_cost
 
-        # Get lineage to find dependencies (only for models)
+        # For models, find dependencies: parent models (from lineage), code, and datasets
         if artifact_type == ArtifactType.MODEL:
             try:
                 lineage_graph = await artifact_lineage(id, user)
@@ -5205,7 +5342,8 @@ async def artifact_cost(
                 # Dependencies: both costs are the same (standalone cost of that dependency)
                 result[aid] = ArtifactCost(total_cost=cost, standalone_cost=cost)
     else:
-        result = {id: ArtifactCost(total_cost=total_cost)}
+        # Per Q&A: when dependency=false, return both standalone_cost and total_cost (standalone_cost=total_cost)
+        result = {id: ArtifactCost(total_cost=total_cost, standalone_cost=total_cost)}
     return result
 
 

@@ -112,11 +112,14 @@ class TestArtifactUpdate:
 
         if create_response.status_code == 201:
             artifact_id = create_response.json()["metadata"]["id"]
+            original_name = create_response.json()["metadata"]["name"]
+            original_url = create_response.json()["data"]["url"]
 
-            # Update the artifact
+            # Per Q&A: URL should not change, name and id must match
+            # Update the artifact (keeping same URL and name/id)
             update_data = {
-                "metadata": {"name": "updated_name", "id": artifact_id, "type": "model"},
-                "data": {"url": "https://example.com/updated"},
+                "metadata": {"name": original_name, "id": artifact_id, "type": "model"},
+                "data": {"url": original_url},  # URL must remain the same
             }
             response = client.put(f"/artifacts/model/{artifact_id}", json=update_data, headers=headers)
             assert response.status_code == 200
