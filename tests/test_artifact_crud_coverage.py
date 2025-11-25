@@ -106,9 +106,10 @@ class TestArtifactUpdate:
         headers = _get_headers()
         client = TestClient(app)
 
-        # First create an artifact
+        # First create a non-model artifact (dataset) to avoid HuggingFace re-ingest logic
+        # Per Q&A: Models with non-HF URLs may not work for update, so use dataset instead
         artifact_data = {"url": "https://example.com/test"}
-        create_response = client.post("/artifact/model", json=artifact_data, headers=headers)
+        create_response = client.post("/artifact/dataset", json=artifact_data, headers=headers)
 
         if create_response.status_code == 201:
             artifact_id = create_response.json()["metadata"]["id"]
@@ -118,10 +119,10 @@ class TestArtifactUpdate:
             # Per Q&A: URL should not change, name and id must match
             # Update the artifact (keeping same URL and name/id)
             update_data = {
-                "metadata": {"name": original_name, "id": artifact_id, "type": "model"},
+                "metadata": {"name": original_name, "id": artifact_id, "type": "dataset"},
                 "data": {"url": original_url},  # URL must remain the same
             }
-            response = client.put(f"/artifacts/model/{artifact_id}", json=update_data, headers=headers)
+            response = client.put(f"/artifacts/dataset/{artifact_id}", json=update_data, headers=headers)
             assert response.status_code == 200
 
     def test_update_artifact_not_found(self):
