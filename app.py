@@ -5362,9 +5362,12 @@ async def model_artifact_rate(
             v = metrics.get(name)
             try:
                 result = float(v) if isinstance(v, (int, float)) else 0.0
-                # Preserve sentinel for tree_score and reviewedness (-1 means N/A)
-                if name in ("tree_score", "reviewedness") and result == -1.0:
+                # Preserve sentinel for reviewedness (-1 means N/A)
+                if name == "reviewedness" and result == -1.0:
                     return -1.0
+                # Tree score should not stay negative in the response; clamp to 0+
+                if name == "tree_score":
+                    return max(0.0, result)
 
                 # For others, ensure non-negative (autograder might reject -1 used as sentinel)
                 return max(0.0, result)
