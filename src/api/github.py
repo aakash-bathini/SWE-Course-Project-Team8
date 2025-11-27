@@ -1,6 +1,7 @@
 # src/api/github.py
 from __future__ import annotations
 import base64
+import errno
 import json
 import os
 import re
@@ -15,7 +16,7 @@ _CACHE_TTL_S = int(os.environ.get("GH_META_CACHE_TTL_S", "3600"))  # 1h default
 
 # gh_cache utils
 """
-<project_root>/.cache/gh_meta.json:
+<project_root>/.cache/gh_meta.json or /tmp/.cache/gh_meta.json (in Lambda):
 key = "owner/repo"
 cache[key] = {"payload": data, "fetched_at": time}
 """
@@ -30,8 +31,32 @@ def _project_root() -> str:
     return os.environ.get("PROJECT_ROOT", os.getcwd())
 
 
+def _preferred_cache_dir() -> str:
+    """Return a writable cache directory.
+    
+    Preference order (if set): PROJECT_ROOT/.cache
+    If PROJECT_ROOT/.cache is read-only (e.g., AWS Lambda `/var/task`), fall back to `/tmp/.cache`.
+    """
+    # Default to project .cache
+    default_dir = os.path.join(_project_root(), ".cache")
+    try:
+        os.makedirs(default_dir, exist_ok=True)
+        # Test writability by creating and removing a temp file
+        test_path = os.path.join(default_dir, ".writable")
+        with open(test_path, "w") as f:
+            f.write("ok")
+        os.remove(test_path)
+        return default_dir
+    except OSError as e:
+        if e.errno in (errno.EROFS, errno.EACCES, errno.EPERM):
+            tmp_dir = os.path.join("/tmp", ".cache")
+            os.makedirs(tmp_dir, exist_ok=True)
+            return tmp_dir
+        raise
+
+
 def _cache_path() -> str:
-    return os.path.join(_project_root(), ".cache", "gh_meta.json")
+    return os.path.join(_preferred_cache_dir(), "gh_meta.json")
 
 
 # load cache, create if nonexistent
