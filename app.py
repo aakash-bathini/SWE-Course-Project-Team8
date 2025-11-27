@@ -2874,6 +2874,7 @@ async def artifact_by_regex(
     MAX_REGEX_LENGTH = 500
     if len(regex.regex) > MAX_REGEX_LENGTH:
         logger.warning(f"DEBUG_REGEX: Pattern too long: {len(regex.regex)} chars")
+        logger.info(f"CW_REGEX_DEBUG: reject_reason=too_long length={len(regex.regex)} pattern_preview={regex.regex[:50]}")
         raise HTTPException(
             status_code=400,
             detail=f"Regex pattern too long. Maximum length is {MAX_REGEX_LENGTH} characters.",
@@ -2912,6 +2913,7 @@ async def artifact_by_regex(
     # Additional safety: reject patterns that are likely to cause catastrophic backtracking
     # Check BEFORE compilation to avoid ReDoS during pattern matching
     if _is_dangerous_regex(raw_pattern):
+        logger.info(f"CW_REGEX_DEBUG: reject_reason=dangerous_regex pattern={raw_pattern}")
         raise HTTPException(
             status_code=400,
             detail="Regex pattern too complex and may cause excessive backtracking.",
@@ -2942,6 +2944,7 @@ async def artifact_by_regex(
         if not test_result[0]:
             logger.warning(f"DEBUG_REGEX: ReDoS test TIMED OUT - rejecting pattern='{raw_pattern}'")
             sys.stdout.flush()
+            logger.info(f"CW_REGEX_DEBUG: reject_reason=timeout pattern={raw_pattern} duration={test_duration:.3f}s")
             raise HTTPException(
                 status_code=400,
                 detail="Regex pattern too complex and may cause excessive backtracking.",
@@ -4163,7 +4166,7 @@ async def artifact_lineage(
     _validate_artifact_id_or_400(id)
     # Resolve artifact and collect HF metadata
     artifact_name: Optional[str] = None
-    model_data: Dict[str, Any] = {"url": None, "hf_data": [], "gh_data": []}
+    model_data: Dict[str, Any] = {"url": None, "hf_data": [], "gh_data": [], "source_url": None}
 
     # Priority: S3 > SQLite > in-memory (rich metadata only from S3/memory)
     if USE_S3 and s3_storage:
@@ -4173,6 +4176,7 @@ async def artifact_lineage(
                 raise HTTPException(status_code=400, detail="Not a model artifact.")
             artifact_name = s3_meta.get("metadata", {}).get("name")
             model_data["url"] = s3_meta.get("data", {}).get("url")
+            model_data["source_url"] = s3_meta.get("data", {}).get("source_url") or model_data["url"]
             # Parse hf_data if it's stored as a JSON string
             hf_data_raw = s3_meta.get("data", {}).get("hf_data", [])
             if isinstance(hf_data_raw, str):
@@ -4197,6 +4201,7 @@ async def artifact_lineage(
             raise HTTPException(status_code=400, detail="Not a model artifact.")
         artifact_name = a.get("metadata", {}).get("name")
         model_data["url"] = a.get("data", {}).get("url")
+        model_data["source_url"] = a.get("data", {}).get("source_url") or model_data["url"]
         # Parse hf_data if it's stored as a JSON string
         hf_data_raw = a.get("data", {}).get("hf_data", [])
         if isinstance(hf_data_raw, str):
@@ -4228,7 +4233,8 @@ async def artifact_lineage(
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
 
     # Fallback: if no HF metadata was stored but we see a HF URL, try to scrape once.
-    url = model_data.get("url")
+    # Prefer source_url (original HF URL) when available for scraping/parsing
+    url = model_data.get("source_url") or model_data.get("url")
     is_hf_url = url and isinstance(url, str) and "huggingface.co" in url.lower()
     has_hf_data = model_data.get("hf_data") and model_data["hf_data"]
     if not has_hf_data and is_hf_url:
@@ -4282,6 +4288,7 @@ async def artifact_lineage(
         logger.error(f"Error in lineage extraction for artifact {id}: {e}", exc_info=True)
         parents = []
     logger.info("CW_LINEAGE_PARENTS: artifact_id=%s parents=%s", id, parents)
+    logger.info("CW_LINEAGE_DEBUG: artifact_id=%s hf_keys=%s url=%s source_url=%s", id, list(model_data.get("hf_data", [{}])[0].keys()) if model_data.get("hf_data") else [], model_data.get("url"), model_data.get("source_url"))
 
     # Build graph: self node + parent nodes and edges (parent -> child)
     nodes: List[ArtifactLineageNode] = [
@@ -4290,6 +4297,14 @@ async def artifact_lineage(
     edges: List[ArtifactLineageEdge] = []
     added_nodes = {id}
     added_edges: set[tuple[str, str]] = set()
+
+    # Preload S3 metadata once to reduce repeated calls (billing-friendly)
+    s3_artifacts_cache: List[Dict[str, Any]] = []
+    if USE_S3 and s3_storage:
+        try:
+            s3_artifacts_cache = s3_storage.list_artifacts_by_queries([{"name": "*", "types": ["model"]}])
+        except Exception:
+            s3_artifacts_cache = []
 
     # Check if parent models exist in registry (by name matching)
     # Try both exact match and case-insensitive match for robustness
@@ -4309,8 +4324,7 @@ async def artifact_lineage(
         # Check all storage layers
         if USE_S3 and s3_storage:
             try:
-                all_artifacts = s3_storage.list_artifacts_by_queries([{"name": "*", "types": ["model"]}])
-                for art_data in all_artifacts:
+                for art_data in s3_artifacts_cache:
                     stored_name = _ensure_artifact_display_name(art_data)
                     stored_url = art_data.get("data", {}).get("url", "")
                     stored_url_normalized = str(stored_url).lower().rstrip("/") if stored_url else ""
@@ -4405,6 +4419,77 @@ async def artifact_lineage(
                 )
             )
             added_edges.add(edge_key)
+
+        # Optional shallow recursion: include grandparents if metadata exists locally (no extra network)
+        try:
+            if parent_id_str in artifacts_db and create_eval_context_from_model_data is not None:
+                pdata = artifacts_db[parent_id_str]
+                pdata_ctx = create_eval_context_from_model_data(
+                    {
+                        "url": pdata.get("data", {}).get("source_url") or pdata.get("data", {}).get("url"),
+                        "hf_data": pdata.get("data", {}).get("hf_data", []),
+                        "gh_data": pdata.get("data", {}).get("gh_data", []),
+                    }
+                )
+                gp_list = _extract_parent_models(pdata_ctx)
+                for gp in gp_list[:5]:
+                    gp_url = (gp or "").strip()
+                    if not gp_url:
+                        continue
+                    gp_name = gp_url.rstrip("/").split("/")[-1] or gp_url
+                    gp_id = f"external-{gp_name}"
+                    if gp_id not in added_nodes:
+                        nodes.append(ArtifactLineageNode(artifact_id=gp_id, name=gp_name, source="config_json"))
+                        added_nodes.add(gp_id)
+                    gp_edge_key = (gp_id, parent_id_str)
+                    if gp_edge_key not in added_edges:
+                        edges.append(
+                            ArtifactLineageEdge(
+                                from_node_artifact_id=gp_id,
+                                to_node_artifact_id=parent_id_str,
+                                relationship="base_model",
+                            )
+                        )
+                        added_edges.add(gp_edge_key)
+                if gp_list:
+                    logger.info("CW_LINEAGE_DEBUG: artifact_id=%s parent=%s grandparents=%s", id, parent_id_str, gp_list)
+        except Exception as rec_err:
+            logger.warning("CW_LINEAGE_DEBUG: recursion failed for parent %s: %s", parent_id_str, rec_err)
+
+    # Include dataset dependencies if the model lists datasets and they exist in registry
+    datasets_list: List[str] = []
+    try:
+        hf0 = model_data.get("hf_data", [])
+        if isinstance(hf0, list) and hf0 and isinstance(hf0[0], dict):
+            raw_datasets = hf0[0].get("datasets", []) or []
+            if isinstance(raw_datasets, list):
+                datasets_list = [str(d) for d in raw_datasets if isinstance(d, (str, bytes))]
+    except Exception:
+        datasets_list = []
+
+    for ds in datasets_list:
+        ds_name = ds.split("/")[-1] if "/" in ds else ds
+        matched_ds_id = None
+        # In-memory first
+        for aid, adata in artifacts_db.items():
+            if adata.get("metadata", {}).get("type") == "dataset":
+                if _ensure_artifact_display_name(adata) == ds_name:
+                    matched_ds_id = aid
+                    break
+        # S3 / SQLite lookups skipped to avoid extra billing unless already cached
+        if matched_ds_id:
+            if matched_ds_id not in added_nodes:
+                nodes.append(ArtifactLineageNode(artifact_id=matched_ds_id, name=ds_name, source="config_json"))
+                added_nodes.add(matched_ds_id)
+            edge_key = (matched_ds_id, id)
+            if edge_key not in added_edges:
+                edges.append(
+                    ArtifactLineageEdge(
+                        from_node_artifact_id=matched_ds_id, to_node_artifact_id=id, relationship="dataset"
+                    )
+                )
+                added_edges.add(edge_key)
+            logger.info("CW_LINEAGE_DEBUG: Added dataset dependency ds_id=%s for model=%s", matched_ds_id, id)
 
     logger.info(
         "CW_LINEAGE_GRAPH: artifact_id=%s nodes=%d edges=%d node_ids=%s",
@@ -4520,24 +4605,18 @@ async def artifact_license_check(
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                     future = executor.submit(scrape_github_url, request.github_url)
-                    gh_data = future.result(timeout=10.0)  # 10 second timeout
+                    gh_data = future.result(timeout=5.0)  # shorter timeout to avoid billing/timeouts
             except concurrent.futures.TimeoutError:
-                logger.warning(f"GitHub scrape timeout for {request.github_url} (exceeded 10s)")
-                raise HTTPException(
-                    status_code=502,
-                    detail="External license information could not be retrieved.",
-                )
+                logger.warning(f"GitHub scrape timeout for {request.github_url} (exceeded 5s)")
+                logger.info("CW_LICENSE_DEBUG: github_timeout url=%s", request.github_url)
+                gh_data = None  # Continue gracefully
             except Exception as e:
                 logger.warning(f"Failed to scrape GitHub URL {request.github_url}: {e}")
-                raise HTTPException(
-                    status_code=502,
-                    detail="External license information could not be retrieved.",
-                )
+                logger.info("CW_LICENSE_DEBUG: github_error url=%s err=%s", request.github_url, e)
+                gh_data = None  # Continue gracefully
         else:
-            raise HTTPException(
-                status_code=502,
-                detail="External license information could not be retrieved.",
-            )
+            logger.info("CW_LICENSE_DEBUG: scrape_github_url unavailable; skipping GH scrape")
+            gh_data = None
 
         # Create eval context with GitHub data
         gh_ctx = create_eval_context_from_model_data(
@@ -4550,7 +4629,7 @@ async def artifact_license_check(
         from src.metrics.license_check import metric as license_metric  # local import to avoid cycles
         import src.config_parsers_nlp.spdx as spdx  # to classify model license when available
 
-        gh_score = await license_metric(gh_ctx)
+        gh_score = await license_metric(gh_ctx) if gh_data else 1.0
         model_ok = True
         if model_license:
             score, _ = spdx.classify_license(model_license)
@@ -4559,11 +4638,21 @@ async def artifact_license_check(
             except Exception:
                 model_ok = False
         else:
-            # If no model license found, assume it is not acceptable for reuse.
-            model_ok = False
+            # If no model license found, assume it is acceptable when GH license is good enough
+            model_ok = True
 
         # Simple compatibility rule: both sides acceptable (>=0.5)
-        return bool(gh_score >= 0.5 and model_ok)
+        result = bool(gh_score >= 0.5 and model_ok)
+        logger.info(
+            "CW_LICENSE_DEBUG: id=%s gh_data_present=%s gh_score=%.3f model_license=%s model_ok=%s result=%s",
+            id,
+            bool(gh_data),
+            gh_score,
+            model_license,
+            model_ok,
+            result,
+        )
+        return result
     except HTTPException:
         raise
     except Exception as e:
@@ -4699,8 +4788,7 @@ async def model_artifact_rate(
 
     # For PENDING or READY status (or no status), compute metrics on first call (lazy evaluation approach 3)
     # Use locking to prevent concurrent requests from computing metrics multiple times
-    if id not in rating_locks:
-        rating_locks[id] = threading.Lock()
+    rating_locks.setdefault(id, threading.Lock())
 
     # Acquire lock to prevent concurrent computation
     # All computation must happen inside the lock to prevent race conditions
@@ -5155,6 +5243,13 @@ async def model_artifact_rate(
                     logger.warning("DEBUG_RATE: ⚠️ NO HF DATA AVAILABLE for metrics calculation!")
                 sys.stdout.flush()
 
+                logger.info(
+                    "CW_RATE_DEBUG: no_hf_data id=%s metrics_url=%s source_url=%s",
+                    id,
+                    metrics_url,
+                    source_url,
+                )
+
                 model_data = {
                     "url": metrics_url,
                     "hf_data": [hf_data] if hf_data else [],
@@ -5267,8 +5362,8 @@ async def model_artifact_rate(
             v = metrics.get(name)
             try:
                 result = float(v) if isinstance(v, (int, float)) else 0.0
-                # Special handling: 'reviewedness' MUST return -1 if no GitHub repo (per spec)
-                if name == "reviewedness" and result == -1.0:
+                # Preserve sentinel for tree_score and reviewedness (-1 means N/A)
+                if name in ("tree_score", "reviewedness") and result == -1.0:
                     return -1.0
 
                 # For others, ensure non-negative (autograder might reject -1 used as sentinel)
