@@ -5013,7 +5013,21 @@ async def model_artifact_rate(
                                 hf_data = scraped_hf_data
                                 logger.info(
                                     "DEBUG_RATE: ✓ Successfully scraped HF metadata, "
-                                    f"keys: {list(hf_data.keys())[:10]}"
+                                    f"keys: {list(hf_data.keys())[:15]}"
+                                )
+                                # DIAGNOSTIC: Log critical fields for debugging
+                                logger.info(
+                                    f"DEBUG_RATE: HF metadata details - "
+                                    f"readme_text present: {bool(hf_data.get('readme_text'))}, "
+                                    f"readme length: {len(hf_data.get('readme_text', ''))} chars, "
+                                    f"license: {hf_data.get('license')}, "
+                                    f"downloads: {hf_data.get('downloads')}, "
+                                    f"likes: {hf_data.get('likes')}, "
+                                    f"tags count: {len(hf_data.get('tags', []))}, "
+                                    f"pipeline_tag: {hf_data.get('pipeline_tag')}, "
+                                    f"datasets count: {len(hf_data.get('datasets', []))}, "
+                                    f"files count: {len(hf_data.get('files', []))}, "
+                                    f"card_yaml present: {bool(hf_data.get('card_yaml'))}"
                                 )
                             else:
                                 logger.warning("DEBUG_RATE: Scraped HF data is empty or invalid")
@@ -5024,6 +5038,14 @@ async def model_artifact_rate(
                             scrape_err,
                         )
                         hf_data = None
+                
+                # DIAGNOSTIC: Warn if README is missing (major cause of 0 scores)
+                if hf_data and not hf_data.get("readme_text"):
+                    logger.warning(
+                        f"DEBUG_RATE: ⚠️ README TEXT IS MISSING for {metrics_url}! "
+                        f"This will cause many metrics to return 0. HF data keys: {list(hf_data.keys())[:15]}"
+                    )
+                    sys.stdout.flush()
 
                 # If no GitHub profile was stored, but HF metadata includes GitHub links,
                 # attempt a single GitHub scrape so that reviewedness / bus_factor /
@@ -5061,6 +5083,13 @@ async def model_artifact_rate(
                                                 "DEBUG_RATE: ✓ Successfully scraped GitHub metadata, "
                                                 f"keys: {list(gh_profile.keys())[:10]}"
                                             )
+                                            # DIAGNOSTIC: Log GitHub metadata details
+                                            logger.info(
+                                                f"DEBUG_RATE: GitHub metadata details - "
+                                                f"readme_text present: {bool(gh_profile.get('readme_text'))}, "
+                                                f"license_spdx: {gh_profile.get('license_spdx')}, "
+                                                f"doc_texts count: {len(gh_profile.get('doc_texts', {}))}"
+                                            )
                                         else:
                                             logger.warning("DEBUG_RATE: Scraped GitHub data is empty or invalid")
                                 except concurrent.futures.TimeoutError:
@@ -5093,6 +5122,29 @@ async def model_artifact_rate(
                     "present" if gh_profile else "missing",
                 )
                 sys.stdout.flush()
+                
+                # DIAGNOSTIC: Summary of data available for metrics calculation
+                if hf_data:
+                    logger.info(
+                        f"DEBUG_RATE: METRICS INPUT SUMMARY - "
+                        f"URL: {metrics_url}, "
+                        f"HF README: {'YES' if hf_data.get('readme_text') else 'NO'}, "
+                        f"HF license: {'YES' if hf_data.get('license') else 'NO'}, "
+                        f"HF downloads: {hf_data.get('downloads', 0)}, "
+                        f"HF likes: {hf_data.get('likes', 0)}, "
+                        f"HF tags: {len(hf_data.get('tags', []))}, "
+                        f"HF files: {len(hf_data.get('files', []))}, "
+                        f"GitHub data: {'YES' if gh_profile else 'NO'}"
+                    )
+                    if not hf_data.get('readme_text'):
+                        logger.warning(
+                            "DEBUG_RATE: ⚠️⚠️⚠️ CRITICAL: README is MISSING! "
+                            "Metrics that depend on README will return 0 or low scores!"
+                        )
+                else:
+                    logger.warning("DEBUG_RATE: ⚠️ NO HF DATA AVAILABLE for metrics calculation!")
+                sys.stdout.flush()
+                
                 model_data = {
                     "url": metrics_url,
                     "hf_data": [hf_data] if hf_data else [],

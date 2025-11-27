@@ -12,23 +12,83 @@ purdue_api_key = os.getenv("GEN_AI_STUDIO_API_KEY")
 
 async def metric(ctx: EvalContext) -> float:
 
-    # If keys are absent we will later fall back to a heuristic parser rather than returning 0.0
+    # Get HF and GitHub data
+    hf = (ctx.hf_data or [{}])[0] if ctx.hf_data else {}
+    gh = (ctx.gh_data or [{}])[0] if ctx.gh_data else {}
+    
+    # PRIORITY 1: Use HF metadata for performance signals (even without README)
+    downloads = hf.get("downloads", 0)
+    likes = hf.get("likes", 0)
+    tags = hf.get("tags", []) or []
+    pipeline_tag = hf.get("pipeline_tag")
+    card_yaml = hf.get("card_yaml", {}) or {}
+    
+    # Check card_yaml for performance metrics/results
+    card_yaml_score = 0.0
+    if card_yaml and isinstance(card_yaml, dict):
+        # Many models have eval_results, model-index, or metrics in card_yaml
+        has_eval_results = "eval_results" in card_yaml or "model-index" in card_yaml
+        has_metrics = "metrics" in card_yaml or "results" in card_yaml
+        has_datasets = "datasets" in card_yaml
+        
+        if has_eval_results or has_metrics:
+            card_yaml_score = 0.35  # Strong signal of performance claims
+            logging.info(f"card_yaml contains performance data: eval_results={has_eval_results}, metrics={has_metrics}")
+        elif has_datasets:
+            card_yaml_score = 0.20  # Dataset mention suggests evaluation
+            logging.info("card_yaml contains dataset references")
+    
+    # Check tags for performance-related indicators
+    tag_score = 0.0
+    perf_tags = [t for t in tags if any(x in str(t).lower() for x in 
+                 ["benchmark", "eval", "accuracy", "f1", "bleu", "rouge", "squad", "glue"])]
+    if perf_tags:
+        tag_score = min(0.25, len(perf_tags) * 0.08)
+        logging.info(f"Performance-related tags found: {perf_tags[:5]}, score={tag_score:.2f}")
+    
+    # Engagement-based heuristic (popular models usually have good performance claims)
+    engagement_score = 0.0
+    if downloads > 1000000 or likes > 1000:  # Very popular
+        engagement_score = 0.30
+        logging.info(f"High-engagement model (downloads: {downloads}, likes: {likes}), "
+                    f"engagement score: {engagement_score}")
+    elif downloads > 100000 or likes > 100:  # Popular
+        engagement_score = 0.20
+        logging.info(f"Popular model (downloads: {downloads}, likes: {likes}), "
+                    f"engagement score: {engagement_score}")
+    elif downloads > 10000 or likes > 10:  # Moderate
+        engagement_score = 0.10
+    
+    # Base score from HF metadata (without README)
+    base_score = card_yaml_score + tag_score + engagement_score
+    base_score = min(0.70, base_score)  # Cap at 0.70 so README can still add value
+    
+    if base_score > 0:
+        logging.info(f"Performance base score from HF metadata: {base_score:.2f} "
+                    f"(card_yaml={card_yaml_score:.2f}, tags={tag_score:.2f}, "
+                    f"engagement={engagement_score:.2f})")
 
+    # PRIORITY 2: README analysis (bonus on top of base score)
     readme_content = ""
     try:
-        if ctx.hf_data and isinstance(ctx.hf_data, list) and ctx.hf_data:
-            hf = ctx.hf_data[0] or {}
+        if hf.get("readme_text"):
             readme_content = hf.get("readme_text") or ""
             logging.info("Performance metric using Hugging Face README")
-        elif ctx.gh_data and isinstance(ctx.gh_data, list) and ctx.gh_data:
-            gh = ctx.gh_data[0] or {}
+        elif gh.get("readme_text"):
             readme_content = gh.get("readme_text") or ""
             logging.info("Performance metric using GitHub README")
         else:
-            logging.info("No README available (HF or GitHub), skipping performance metric")
+            logging.info("No README available, using HF metadata only")
+            # Return base score if no README
+            if base_score > 0:
+                return float(round(base_score, 2))
+            # If truly no data, return 0
             return 0.0
     except Exception as e:
         logging.debug("Performance metric: error selecting README source: %s", e)
+        # Return base score if README fails
+        if base_score > 0:
+            return float(round(base_score, 2))
         return 0.0
 
     readme_content = readme_content[:MAX_INPUT_CHARS]
@@ -131,119 +191,76 @@ async def metric(ctx: EvalContext) -> float:
 
     # Heuristic fallback when API access is unavailable or LLM parsing failed.
     if not analysis_json:
-        logging.info("Performance metric: falling back to heuristic scoring")
+        logging.info("Performance metric: falling back to heuristic scoring with README")
         text = (readme_content or "").lower()
 
-        # Check if this is a well-known model with high HF engagement
-        hf = (ctx.hf_data or [{}])[0] if ctx.hf_data else {}
-        downloads = hf.get("downloads", 0)
-        likes = hf.get("likes", 0)
+        # Heuristic scoring from README (scaled to max 0.4 to combine with base_score)
+        readme_bonus = 0.0
+        if text:
+            has_numbers = 1.0 if re.search(r"\b\d+(?:\.\d+)?\s*%?", text) else 0.0
+            bench_terms = [
+                "glue",
+                "squad",
+                "mnli",
+                "qqp",
+                "stsb",
+                "cola",
+                "imagenet",
+                "librispeech",
+                "wmt",
+                "superglue",
+                "mmlu",
+                "xsum",
+                "rouge",
+                "bleu",
+                "wer",
+            ]
+            metric_terms = [
+                "accuracy",
+                "f1",
+                "precision",
+                "recall",
+                "bleu",
+                "rouge",
+                "wer",
+                "latency",
+                "throughput",
+                "score",
+            ]
+            bench_hits = sum(1 for bt in bench_terms if bt in text)
+            metric_hits = sum(1 for mt in metric_terms if mt in text)
+            table_hits = len([ln for ln in text.splitlines() if "|" in ln and "-" in ln])
 
-        # Generic heuristic for all models
-        has_numbers = 1.0 if re.search(r"\b\d+(?:\.\d+)?\s*%?", text) else 0.0
-        bench_terms = [
-            "glue",
-            "squad",
-            "mnli",
-            "qqp",
-            "stsb",
-            "cola",
-            "imagenet",
-            "librispeech",
-            "wmt",
-            "superglue",
-            "mmlu",
-            "xsum",
-            "rouge",
-            "bleu",
-            "wer",
-        ]
-        metric_terms = [
-            "accuracy",
-            "f1",
-            "precision",
-            "recall",
-            "bleu",
-            "rouge",
-            "wer",
-            "latency",
-            "throughput",
-            "score",
-        ]
-        bench_hits = sum(1 for bt in bench_terms if bt in text)
-        metric_hits = sum(1 for mt in metric_terms if mt in text)
-        table_hits = len([ln for ln in text.splitlines() if "|" in ln and "-" in ln])
+            bench_norm = min(1.0, bench_hits / 5.0)
+            metric_norm = min(1.0, metric_hits / 8.0)
+            table_bonus = 0.1 if table_hits >= 5 else (0.05 if table_hits >= 2 else 0.0)
 
-        bench_norm = min(1.0, bench_hits / 5.0)
-        metric_norm = min(1.0, metric_hits / 8.0)
-        table_bonus = 0.1 if table_hits >= 5 else (0.05 if table_hits >= 2 else 0.0)
+            readme_bonus = (0.4 * has_numbers + 0.3 * bench_norm + 0.3 * metric_norm + table_bonus) * 0.4
+            logging.info(f"README heuristic bonus: {readme_bonus:.2f}")
 
-        score = 0.4 * has_numbers + 0.3 * bench_norm + 0.3 * metric_norm + table_bonus
-
-        # Check for high-engagement models that typically have good performance claims
-        hf = (ctx.hf_data or [{}])[0] if ctx.hf_data else {}
-        downloads = hf.get("downloads", 0)
-        likes = hf.get("likes", 0)
-
-        # Boost score for very popular models with high engagement
-        if downloads > 1000000 or likes > 1000:
-            score = min(1.0, score + 0.28)  # Fine-tuned boost to get closer to 0.92
-            logging.info(
-                f"High-engagement model detected (downloads: {downloads}, likes: {likes}), boosting performance score"
-            )
-        elif downloads > 100000 or likes > 100:  # Moderate engagement models
-            score = min(1.0, score + 0.15)  # Moderate boost for models like whisper-tiny
-            logging.info(
-                f"Moderate-engagement model detected (downloads: {downloads}, "
-                f"likes: {likes}), boosting performance score"
-            )
-        elif downloads < 10000 and likes < 10:  # Very low engagement models
-            score = min(score, 0.15)  # Cap at 0.15 for very low engagement models
-            logging.info(
-                f"Very low-engagement model detected (downloads: {downloads}, "
-                f"likes: {likes}), capping performance score at 0.15"
-            )
-
+        # Combine base score with README bonus
+        score = base_score + readme_bonus
         score = max(0.0, min(1.0, score))
+        
+        logging.info(f"Final performance score: base={base_score:.2f}, readme_bonus={readme_bonus:.2f}, "
+                    f"total={score:.2f}")
         return float(round(score, 2))
 
-    # Compute score from summary
+    # Compute score from LLM analysis summary
     summary = analysis_json.get("summary", {})
     quality = summary.get("overall_evidence_quality", 0.0)
     specificity = summary.get("overall_specificity", 0.0)
-
-    # Check for high-engagement models in LLM path
-    hf = (ctx.hf_data or [{}])[0] if ctx.hf_data else {}
-    downloads = hf.get("downloads", 0)
-    likes = hf.get("likes", 0)
-
-    # Boost score for very popular models with high engagement
-    if downloads > 1000000 or likes > 1000:
-        quality = summary.get("overall_evidence_quality", 0.0)
-        specificity = summary.get("overall_specificity", 0.0)
-        base_score = (quality + specificity) / 2.0
-        boosted_score = min(1.0, base_score + 0.28)  # Fine-tuned boost to get closer to 0.92
-        logging.info(
-            f"High-engagement model detected in LLM path (downloads: {downloads}, "
-            f"likes: {likes}), boosting performance score"
-        )
-        boosted_score = max(boosted_score, 0.6)
-        return float(round(boosted_score, 2))
-    elif downloads > 100000 or likes > 100:  # Moderate engagement models
-        quality = summary.get("overall_evidence_quality", 0.0)
-        specificity = summary.get("overall_specificity", 0.0)
-        base_score = (quality + specificity) / 2.0
-        boosted_score = min(1.0, base_score + 0.15)  # Moderate boost for models like whisper-tiny
-        logging.info(
-            f"Moderate-engagement model detected in LLM path (downloads: {downloads}, "
-            f"likes: {likes}), boosting performance score"
-        )
-        return float(round(boosted_score, 2))
+    
+    # LLM analysis provides README evidence bonus (scaled to max 0.4)
+    llm_bonus = ((quality + specificity) / 2.0) * 0.4
+    
+    # Combine base score (from HF metadata) with LLM analysis bonus
+    score = base_score + llm_bonus
+    score = max(0.0, min(1.0, score))
 
     logging.info(
-        "Performance Metric -> Quality: %s, Specificity: %s, Total Claims: %s",
-        quality,
-        specificity,
-        summary.get("total_claims", 0),
+        f"Performance Metric (LLM) -> Quality: {quality:.2f}, Specificity: {specificity:.2f}, "
+        f"Total Claims: {summary.get('total_claims', 0)}, "
+        f"Base: {base_score:.2f}, LLM bonus: {llm_bonus:.2f}, Final: {score:.2f}"
     )
-    return float(round(((quality + specificity) / 2.0), 2))
+    return float(round(score, 2))

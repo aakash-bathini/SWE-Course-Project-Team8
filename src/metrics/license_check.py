@@ -42,39 +42,57 @@ async def metric(ctx: EvalContext) -> float:
     License check metric
     -returns a score in [0.0, 1.0] based on license presence and compliance
     -consumes Github data from EvalContext (ctx.github) and HF data
+    
+    Priority order:
+    1. HF license field (most reliable for HF models)
+    2. GitHub license_spdx (reliable for GitHub repos)
+    3. README/License file parsing (fallback)
     """
-    # Use actual license detection logic
-
     gh = getattr(ctx, "gh_data", None) or []  # list of github profiles
     hf = (ctx.hf_data or [{}])[0] if ctx.hf_data else {}
 
-    # Try GitHub data first
-    readme_text: Optional[str]
-    doc_texts: Dict[str, str]
-    gh_spdx: Optional[str]
-
+    # PRIORITY 1: Check HF license field first (most common case for HF models)
+    hf_license = hf.get("license")
+    if hf_license and isinstance(hf_license, str) and hf_license.strip():
+        # HF provides license, classify it directly
+        score, rationale = spdx.classify_license(hf_license.strip())
+        logging.info(f"license_check: Using HF license field '{hf_license}' => {rationale} (score: {score})")
+        return float(score)
+    
+    # PRIORITY 2: Check GitHub license_spdx
+    gh_spdx: Optional[str] = None
+    if gh and gh[0]:
+        gh_profile = gh[0]
+        gh_spdx = gh_profile.get("license_spdx")
+        if gh_spdx and isinstance(gh_spdx, str) and gh_spdx.strip():
+            score, rationale = spdx.classify_license(gh_spdx.strip())
+            logging.info(f"license_check: Using GitHub license_spdx '{gh_spdx}' => {rationale} (score: {score})")
+            return float(score)
+    
+    # PRIORITY 3: Fall back to README/License file parsing (most expensive)
+    readme_text: Optional[str] = None
+    doc_texts: Dict[str, str] = {}
+    
     if gh and gh[0]:
         gh_profile = gh[0]
         readme_text = gh_profile.get("readme_text")
         doc_texts = gh_profile.get("doc_texts") or {}
-        gh_spdx = gh_profile.get("license_spdx")
     else:
-        # Fall back to HF data
+        # Use HF README if available
         readme_text = hf.get("readme_text")
         doc_texts = {}
-        gh_spdx = hf.get("license")
 
     def compute() -> float:
         license_text = _select_license_text(doc_texts)
         source, spdx_ids, spdx_exprs, hints = extract_license_evidence(readme_text, license_text)
-
-        if gh_spdx and not spdx_ids:
-            spdx_ids = [gh_spdx]  # use github's detected license if nothing else found
-        score, rationale = spdx.classify_license(spdx_ids[0]) if spdx_ids else (0.0, "No license found")
-        try:
-            logging.info(f"license_check: source={source}, spdx_ids={spdx_ids}, hints={hints} => {rationale}")
+        
+        if spdx_ids:
+            score, rationale = spdx.classify_license(spdx_ids[0])
+            logging.info(f"license_check: Parsed from {source}, spdx_ids={spdx_ids}, hints={hints} => {rationale}")
             return float(score)
-        except Exception:
-            return 0.0
+        
+        # No license found anywhere
+        logging.info("license_check: No license found in HF metadata, GitHub, README, or license files")
+        return 0.0
 
     return await asyncio.to_thread(compute)
