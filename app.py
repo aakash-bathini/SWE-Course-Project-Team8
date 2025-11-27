@@ -68,7 +68,7 @@ except ImportError as e:
 app = FastAPI(
     title="ECE 461 - Fall 2025 - Project Phase 2",
     description="API for ECE 461/Fall 2025/Project Phase 2: A Trustworthy Model Registry",
-    version="3.4.4",
+    version="3.4.6",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -4173,16 +4173,48 @@ async def artifact_lineage(
                 raise HTTPException(status_code=400, detail="Not a model artifact.")
             artifact_name = s3_meta.get("metadata", {}).get("name")
             model_data["url"] = s3_meta.get("data", {}).get("url")
-            model_data["hf_data"] = s3_meta.get("data", {}).get("hf_data", [])
-            model_data["gh_data"] = s3_meta.get("data", {}).get("gh_data", [])
+            # Parse hf_data if it's stored as a JSON string
+            hf_data_raw = s3_meta.get("data", {}).get("hf_data", [])
+            if isinstance(hf_data_raw, str):
+                try:
+                    import json
+                    hf_data_raw = json.loads(hf_data_raw)
+                except Exception:
+                    hf_data_raw = []
+            model_data["hf_data"] = hf_data_raw if isinstance(hf_data_raw, list) else [hf_data_raw] if hf_data_raw else []
+            # Parse gh_data if it's stored as a JSON string
+            gh_data_raw = s3_meta.get("data", {}).get("gh_data", [])
+            if isinstance(gh_data_raw, str):
+                try:
+                    import json
+                    gh_data_raw = json.loads(gh_data_raw)
+                except Exception:
+                    gh_data_raw = []
+            model_data["gh_data"] = gh_data_raw if isinstance(gh_data_raw, list) else [gh_data_raw] if gh_data_raw else []
     if not artifact_name and id in artifacts_db:
         a = artifacts_db[id]
         if a.get("metadata", {}).get("type") != "model":
             raise HTTPException(status_code=400, detail="Not a model artifact.")
         artifact_name = a.get("metadata", {}).get("name")
         model_data["url"] = a.get("data", {}).get("url")
-        model_data["hf_data"] = a.get("data", {}).get("hf_data", [])
-        model_data["gh_data"] = a.get("data", {}).get("gh_data", [])
+        # Parse hf_data if it's stored as a JSON string
+        hf_data_raw = a.get("data", {}).get("hf_data", [])
+        if isinstance(hf_data_raw, str):
+            try:
+                import json
+                hf_data_raw = json.loads(hf_data_raw)
+            except Exception:
+                hf_data_raw = []
+        model_data["hf_data"] = hf_data_raw if isinstance(hf_data_raw, list) else [hf_data_raw] if hf_data_raw else []
+        # Parse gh_data if it's stored as a JSON string
+        gh_data_raw = a.get("data", {}).get("gh_data", [])
+        if isinstance(gh_data_raw, str):
+            try:
+                import json
+                gh_data_raw = json.loads(gh_data_raw)
+            except Exception:
+                gh_data_raw = []
+        model_data["gh_data"] = gh_data_raw if isinstance(gh_data_raw, list) else [gh_data_raw] if gh_data_raw else []
     if not artifact_name and USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
@@ -4208,6 +4240,35 @@ async def artifact_lineage(
         except Exception:
             pass
 
+    # CRITICAL: Ensure hf_data is properly formatted before passing to EvalContext
+    # hf_data must be a list of dicts, not a string or single dict
+    hf_data_final = model_data.get("hf_data", [])
+    if isinstance(hf_data_final, str):
+        try:
+            import json
+            parsed = json.loads(hf_data_final)
+            hf_data_final = [parsed] if isinstance(parsed, dict) else parsed if isinstance(parsed, list) else []
+        except Exception:
+            hf_data_final = []
+    elif isinstance(hf_data_final, dict):
+        hf_data_final = [hf_data_final]
+    elif not isinstance(hf_data_final, list):
+        hf_data_final = []
+    # Ensure all items in list are dicts, not strings
+    hf_data_cleaned = []
+    for item in hf_data_final:
+        if isinstance(item, dict):
+            hf_data_cleaned.append(item)
+        elif isinstance(item, str):
+            try:
+                import json
+                parsed = json.loads(item)
+                if isinstance(parsed, dict):
+                    hf_data_cleaned.append(parsed)
+            except Exception:
+                pass
+    model_data["hf_data"] = hf_data_cleaned
+
     # Extract parents using treescore helper
     parents: List[str] = []
     try:
@@ -4217,7 +4278,8 @@ async def artifact_lineage(
         from src.metrics.treescore import _extract_parent_models  # local to avoid cycles
 
         parents = _extract_parent_models(ctx)
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error in lineage extraction for artifact {id}: {e}", exc_info=True)
         parents = []
 
     # Build graph: self node + parent nodes and edges (parent -> child)
@@ -4843,15 +4905,45 @@ async def model_artifact_rate(
                     existing_data = s3_storage.get_artifact_metadata(id)
                     data_block = (existing_data or {}).get("data", {}) if existing_data else {}
                     hf_list = data_block.get("hf_data", [])
+                    # Parse if stored as JSON string
+                    if isinstance(hf_list, str):
+                        try:
+                            import json
+                            hf_list = json.loads(hf_list)
+                        except Exception:
+                            hf_list = []
                     if isinstance(hf_list, list) and hf_list:
                         first = hf_list[0]
                         if isinstance(first, dict):
                             hf_data = first
+                        elif isinstance(first, str):
+                            try:
+                                import json
+                                parsed = json.loads(first)
+                                if isinstance(parsed, dict):
+                                    hf_data = parsed
+                            except Exception:
+                                pass
                     gh_list = data_block.get("gh_data", [])
+                    # Parse if stored as JSON string
+                    if isinstance(gh_list, str):
+                        try:
+                            import json
+                            gh_list = json.loads(gh_list)
+                        except Exception:
+                            gh_list = []
                     if isinstance(gh_list, list) and gh_list:
                         first_gh = gh_list[0]
                         if isinstance(first_gh, dict):
                             gh_profile = first_gh
+                        elif isinstance(first_gh, str):
+                            try:
+                                import json
+                                parsed = json.loads(first_gh)
+                                if isinstance(parsed, dict):
+                                    gh_profile = parsed
+                            except Exception:
+                                pass
 
                 # Fallback to in-memory for same-request artifacts (Lambda cold start protection)
                 if not hf_data or not gh_profile:
@@ -4860,16 +4952,46 @@ async def model_artifact_rate(
                         data_block = artifact_data.get("data", {})
                         if not hf_data and "hf_data" in data_block:
                             hf_list = data_block.get("hf_data", [])
+                            # Parse if stored as JSON string
+                            if isinstance(hf_list, str):
+                                try:
+                                    import json
+                                    hf_list = json.loads(hf_list)
+                                except Exception:
+                                    hf_list = []
                             if isinstance(hf_list, list) and hf_list:
                                 first = hf_list[0]
                                 if isinstance(first, dict):
                                     hf_data = first
+                                elif isinstance(first, str):
+                                    try:
+                                        import json
+                                        parsed = json.loads(first)
+                                        if isinstance(parsed, dict):
+                                            hf_data = parsed
+                                    except Exception:
+                                        pass
                         if not gh_profile and "gh_data" in data_block:
                             gh_list = data_block.get("gh_data", [])
+                            # Parse if stored as JSON string
+                            if isinstance(gh_list, str):
+                                try:
+                                    import json
+                                    gh_list = json.loads(gh_list)
+                                except Exception:
+                                    gh_list = []
                             if isinstance(gh_list, list) and gh_list:
                                 first_gh = gh_list[0]
                                 if isinstance(first_gh, dict):
                                     gh_profile = first_gh
+                                elif isinstance(first_gh, str):
+                                    try:
+                                        import json
+                                        parsed = json.loads(first_gh)
+                                        if isinstance(parsed, dict):
+                                            gh_profile = parsed
+                                    except Exception:
+                                        pass
 
                 # SQLite doesn't store hf_data or gh_data for HF models, so skip SQLite lookup.
 
@@ -5238,10 +5360,25 @@ async def artifact_cost(
         # Prefer original HF URL when available for size estimation; fall back to stored url.
         url = data_block.get("source_url") or data_block.get("url", "")
         hf_list = data_block.get("hf_data", [])
+        # Parse hf_data if stored as JSON string
+        if isinstance(hf_list, str):
+            try:
+                import json
+                hf_list = json.loads(hf_list)
+            except Exception:
+                hf_list = []
         if isinstance(hf_list, list) and hf_list:
             first = hf_list[0]
             if isinstance(first, dict):
                 hf_data = first
+            elif isinstance(first, str):
+                try:
+                    import json
+                    parsed = json.loads(first)
+                    if isinstance(parsed, dict):
+                        hf_data = parsed
+                except Exception:
+                    pass
     elif USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
@@ -5273,7 +5410,31 @@ async def artifact_cost(
         except Exception:
             hf_data = None
 
-    model_data = {"url": url or "", "hf_data": [hf_data] if hf_data else [], "gh_data": []}
+    # Ensure hf_data is a list of dicts (not strings)
+    hf_data_list = []
+    if hf_data:
+        if isinstance(hf_data, dict):
+            hf_data_list = [hf_data]
+        elif isinstance(hf_data, str):
+            try:
+                import json
+                parsed = json.loads(hf_data)
+                hf_data_list = [parsed] if isinstance(parsed, dict) else []
+            except Exception:
+                hf_data_list = []
+        elif isinstance(hf_data, list):
+            for item in hf_data:
+                if isinstance(item, dict):
+                    hf_data_list.append(item)
+                elif isinstance(item, str):
+                    try:
+                        import json
+                        parsed = json.loads(item)
+                        if isinstance(parsed, dict):
+                            hf_data_list.append(parsed)
+                    except Exception:
+                        pass
+    model_data = {"url": url or "", "hf_data": hf_data_list, "gh_data": []}
     required_bytes = 0
     if create_eval_context_from_model_data is not None and size_metric is not None:
         try:

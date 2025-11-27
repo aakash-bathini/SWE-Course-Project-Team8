@@ -76,8 +76,22 @@ def _extract_github_url(context: EvalContext) -> Optional[str]:
                 return github_links[0]
 
             # Check card_yaml for repository field
-            card_yaml = hf_info.get("card_yaml", {})
-            repo_url = card_yaml.get("repository") or card_yaml.get("repo")
+            # Defensive: card_yaml might be stored as a JSON string
+            card_yaml_raw = hf_info.get("card_yaml", {})
+            if isinstance(card_yaml_raw, str):
+                try:
+                    import json
+
+                    card_yaml = json.loads(card_yaml_raw)
+                    if not isinstance(card_yaml, dict):
+                        card_yaml = {}
+                except Exception:
+                    card_yaml = {}
+            elif isinstance(card_yaml_raw, dict):
+                card_yaml = card_yaml_raw
+            else:
+                card_yaml = {}
+            repo_url = card_yaml.get("repository") or card_yaml.get("repo") if isinstance(card_yaml, dict) else None
             if repo_url and urlparse(repo_url).hostname == "github.com":
                 return repo_url
 

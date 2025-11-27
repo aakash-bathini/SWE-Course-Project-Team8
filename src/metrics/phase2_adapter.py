@@ -32,8 +32,67 @@ def create_eval_context_from_model_data(model_data: Dict[str, Any]) -> EvalConte
             category = "DATASET"
 
         # Extract HF and GH data if available
-        hf_data = model_data.get("hf_data", [])
-        gh_data = model_data.get("gh_data", [])
+        # Ensure hf_data and gh_data are lists of dicts, not strings
+        hf_data_raw = model_data.get("hf_data", [])
+        gh_data_raw = model_data.get("gh_data", [])
+
+        # Normalize hf_data to list of dicts
+        hf_data = []
+        if isinstance(hf_data_raw, str):
+            try:
+                import json
+
+                parsed = json.loads(hf_data_raw)
+                if isinstance(parsed, dict):
+                    hf_data = [parsed]
+                elif isinstance(parsed, list):
+                    hf_data = [item for item in parsed if isinstance(item, dict)]
+            except Exception:
+                hf_data = []
+        elif isinstance(hf_data_raw, dict):
+            hf_data = [hf_data_raw]
+        elif isinstance(hf_data_raw, list):
+            for item in hf_data_raw:
+                if isinstance(item, dict):
+                    hf_data.append(item)
+                elif isinstance(item, str):
+                    try:
+                        import json
+
+                        parsed = json.loads(item)
+                        if isinstance(parsed, dict):
+                            hf_data.append(parsed)
+                    except Exception:
+                        pass
+
+        # Normalize gh_data to list of dicts
+        gh_data = []
+        if isinstance(gh_data_raw, str):
+            try:
+                import json
+
+                parsed = json.loads(gh_data_raw)
+                if isinstance(parsed, dict):
+                    gh_data = [parsed]
+                elif isinstance(parsed, list):
+                    gh_data = [item for item in parsed if isinstance(item, dict)]
+            except Exception:
+                gh_data = []
+        elif isinstance(gh_data_raw, dict):
+            gh_data = [gh_data_raw]
+        elif isinstance(gh_data_raw, list):
+            for item in gh_data_raw:
+                if isinstance(item, dict):
+                    gh_data.append(item)
+                elif isinstance(item, str):
+                    try:
+                        import json
+
+                        parsed = json.loads(item)
+                        if isinstance(parsed, dict):
+                            gh_data.append(parsed)
+                    except Exception:
+                        pass
 
         return EvalContext(url=url, category=category, hf_data=hf_data, gh_data=gh_data)
     except Exception as e:
