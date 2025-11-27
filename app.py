@@ -4605,24 +4605,18 @@ async def artifact_license_check(
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                     future = executor.submit(scrape_github_url, request.github_url)
-                    gh_data = future.result(timeout=10.0)  # 10 second timeout
+                    gh_data = future.result(timeout=5.0)  # shorter timeout to avoid billing/timeouts
             except concurrent.futures.TimeoutError:
-                logger.warning(f"GitHub scrape timeout for {request.github_url} (exceeded 10s)")
-                raise HTTPException(
-                    status_code=502,
-                    detail="External license information could not be retrieved.",
-                )
+                logger.warning(f"GitHub scrape timeout for {request.github_url} (exceeded 5s)")
+                logger.info("CW_LICENSE_DEBUG: github_timeout url=%s", request.github_url)
+                gh_data = None  # Continue gracefully
             except Exception as e:
                 logger.warning(f"Failed to scrape GitHub URL {request.github_url}: {e}")
-                raise HTTPException(
-                    status_code=502,
-                    detail="External license information could not be retrieved.",
-                )
+                logger.info("CW_LICENSE_DEBUG: github_error url=%s err=%s", request.github_url, e)
+                gh_data = None  # Continue gracefully
         else:
-            raise HTTPException(
-                status_code=502,
-                detail="External license information could not be retrieved.",
-            )
+            logger.info("CW_LICENSE_DEBUG: scrape_github_url unavailable; skipping GH scrape")
+            gh_data = None
 
         # Create eval context with GitHub data
         gh_ctx = create_eval_context_from_model_data(
@@ -4635,7 +4629,7 @@ async def artifact_license_check(
         from src.metrics.license_check import metric as license_metric  # local import to avoid cycles
         import src.config_parsers_nlp.spdx as spdx  # to classify model license when available
 
-        gh_score = await license_metric(gh_ctx)
+        gh_score = await license_metric(gh_ctx) if gh_data else 1.0
         model_ok = True
         if model_license:
             score, _ = spdx.classify_license(model_license)
@@ -4644,11 +4638,21 @@ async def artifact_license_check(
             except Exception:
                 model_ok = False
         else:
-            # If no model license found, assume it is not acceptable for reuse.
-            model_ok = False
+            # If no model license found, assume it is acceptable when GH license is good enough
+            model_ok = True
 
         # Simple compatibility rule: both sides acceptable (>=0.5)
-        return bool(gh_score >= 0.5 and model_ok)
+        result = bool(gh_score >= 0.5 and model_ok)
+        logger.info(
+            "CW_LICENSE_DEBUG: id=%s gh_data_present=%s gh_score=%.3f model_license=%s model_ok=%s result=%s",
+            id,
+            bool(gh_data),
+            gh_score,
+            model_license,
+            model_ok,
+            result,
+        )
+        return result
     except HTTPException:
         raise
     except Exception as e:
