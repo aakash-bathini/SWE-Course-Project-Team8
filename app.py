@@ -5038,7 +5038,7 @@ async def model_artifact_rate(
                             scrape_err,
                         )
                         hf_data = None
-                
+
                 # DIAGNOSTIC: Warn if README is missing (major cause of 0 scores)
                 if hf_data and not hf_data.get("readme_text"):
                     logger.warning(
@@ -5122,7 +5122,7 @@ async def model_artifact_rate(
                     "present" if gh_profile else "missing",
                 )
                 sys.stdout.flush()
-                
+
                 # DIAGNOSTIC: Summary of data available for metrics calculation
                 if hf_data:
                     logger.info(
@@ -5144,7 +5144,7 @@ async def model_artifact_rate(
                 else:
                     logger.warning("DEBUG_RATE: ⚠️ NO HF DATA AVAILABLE for metrics calculation!")
                 sys.stdout.flush()
-                
+
                 model_data = {
                     "url": metrics_url,
                     "hf_data": [hf_data] if hf_data else [],

@@ -10,7 +10,6 @@ import errno
 from urllib.parse import urlparse
 from huggingface_hub import HfApi, ModelCard
 from datetime import datetime, date
-import requests
 
 # hf_cache metadata
 _PROJECT_ROOT = os.environ.get("PROJECT_ROOT", os.getcwd())

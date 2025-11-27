@@ -20,7 +20,6 @@ async def metric(ctx: EvalContext) -> float:
     downloads = hf.get("downloads", 0)
     likes = hf.get("likes", 0)
     tags = hf.get("tags", []) or []
-    pipeline_tag = hf.get("pipeline_tag")
     card_yaml = hf.get("card_yaml", {}) or {}
 
     # Check card_yaml for performance metrics/results

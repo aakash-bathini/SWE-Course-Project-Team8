@@ -11,7 +11,7 @@ Scoring:
 
 import logging
 import re
-from typing import Optional, Dict, Any, List
+from typing import Dict, Any, List
 from src.models.model_types import EvalContext
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ async def metric(context: EvalContext) -> float:
         if downloads > 1000000 or likes > 1000:
             # Very popular models likely have good reproducibility
             score = min(1.0, score + 0.15)
-            logger.info(f"High-engagement boost applied")
+            logger.info("High-engagement boost applied")
 
         logger.info(f"Final reproducibility score: {score:.2f}")
         return round(score, 2)
