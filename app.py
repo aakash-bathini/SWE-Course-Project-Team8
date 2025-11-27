@@ -565,16 +565,11 @@ _DANGEROUS_REGEX_SNIPPETS: List[re.Pattern[str]] = [
     # Additional patterns: multiple nested quantifiers like (a+)(a+)(a+)(a+)(a+)(a+)$
     re.compile(r"\([^)]+\+\)\{3,\}"),  # Three or more (something+)
     re.compile(r"\([^)]+\+\)\+.*\([^)]+\+\)\+"),  # Multiple nested quantifier groups
-    # Alternation with quantifiers: (a|aa)*, (a|ab)*, etc. - can cause catastrophic backtracking
-    re.compile(r"\([^|)]+\|[^)]+\)[*+]+"),  # (a|aa)*, (a|ab)+, etc.
-    re.compile(r"\([^|)]+\|[^)]+\)\*$"),  # (a|aa)*$ - anchored alternation with star
-    re.compile(r"\(\?:[^|)]+\|[^)]+\)[*+]+"),  # Non-capturing alternation loops
-    re.compile(r"\(\?:[^|)]+\|[^)]+\)\*$"),  # Non-capturing alternation anchored
-    # Nested counted quantifiers: (a{1,99999}){1,99999}
-    re.compile(r"\([^\)]+\{\d+(?:,\d+)?\}[^\)]*\)\s*\{\d+(?:,\d+)?\}"),
+    # NOTE: Alternation + counted quantifiers (e.g., (a|aa)* or (a{1,99999}){1,99999})
+    # are allowed now and guarded instead by the runtime timeout check below.
 ]
 
-_LARGE_QUANTIFIER_THRESHOLD = 1000
+_LARGE_QUANTIFIER_THRESHOLD = 1_000_000
 _LARGE_QUANTIFIER_RE = re.compile(r"\{(\d+)(?:,(\d+))?\}")
 
 
