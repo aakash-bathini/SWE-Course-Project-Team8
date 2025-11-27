@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from src.models.model_types import EvalContext
 from src.config_parsers_nlp.metric_helpers import _norm_parts, collect_paths
 
@@ -70,14 +70,14 @@ def _dataset_subscore(texts: List[str], ctx: EvalContext) -> float:
         hf: Dict[str, Any] = {}
     else:
         hf = ctx.hf_data[0]
-    
+
     # PRIORITY 1: HF datasets metadata (most reliable)
     datasets = hf.get("datasets", [])
     if isinstance(datasets, list) and len(datasets) > 0:
         # Strong signal - HF extracted datasets from tags
         score += 0.4
         logging.info(f"HF datasets found in tags: {datasets[:3]}")
-    
+
     # Check card_yaml for datasets field
     card_yaml = hf.get("card_yaml", {}) or {}
     if isinstance(card_yaml, dict):
@@ -85,7 +85,7 @@ def _dataset_subscore(texts: List[str], ctx: EvalContext) -> float:
         if yaml_datasets and len(yaml_datasets) > 0:
             score += 0.3
             logging.info(f"Datasets found in card_yaml: {yaml_datasets[:3]}")
-    
+
     # PRIORITY 2: README/text analysis (bonus)
     blob = "\n\n".join(t for t in texts if isinstance(t, str)).lower()
     if blob:
@@ -99,7 +99,7 @@ def _dataset_subscore(texts: List[str], ctx: EvalContext) -> float:
             score += 0.15
         if LOAD_SNIPPET_RE.search(blob):
             score += 0.1
-    
+
     logging.info(
         f"Repo dataset subscore: {score:.3f}, HF datasets: {len(datasets)}, "
         f"card_yaml datasets: {len(card_yaml.get('datasets', []))}, texts checked: {len(texts)}"
@@ -121,21 +121,21 @@ def _is_example_path(p: str) -> bool:
     return any(hint in stem for hint in EXAMPLE_HINTS)
 
 
-def _code_subscore(texts: list[str], paths: set[str], hf_files: list = None) -> float:
+def _code_subscore(texts: list[str], paths: set[str], hf_files: Optional[List] = None) -> float:
     # Use HF files if available and paths is empty
     if not paths and hf_files:
         # Extract paths from HF files metadata
         paths = {f.get("path", "") for f in hf_files if isinstance(f, dict)}
         logging.info(f"Using HF files metadata, found {len(paths)} files")
-    
+
     n = sum(1 for p in paths if isinstance(p, str) and _is_example_path(p))
     base = 0.0 if n == 0 else 0.3 if n == 1 else 0.5 if n <= 3 else 0.6  # 0.3 for 1, 0.5 for 2-3, 0.6 for 4+
-    
+
     # Check for runnable snippets in README
     blob = "\n\n".join(t for t in texts if isinstance(t, str))
     if has_runnable_snippet(blob):
         base += 0.3
-    
+
     # diversity: notebook + script or train + infer heuristics
     has_nb = any(isinstance(p, str) and p.endswith(".ipynb") for p in paths)
     has_py = any(isinstance(p, str) and p.endswith(".py") for p in paths)
@@ -168,7 +168,7 @@ async def metric(ctx: EvalContext) -> float:
     paths = collect_paths(ctx)
     hf = (ctx.hf_data or [{}])[0]
     hf_files = hf.get("files", [])
-    
+
     texts = []
     if isinstance(hf.get("readme_text"), str):
         texts.append(hf["readme_text"])
@@ -182,11 +182,11 @@ async def metric(ctx: EvalContext) -> float:
     # Check engagement for baseline score adjustment
     downloads = hf.get("downloads", 0)
     likes = hf.get("likes", 0)
-    
+
     # Calculate subscores with HF file metadata
     dscore = _dataset_subscore(texts, ctx)
     cscore = _code_subscore(texts, paths, hf_files)
-    
+
     # Apply engagement-based adjustments
     if downloads > 1000000 or likes > 1000:  # Very popular models
         logging.info(f"High-engagement model detected (downloads: {downloads}, likes: {likes})")

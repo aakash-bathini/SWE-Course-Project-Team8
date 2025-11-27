@@ -223,32 +223,33 @@ def scrape_hf_url(url: str) -> Tuple[Dict[str, Any], str]:
 
     # README - Fetch with multiple fallback methods
     readme_text: str = ""  # Default to empty string instead of None
-    
+
     # Method 1: Try ModelCard.load() (preferred, most reliable)
     try:
         card = ModelCard.load(repo_id)
-        if card and hasattr(card, 'text') and card.text:
+        if card and hasattr(card, "text") and card.text:
             readme_text = card.text
             print(f"HF_README: ✓ Successfully loaded README for {repo_id} via ModelCard.load()")
     except Exception as e:
         print(f"HF_README: Method 1 (ModelCard.load) failed for {repo_id}: {type(e).__name__}: {e}")
-    
+
     # Method 2: Try getting README from cardData in info object
     if not readme_text and card_yaml:
         try:
             # Some models have the text embedded in cardData
             if isinstance(card_yaml, dict):
-                card_text = card_yaml.get('text') or card_yaml.get('content') or card_yaml.get('readme')
+                card_text = card_yaml.get("text") or card_yaml.get("content") or card_yaml.get("readme")
                 if card_text and isinstance(card_text, str):
                     readme_text = card_text
                     print(f"HF_README: ✓ Extracted README from cardData for {repo_id}")
         except Exception as e:
             print(f"HF_README: Method 2 (cardData extraction) failed for {repo_id}: {e}")
-    
+
     # Method 3: Try direct HTTP request to README.md file
     if not readme_text:
         try:
             import requests
+
             readme_url = f"https://huggingface.co/{repo_id}/raw/main/README.md"
             response = requests.get(readme_url, timeout=10)
             if response.status_code == 200 and response.text:
@@ -258,7 +259,7 @@ def scrape_hf_url(url: str) -> Tuple[Dict[str, Any], str]:
                 print(f"HF_README: Method 3 (HTTP) returned status {response.status_code} for {repo_id}")
         except Exception as e:
             print(f"HF_README: Method 3 (HTTP request) failed for {repo_id}: {e}")
-    
+
     # Method 4: Try HfApi to get README file content directly
     if not readme_text:
         try:
@@ -268,12 +269,12 @@ def scrape_hf_url(url: str) -> Tuple[Dict[str, Any], str]:
                 repo_type=repo_type,
             )
             if readme_content and os.path.exists(readme_content):
-                with open(readme_content, 'r', encoding='utf-8') as f:
+                with open(readme_content, "r", encoding="utf-8") as f:
                     readme_text = f.read()
                 print(f"HF_README: ✓ Downloaded README file for {repo_id} via hf_hub_download")
         except Exception as e:
             print(f"HF_README: Method 4 (hf_hub_download) failed for {repo_id}: {e}")
-    
+
     # Final check and logging
     if readme_text:
         print(f"HF_README: SUCCESS - README length: {len(readme_text)} chars for {repo_id}")

@@ -15,14 +15,14 @@ async def metric(ctx: EvalContext) -> float:
     # Get HF and GitHub data
     hf = (ctx.hf_data or [{}])[0] if ctx.hf_data else {}
     gh = (ctx.gh_data or [{}])[0] if ctx.gh_data else {}
-    
+
     # PRIORITY 1: Use HF metadata for performance signals (even without README)
     downloads = hf.get("downloads", 0)
     likes = hf.get("likes", 0)
     tags = hf.get("tags", []) or []
     pipeline_tag = hf.get("pipeline_tag")
     card_yaml = hf.get("card_yaml", {}) or {}
-    
+
     # Check card_yaml for performance metrics/results
     card_yaml_score = 0.0
     if card_yaml and isinstance(card_yaml, dict):
@@ -30,43 +30,50 @@ async def metric(ctx: EvalContext) -> float:
         has_eval_results = "eval_results" in card_yaml or "model-index" in card_yaml
         has_metrics = "metrics" in card_yaml or "results" in card_yaml
         has_datasets = "datasets" in card_yaml
-        
+
         if has_eval_results or has_metrics:
             card_yaml_score = 0.35  # Strong signal of performance claims
             logging.info(f"card_yaml contains performance data: eval_results={has_eval_results}, metrics={has_metrics}")
         elif has_datasets:
             card_yaml_score = 0.20  # Dataset mention suggests evaluation
             logging.info("card_yaml contains dataset references")
-    
+
     # Check tags for performance-related indicators
     tag_score = 0.0
-    perf_tags = [t for t in tags if any(x in str(t).lower() for x in 
-                 ["benchmark", "eval", "accuracy", "f1", "bleu", "rouge", "squad", "glue"])]
+    perf_tags = [
+        t
+        for t in tags
+        if any(x in str(t).lower() for x in ["benchmark", "eval", "accuracy", "f1", "bleu", "rouge", "squad", "glue"])
+    ]
     if perf_tags:
         tag_score = min(0.25, len(perf_tags) * 0.08)
         logging.info(f"Performance-related tags found: {perf_tags[:5]}, score={tag_score:.2f}")
-    
+
     # Engagement-based heuristic (popular models usually have good performance claims)
     engagement_score = 0.0
     if downloads > 1000000 or likes > 1000:  # Very popular
         engagement_score = 0.30
-        logging.info(f"High-engagement model (downloads: {downloads}, likes: {likes}), "
-                    f"engagement score: {engagement_score}")
+        logging.info(
+            f"High-engagement model (downloads: {downloads}, likes: {likes}), " f"engagement score: {engagement_score}"
+        )
     elif downloads > 100000 or likes > 100:  # Popular
         engagement_score = 0.20
-        logging.info(f"Popular model (downloads: {downloads}, likes: {likes}), "
-                    f"engagement score: {engagement_score}")
+        logging.info(
+            f"Popular model (downloads: {downloads}, likes: {likes}), " f"engagement score: {engagement_score}"
+        )
     elif downloads > 10000 or likes > 10:  # Moderate
         engagement_score = 0.10
-    
+
     # Base score from HF metadata (without README)
     base_score = card_yaml_score + tag_score + engagement_score
     base_score = min(0.70, base_score)  # Cap at 0.70 so README can still add value
-    
+
     if base_score > 0:
-        logging.info(f"Performance base score from HF metadata: {base_score:.2f} "
-                    f"(card_yaml={card_yaml_score:.2f}, tags={tag_score:.2f}, "
-                    f"engagement={engagement_score:.2f})")
+        logging.info(
+            f"Performance base score from HF metadata: {base_score:.2f} "
+            f"(card_yaml={card_yaml_score:.2f}, tags={tag_score:.2f}, "
+            f"engagement={engagement_score:.2f})"
+        )
 
     # PRIORITY 2: README analysis (bonus on top of base score)
     readme_content = ""
@@ -241,19 +248,20 @@ async def metric(ctx: EvalContext) -> float:
         # Combine base score with README bonus
         score = base_score + readme_bonus
         score = max(0.0, min(1.0, score))
-        
-        logging.info(f"Final performance score: base={base_score:.2f}, readme_bonus={readme_bonus:.2f}, "
-                    f"total={score:.2f}")
+
+        logging.info(
+            f"Final performance score: base={base_score:.2f}, readme_bonus={readme_bonus:.2f}, " f"total={score:.2f}"
+        )
         return float(round(score, 2))
 
     # Compute score from LLM analysis summary
     summary = analysis_json.get("summary", {})
     quality = summary.get("overall_evidence_quality", 0.0)
     specificity = summary.get("overall_specificity", 0.0)
-    
+
     # LLM analysis provides README evidence bonus (scaled to max 0.4)
     llm_bonus = ((quality + specificity) / 2.0) * 0.4
-    
+
     # Combine base score (from HF metadata) with LLM analysis bonus
     score = base_score + llm_bonus
     score = max(0.0, min(1.0, score))
