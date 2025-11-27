@@ -20,8 +20,16 @@ async def metric(context: EvalContext) -> float:
     Calculate treescore as average of parent model scores
     """
     try:
+        logger.info(
+            "CW_TREESCORE_START: url=%s category=%s hf_data=%s gh_data=%s",
+            getattr(context, "url", None),
+            getattr(context, "category", None),
+            bool(getattr(context, "hf_data", None)),
+            bool(getattr(context, "gh_data", None)),
+        )
         # Get parent models from lineage
         parent_urls = _extract_parent_models(context)
+        logger.info("CW_TREESCORE_PARENTS: count=%d parents=%s", len(parent_urls), parent_urls)
 
         if not parent_urls:
             logger.info("No parent models found in lineage")
@@ -33,11 +41,13 @@ async def metric(context: EvalContext) -> float:
 
         for parent_url in parent_urls[:5]:  # Limit to 5 parents for performance
             try:
+                logger.info("CW_TREESCORE_PARENT_SCORE: evaluating %s", parent_url)
                 # Create context for parent model
                 parent_context = EvalContext(url=parent_url, category=context.category, hf_data=[], gh_data=[])
 
                 # Calculate parent score (simplified - use basic metrics)
                 parent_score = await _calculate_parent_score(parent_context)
+                logger.info("CW_TREESCORE_PARENT_SCORE: url=%s score=%.3f", parent_url, parent_score)
                 parent_scores.append(parent_score)
 
             except Exception as e:
@@ -49,6 +59,12 @@ async def metric(context: EvalContext) -> float:
 
         # Return average of parent scores
         avg_score = sum(parent_scores) / len(parent_scores)
+        logger.info(
+            "CW_TREESCORE_RESULT: parents_count=%d parent_scores=%s avg=%.3f",
+            len(parent_scores),
+            parent_scores,
+            avg_score,
+        )
         return round(avg_score, 2)
 
     except Exception as e:
@@ -61,9 +77,15 @@ def _extract_parent_models(context: EvalContext) -> list[str]:
     Extract parent model URLs from HuggingFace data
     """
     try:
+        logger.info(
+            "CW_TREESCORE_EXTRACT_START: url=%s hf_data_present=%s",
+            getattr(context, "url", None),
+            bool(getattr(context, "hf_data", None)),
+        )
         parent_urls: list[str] = []
 
         if not context.hf_data or len(context.hf_data) == 0:
+            logger.info("CW_TREESCORE_EXTRACT: no hf_data available")
             return parent_urls
 
         raw = context.hf_data[0]
@@ -100,6 +122,11 @@ def _extract_parent_models(context: EvalContext) -> list[str]:
                 parent_urls.append(_normalize_model_url(base_model))
             elif isinstance(base_model, list):
                 parent_urls.extend(_normalize_model_url(m) for m in base_model)
+        logger.info(
+            "CW_TREESCORE_EXTRACT_BASE: base_model_field=%s parent_urls=%s",
+            base_model,
+            parent_urls,
+        )
 
         # Check for model-index with base_model references
         if isinstance(card_yaml, dict):
@@ -116,6 +143,7 @@ def _extract_parent_models(context: EvalContext) -> list[str]:
                                         name = dataset_name.get("name")
                                         if name and "/" in name:
                                             parent_urls.append(_normalize_model_url(name))
+            logger.info("CW_TREESCORE_EXTRACT_MODEL_INDEX: parents_now=%s", parent_urls)
 
         # Check tags for fine-tuned indicators
         # Defensive: tags might be stored as a JSON string or list of strings
@@ -136,6 +164,7 @@ def _extract_parent_models(context: EvalContext) -> list[str]:
             if isinstance(tag, str) and tag.startswith("base_model:"):
                 model_name = tag.replace("base_model:", "").strip()
                 parent_urls.append(_normalize_model_url(model_name))
+        logger.info("CW_TREESCORE_EXTRACT_TAGS: tags_checked=%d parents_now=%s", len(tags), parent_urls)
 
         # Remove duplicates while preserving order
         seen: Set[str] = set()
@@ -194,11 +223,24 @@ async def _calculate_parent_score(context: EvalContext) -> float:
             if isinstance(size_scores, dict) and size_scores:
                 avg_size = sum(size_scores.values()) / len(size_scores)
                 scores.append(avg_size)
+                logger.info(
+                    "CW_TREESCORE_PARENT_COMPONENTS: url=%s license_score=%s avg_size_score=%.3f raw_size_scores=%s",
+                    getattr(context, "url", None),
+                    scores[0] if scores else None,
+                    avg_size,
+                    size_scores,
+                )
         except Exception:
             pass
 
         # Return average of available scores, or 0.5 as default
         if scores:
+            logger.info(
+                "CW_TREESCORE_PARENT_FINAL: url=%s scores=%s avg=%.3f",
+                getattr(context, "url", None),
+                scores,
+                sum(scores) / len(scores),
+            )
             return sum(scores) / len(scores)
         else:
             return 0.5  # Neutral score if we can't calculate

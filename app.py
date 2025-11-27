@@ -4281,6 +4281,7 @@ async def artifact_lineage(
     except Exception as e:
         logger.error(f"Error in lineage extraction for artifact {id}: {e}", exc_info=True)
         parents = []
+    logger.info("CW_LINEAGE_PARENTS: artifact_id=%s parents=%s", id, parents)
 
     # Build graph: self node + parent nodes and edges (parent -> child)
     nodes: List[ArtifactLineageNode] = [
@@ -4405,6 +4406,13 @@ async def artifact_lineage(
                 )
             )
 
+    logger.info(
+        "CW_LINEAGE_GRAPH: artifact_id=%s nodes=%d edges=%d node_ids=%s",
+        id,
+        len(nodes),
+        len(edges),
+        [n.artifact_id for n in nodes],
+    )
     return ArtifactLineageGraph(nodes=nodes, edges=edges)
 
 
@@ -4696,7 +4704,9 @@ async def model_artifact_rate(
 
     # Acquire lock to prevent concurrent computation
     # All computation must happen inside the lock to prevent race conditions
-    with rating_locks[id]:
+    lock = rating_locks[id]
+    logger.info("CW_RATE_LOCK: acquiring id=%s thread=%s", id, threading.current_thread().name)
+    with lock:
         # Double-check cache after acquiring lock (another request might have computed it)
         if id in rating_cache:
             logger.info(f"DEBUG_RATE: Returning cached rating for id={id} (after lock)")
@@ -5285,6 +5295,25 @@ async def model_artifact_rate(
             f"DEBUG_RATE: METRICS_READY - net_score={net_score}, "
             f"category={category}, artifact_name={artifact_name}"
         )
+        logger.info(
+            "CW_RATE_METRICS_SUMMARY: id=%s net=%.3f ramp=%.3f bus=%.3f perf=%.3f lic=%.3f "
+            "ds_code=%.3f ds_quality=%.3f code_q=%.3f repro=%.3f reviewedness=%.3f tree=%.3f "
+            "size_scores=%s metric_keys=%s",
+            id,
+            net_score,
+            get_m("ramp_up_time"),
+            get_m("bus_factor"),
+            get_m("performance_claims"),
+            get_m("license"),
+            get_m("dataset_and_code_score"),
+            get_m("dataset_quality"),
+            get_m("code_quality"),
+            get_m("reproducibility"),
+            get_m("reviewedness"),
+            get_m("tree_score"),
+            size_scores,
+            sorted(metrics.keys()),
+        )
 
         try:
             rating = ModelRating(
@@ -5336,6 +5365,12 @@ async def model_artifact_rate(
             # Cache the rating result for concurrent requests
             rating_cache[id] = rating_json
 
+            logger.info(
+                "CW_RATE_LOCK: releasing id=%s thread=%s (success)",
+                id,
+                threading.current_thread().name,
+            )
+
             return rating_json
         except Exception as e:
             logger.error(
@@ -5349,6 +5384,7 @@ async def model_artifact_rate(
             )
             sys.stdout.flush()
             raise HTTPException(status_code=500, detail=f"Failed to generate rating: {str(e)}")
+    logger.info("CW_RATE_LOCK: released id=%s thread=%s (exit)", id, threading.current_thread().name)
 
 
 @app.get("/package/{id}/rate")
