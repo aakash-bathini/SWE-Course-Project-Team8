@@ -32,8 +32,11 @@ async def metric(context: EvalContext) -> float:
         logger.info("CW_TREESCORE_PARENTS: count=%d parents=%s", len(parent_urls), parent_urls)
 
         if not parent_urls:
-            logger.info("No parent models found in lineage")
-            # Sentinel meaning "not applicable" so ingest gate can ignore
+            logger.info(
+                "CW_TREESCORE_NO_PARENTS: url=%s category=%s returning -1 sentinel",
+                getattr(context, "url", None),
+                getattr(context, "category", None),
+            )
             return -1.0
 
         # Calculate scores for parent models
@@ -55,7 +58,12 @@ async def metric(context: EvalContext) -> float:
                 continue
 
         if not parent_scores:
-            return -1.0
+            logger.info(
+                "CW_TREESCORE_NO_PARENT_SCORES: url=%s parents=%s returning 0.0",
+                getattr(context, "url", None),
+                parent_urls,
+            )
+            return 0.0
 
         # Return average of parent scores
         avg_score = sum(parent_scores) / len(parent_scores)
@@ -114,6 +122,11 @@ def _extract_parent_models(context: EvalContext) -> list[str]:
             card_yaml = card_yaml_raw
         else:
             card_yaml = {}
+        logger.info(
+            "CW_TREESCORE_EXTRACT_CARD: card_keys=%s base_model=%s",
+            list(card_yaml.keys())[:10],
+            card_yaml.get("base_model") if isinstance(card_yaml, dict) else None,
+        )
 
         # Handle base_model (can be string or list)
         base_model = card_yaml.get("base_model") if isinstance(card_yaml, dict) else None
@@ -159,10 +172,18 @@ def _extract_parent_models(context: EvalContext) -> list[str]:
             tags = tags_raw
         else:
             tags = []
+        logger.info(
+            "CW_TREESCORE_EXTRACT_TAGS_RAW: count=%d sample=%s",
+            len(tags),
+            tags[:5] if isinstance(tags, list) else tags,
+        )
 
         for tag in tags:
-            if isinstance(tag, str) and tag.startswith("base_model:"):
-                model_name = tag.replace("base_model:", "").strip()
+            if not isinstance(tag, str):
+                continue
+            lowered = tag.lower()
+            if lowered.startswith("base_model:") or lowered.startswith("finetune:") or lowered.startswith("quantized:"):
+                model_name = tag.split(":", 1)[1].strip()
                 parent_urls.append(_normalize_model_url(model_name))
         logger.info("CW_TREESCORE_EXTRACT_TAGS: tags_checked=%d parents_now=%s", len(tags), parent_urls)
 
@@ -185,6 +206,15 @@ def _normalize_model_url(model_identifier: str) -> str:
     """
     Convert model identifier to full HuggingFace URL
     """
+    if not model_identifier:
+        return ""
+
+    # Strip common prefixes used in tags
+    for prefix in ("finetune:", "quantized:", "base_model:"):
+        if model_identifier.startswith(prefix):
+            model_identifier = model_identifier[len(prefix) :]
+            break
+
     if model_identifier.startswith("http"):
         return model_identifier
 
