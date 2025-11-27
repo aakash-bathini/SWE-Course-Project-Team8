@@ -131,7 +131,7 @@ def _extract_parent_models(context: EvalContext) -> list[str]:
             tags = tags_raw
         else:
             tags = []
-        
+
         for tag in tags:
             if isinstance(tag, str) and tag.startswith("base_model:"):
                 model_name = tag.replace("base_model:", "").strip()

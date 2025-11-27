@@ -33,7 +33,7 @@ def _project_root() -> str:
 
 def _preferred_cache_dir() -> str:
     """Return a writable cache directory.
-    
+
     Preference order (if set): PROJECT_ROOT/.cache
     If PROJECT_ROOT/.cache is read-only (e.g., AWS Lambda `/var/task`), fall back to `/tmp/.cache`.
     """

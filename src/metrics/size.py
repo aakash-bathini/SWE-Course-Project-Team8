@@ -281,6 +281,7 @@ async def metric(ctx: EvalContext) -> Dict[str, float]:
             if isinstance(card_yaml_raw, str):
                 try:
                     import json
+
                     card_yaml = json.loads(card_yaml_raw)
                     if not isinstance(card_yaml, dict):
                         card_yaml = {}

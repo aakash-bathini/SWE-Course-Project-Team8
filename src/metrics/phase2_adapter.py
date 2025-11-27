@@ -35,12 +35,13 @@ def create_eval_context_from_model_data(model_data: Dict[str, Any]) -> EvalConte
         # Ensure hf_data and gh_data are lists of dicts, not strings
         hf_data_raw = model_data.get("hf_data", [])
         gh_data_raw = model_data.get("gh_data", [])
-        
+
         # Normalize hf_data to list of dicts
         hf_data = []
         if isinstance(hf_data_raw, str):
             try:
                 import json
+
                 parsed = json.loads(hf_data_raw)
                 if isinstance(parsed, dict):
                     hf_data = [parsed]
@@ -57,17 +58,19 @@ def create_eval_context_from_model_data(model_data: Dict[str, Any]) -> EvalConte
                 elif isinstance(item, str):
                     try:
                         import json
+
                         parsed = json.loads(item)
                         if isinstance(parsed, dict):
                             hf_data.append(parsed)
                     except Exception:
                         pass
-        
+
         # Normalize gh_data to list of dicts
         gh_data = []
         if isinstance(gh_data_raw, str):
             try:
                 import json
+
                 parsed = json.loads(gh_data_raw)
                 if isinstance(parsed, dict):
                     gh_data = [parsed]
@@ -84,6 +87,7 @@ def create_eval_context_from_model_data(model_data: Dict[str, Any]) -> EvalConte
                 elif isinstance(item, str):
                     try:
                         import json
+
                         parsed = json.loads(item)
                         if isinstance(parsed, dict):
                             gh_data.append(parsed)

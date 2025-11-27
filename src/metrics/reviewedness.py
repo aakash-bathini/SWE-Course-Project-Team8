@@ -81,6 +81,7 @@ def _extract_github_url(context: EvalContext) -> Optional[str]:
             if isinstance(card_yaml_raw, str):
                 try:
                     import json
+
                     card_yaml = json.loads(card_yaml_raw)
                     if not isinstance(card_yaml, dict):
                         card_yaml = {}
