@@ -67,8 +67,8 @@ async def metric(context: EvalContext) -> float:
             )
             return 0.2
 
-        logger.info("reviewedness: no GitHub repository found; returning 0.0")
-        return 0.0
+        logger.info("reviewedness: no GitHub repository found; returning -1.0 sentinel")
+        return -1.0
 
     except Exception as e:
         logger.error(f"Reviewedness metric error: {e}")

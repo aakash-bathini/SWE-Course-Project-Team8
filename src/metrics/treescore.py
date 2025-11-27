@@ -33,11 +33,11 @@ async def metric(context: EvalContext) -> float:
 
         if not parent_urls:
             logger.info(
-                "CW_TREESCORE_NO_PARENTS: url=%s category=%s returning 0.0",
+                "CW_TREESCORE_NO_PARENTS: url=%s category=%s returning 0.5 neutral",
                 getattr(context, "url", None),
                 getattr(context, "category", None),
             )
-            return 0.0
+            return 0.5
 
         # Calculate scores for parent models
         parent_scores = []
