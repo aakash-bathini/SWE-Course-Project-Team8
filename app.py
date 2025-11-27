@@ -4288,6 +4288,8 @@ async def artifact_lineage(
         ArtifactLineageNode(artifact_id=id, name=artifact_name or id, source="config_json")
     ]
     edges: List[ArtifactLineageEdge] = []
+    added_nodes = {id}
+    added_edges: set[tuple[str, str]] = set()
 
     # Check if parent models exist in registry (by name matching)
     # Try both exact match and case-insensitive match for robustness
@@ -4385,26 +4387,24 @@ async def artifact_lineage(
                 pass
 
         # If parent found in registry, use its ID; otherwise use external ID
-        if parent_id:
-            nodes.append(
-                ArtifactLineageNode(artifact_id=parent_id, name=parent_name, source="config_json")
-            )
-            edges.append(
-                ArtifactLineageEdge(
-                    from_node_artifact_id=parent_id, to_node_artifact_id=id, relationship="base_model"
-                )
-            )
-        else:
-            # External dependency
+        if not parent_id:
             parent_id = f"external-{parent_name}"
+        parent_id_str = str(parent_id)
+
+        if parent_id_str not in added_nodes:
             nodes.append(
-                ArtifactLineageNode(artifact_id=parent_id, name=parent_name, source="config_json")
+                ArtifactLineageNode(artifact_id=parent_id_str, name=parent_name, source="config_json")
             )
+            added_nodes.add(parent_id_str)
+
+        edge_key = (parent_id_str, str(id))
+        if edge_key not in added_edges:
             edges.append(
                 ArtifactLineageEdge(
-                    from_node_artifact_id=parent_id, to_node_artifact_id=id, relationship="base_model"
+                    from_node_artifact_id=parent_id_str, to_node_artifact_id=id, relationship="base_model"
                 )
             )
+            added_edges.add(edge_key)
 
     logger.info(
         "CW_LINEAGE_GRAPH: artifact_id=%s nodes=%d edges=%d node_ids=%s",
