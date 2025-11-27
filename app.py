@@ -4240,6 +4240,35 @@ async def artifact_lineage(
         except Exception:
             pass
 
+    # CRITICAL: Ensure hf_data is properly formatted before passing to EvalContext
+    # hf_data must be a list of dicts, not a string or single dict
+    hf_data_final = model_data.get("hf_data", [])
+    if isinstance(hf_data_final, str):
+        try:
+            import json
+            parsed = json.loads(hf_data_final)
+            hf_data_final = [parsed] if isinstance(parsed, dict) else parsed if isinstance(parsed, list) else []
+        except Exception:
+            hf_data_final = []
+    elif isinstance(hf_data_final, dict):
+        hf_data_final = [hf_data_final]
+    elif not isinstance(hf_data_final, list):
+        hf_data_final = []
+    # Ensure all items in list are dicts, not strings
+    hf_data_cleaned = []
+    for item in hf_data_final:
+        if isinstance(item, dict):
+            hf_data_cleaned.append(item)
+        elif isinstance(item, str):
+            try:
+                import json
+                parsed = json.loads(item)
+                if isinstance(parsed, dict):
+                    hf_data_cleaned.append(parsed)
+            except Exception:
+                pass
+    model_data["hf_data"] = hf_data_cleaned
+
     # Extract parents using treescore helper
     parents: List[str] = []
     try:
@@ -4249,7 +4278,8 @@ async def artifact_lineage(
         from src.metrics.treescore import _extract_parent_models  # local to avoid cycles
 
         parents = _extract_parent_models(ctx)
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error in lineage extraction for artifact {id}: {e}", exc_info=True)
         parents = []
 
     # Build graph: self node + parent nodes and edges (parent -> child)
@@ -5330,10 +5360,25 @@ async def artifact_cost(
         # Prefer original HF URL when available for size estimation; fall back to stored url.
         url = data_block.get("source_url") or data_block.get("url", "")
         hf_list = data_block.get("hf_data", [])
+        # Parse hf_data if stored as JSON string
+        if isinstance(hf_list, str):
+            try:
+                import json
+                hf_list = json.loads(hf_list)
+            except Exception:
+                hf_list = []
         if isinstance(hf_list, list) and hf_list:
             first = hf_list[0]
             if isinstance(first, dict):
                 hf_data = first
+            elif isinstance(first, str):
+                try:
+                    import json
+                    parsed = json.loads(first)
+                    if isinstance(parsed, dict):
+                        hf_data = parsed
+                except Exception:
+                    pass
     elif USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
@@ -5365,7 +5410,31 @@ async def artifact_cost(
         except Exception:
             hf_data = None
 
-    model_data = {"url": url or "", "hf_data": [hf_data] if hf_data else [], "gh_data": []}
+    # Ensure hf_data is a list of dicts (not strings)
+    hf_data_list = []
+    if hf_data:
+        if isinstance(hf_data, dict):
+            hf_data_list = [hf_data]
+        elif isinstance(hf_data, str):
+            try:
+                import json
+                parsed = json.loads(hf_data)
+                hf_data_list = [parsed] if isinstance(parsed, dict) else []
+            except Exception:
+                hf_data_list = []
+        elif isinstance(hf_data, list):
+            for item in hf_data:
+                if isinstance(item, dict):
+                    hf_data_list.append(item)
+                elif isinstance(item, str):
+                    try:
+                        import json
+                        parsed = json.loads(item)
+                        if isinstance(parsed, dict):
+                            hf_data_list.append(parsed)
+                    except Exception:
+                        pass
+    model_data = {"url": url or "", "hf_data": hf_data_list, "gh_data": []}
     required_bytes = 0
     if create_eval_context_from_model_data is not None and size_metric is not None:
         try:

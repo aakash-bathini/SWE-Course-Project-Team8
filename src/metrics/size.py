@@ -276,7 +276,20 @@ async def metric(ctx: EvalContext) -> Dict[str, float]:
 
             hf = ctx.hf_data[0] or {}
             readme = hf.get("readme_text") or ""
-            card_yaml = hf.get("card_yaml") or {}
+            # Defensive: card_yaml might be stored as a JSON string
+            card_yaml_raw = hf.get("card_yaml") or {}
+            if isinstance(card_yaml_raw, str):
+                try:
+                    import json
+                    card_yaml = json.loads(card_yaml_raw)
+                    if not isinstance(card_yaml, dict):
+                        card_yaml = {}
+                except Exception:
+                    card_yaml = {}
+            elif isinstance(card_yaml_raw, dict):
+                card_yaml = card_yaml_raw
+            else:
+                card_yaml = {}
             card_text = _flatten_card_yaml(card_yaml)
 
             if cat == "DATASET":

@@ -79,10 +79,22 @@ def _extract_parent_models(context: EvalContext) -> list[str]:
             hf_info = {}
 
         # Check card_yaml for base_model field
-        card_yaml = hf_info.get("card_yaml", {})
+        # Defensive: card_yaml might be stored as a JSON string
+        card_yaml_raw = hf_info.get("card_yaml", {})
+        if isinstance(card_yaml_raw, str):
+            try:
+                card_yaml = json.loads(card_yaml_raw)
+                if not isinstance(card_yaml, dict):
+                    card_yaml = {}
+            except Exception:
+                card_yaml = {}
+        elif isinstance(card_yaml_raw, dict):
+            card_yaml = card_yaml_raw
+        else:
+            card_yaml = {}
 
         # Handle base_model (can be string or list)
-        base_model = card_yaml.get("base_model")
+        base_model = card_yaml.get("base_model") if isinstance(card_yaml, dict) else None
         if base_model:
             if isinstance(base_model, str):
                 parent_urls.append(_normalize_model_url(base_model))
@@ -90,22 +102,36 @@ def _extract_parent_models(context: EvalContext) -> list[str]:
                 parent_urls.extend(_normalize_model_url(m) for m in base_model)
 
         # Check for model-index with base_model references
-        model_index = card_yaml.get("model-index", [])
-        if isinstance(model_index, list):
-            for entry in model_index:
-                if isinstance(entry, dict):
-                    results = entry.get("results", [])
-                    if isinstance(results, list):
-                        for result in results:
-                            if isinstance(result, dict):
-                                dataset_name = result.get("dataset", {})
-                                if isinstance(dataset_name, dict):
-                                    name = dataset_name.get("name")
-                                    if name and "/" in name:
-                                        parent_urls.append(_normalize_model_url(name))
+        if isinstance(card_yaml, dict):
+            model_index = card_yaml.get("model-index", [])
+            if isinstance(model_index, list):
+                for entry in model_index:
+                    if isinstance(entry, dict):
+                        results = entry.get("results", [])
+                        if isinstance(results, list):
+                            for result in results:
+                                if isinstance(result, dict):
+                                    dataset_name = result.get("dataset", {})
+                                    if isinstance(dataset_name, dict):
+                                        name = dataset_name.get("name")
+                                        if name and "/" in name:
+                                            parent_urls.append(_normalize_model_url(name))
 
         # Check tags for fine-tuned indicators
-        tags = hf_info.get("tags", [])
+        # Defensive: tags might be stored as a JSON string or list of strings
+        tags_raw = hf_info.get("tags", [])
+        if isinstance(tags_raw, str):
+            try:
+                tags = json.loads(tags_raw)
+                if not isinstance(tags, list):
+                    tags = []
+            except Exception:
+                tags = []
+        elif isinstance(tags_raw, list):
+            tags = tags_raw
+        else:
+            tags = []
+        
         for tag in tags:
             if isinstance(tag, str) and tag.startswith("base_model:"):
                 model_name = tag.replace("base_model:", "").strip()
