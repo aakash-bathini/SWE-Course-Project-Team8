@@ -106,6 +106,13 @@ async def calculate_phase2_metrics(model_data: Dict[str, Any]) -> Tuple[Dict[str
     Returns tuple of (metrics_dict, latencies_dict) where latencies are in seconds
     """
     try:
+        logger.info(
+            "CW_PHASE2_METRICS_START: url=%s hf_items=%d gh_items=%d keys=%s",
+            model_data.get("url"),
+            len(model_data.get("hf_data") or []),
+            len(model_data.get("gh_data") or []),
+            list(model_data.keys()),
+        )
         # Create EvalContext from model data
         eval_context = create_eval_context_from_model_data(model_data)
 
@@ -120,6 +127,12 @@ async def calculate_phase2_metrics(model_data: Dict[str, Any]) -> Tuple[Dict[str
                 start_time = time.time()
                 score = await metric_fn(eval_context)
                 elapsed_time = time.time() - start_time
+                logger.info(
+                    "CW_PHASE2_METRIC_RESULT: id=%s score=%s latency=%.3fs",
+                    metric_id,
+                    score,
+                    elapsed_time,
+                )
 
                 # Store latency in seconds
                 latencies[metric_id] = elapsed_time
@@ -147,6 +160,11 @@ async def calculate_phase2_metrics(model_data: Dict[str, Any]) -> Tuple[Dict[str
                 if metric_id not in latencies:
                     latencies[metric_id] = 0.0
 
+        logger.info(
+            "CW_PHASE2_METRICS_DONE: metrics=%s latencies=%s",
+            results,
+            latencies,
+        )
         return results, latencies
     except Exception as e:
         logger.error(f"Failed to calculate Phase 2 metrics: {e}")
@@ -171,6 +189,12 @@ def calculate_phase2_net_score(metrics: Dict[str, float]) -> Tuple[float, float]
 
         net_score = calculate_net_score(processed_metrics)
         elapsed_time = time.time() - start_time
+        logger.info(
+            "CW_PHASE2_NET_SCORE: net_score=%.3f latency=%.3fs metrics_keys=%s",
+            net_score,
+            elapsed_time,
+            list(processed_metrics.keys()),
+        )
         return net_score, elapsed_time
     except Exception as e:
         logger.error(f"Failed to calculate net score: {e}")
