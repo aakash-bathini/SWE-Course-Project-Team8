@@ -1980,6 +1980,20 @@ async def models_ingest(
             if isinstance(v, (int, float)) and float(v) >= 0.0
         }
 
+        # Tree score is not applicable when there are no parents; skip threshold in that case
+        try:
+            parent_count = 0
+            if create_eval_context_from_model_data is not None:
+                ctx = create_eval_context_from_model_data(model_data)
+                from src.metrics.treescore import _extract_parent_models  # local import to avoid cycle
+
+                parent_count = len(_extract_parent_models(ctx))
+            if parent_count == 0 and "tree_score" in metrics_to_check:
+                logger.info("CW_INGEST_THRESHOLD: skipping tree_score threshold (no parents detected)")
+                metrics_to_check.pop("tree_score", None)
+        except Exception as thresh_err:
+            logger.info("CW_INGEST_THRESHOLD: parent detection failed, keeping tree_score - err=%s", thresh_err)
+
         # Check threshold: all applicable non-latency metrics must be >= 0.5
         failing_metrics = [k for k, v in metrics_to_check.items() if v < 0.5]
 
@@ -4420,15 +4434,71 @@ async def artifact_lineage(
             )
             added_edges.add(edge_key)
 
-        # Optional shallow recursion: include grandparents if metadata exists locally (no extra network)
+        # Optional shallow recursion: include grandparents. Prefer local metadata, otherwise lightly scrape HF.
         try:
-            if parent_id_str in artifacts_db and create_eval_context_from_model_data is not None:
-                pdata = artifacts_db[parent_id_str]
+            if create_eval_context_from_model_data is not None:
+                parent_hf_data: List[Dict[str, Any]] = []
+                parent_gh_data: List[Dict[str, Any]] = []
+                parent_source_url = parent_url
+
+                # Look for stored parent metadata first (fast/no-network)
+                if parent_id_str in artifacts_db:
+                    pdata = artifacts_db[parent_id_str]
+                    parent_source_url = pdata.get("data", {}).get("source_url") or pdata.get("data", {}).get("url") or parent_url
+                    parent_hf_data_raw = pdata.get("data", {}).get("hf_data", [])
+                    parent_gh_data_raw = pdata.get("data", {}).get("gh_data", [])
+                elif USE_S3 and s3_storage:
+                    try:
+                        pmeta = s3_storage.get_artifact_metadata(parent_id_str) or {}
+                        pdata_block = pmeta.get("data", {}) or {}
+                        parent_source_url = pdata_block.get("source_url") or pdata_block.get("url") or parent_url
+                        parent_hf_data_raw = pdata_block.get("hf_data", [])
+                        parent_gh_data_raw = pdata_block.get("gh_data", [])
+                    except Exception:
+                        parent_hf_data_raw = []
+                        parent_gh_data_raw = []
+                else:
+                    parent_hf_data_raw = []
+                    parent_gh_data_raw = []
+
+                # Normalize stored metadata to lists of dicts
+                def _normalize_list(raw: Any) -> List[Dict[str, Any]]:
+                    out: List[Dict[str, Any]] = []
+                    if isinstance(raw, dict):
+                        out = [raw]
+                    elif isinstance(raw, list):
+                        out = [item for item in raw if isinstance(item, dict)]
+                    elif isinstance(raw, str):
+                        try:
+                            import json
+
+                            parsed = json.loads(raw)
+                            if isinstance(parsed, dict):
+                                out = [parsed]
+                            elif isinstance(parsed, list):
+                                out = [item for item in parsed if isinstance(item, dict)]
+                        except Exception:
+                            out = []
+                    return out
+
+                parent_hf_data = _normalize_list(parent_hf_data_raw)
+                parent_gh_data = _normalize_list(parent_gh_data_raw)
+
+                # If we still have no HF data and the URL is HF, try a light scrape (cached)
+                if not parent_hf_data and parent_url and "huggingface.co" in parent_url.lower():
+                    try:
+                        if scrape_hf_url is not None:
+                            scraped_hf, _ = scrape_hf_url(parent_url)
+                            if isinstance(scraped_hf, dict):
+                                parent_hf_data = [scraped_hf]
+                    except Exception as scrape_err:
+                        logger.info("CW_LINEAGE_DEBUG: parent_scrape_failed url=%s err=%s", parent_url, scrape_err)
+
                 pdata_ctx = create_eval_context_from_model_data(
                     {
-                        "url": pdata.get("data", {}).get("source_url") or pdata.get("data", {}).get("url"),
-                        "hf_data": pdata.get("data", {}).get("hf_data", []),
-                        "gh_data": pdata.get("data", {}).get("gh_data", []),
+                        "url": parent_source_url or parent_url,
+                        "hf_data": parent_hf_data,
+                        "gh_data": parent_gh_data,
                     }
                 )
                 gp_list = _extract_parent_models(pdata_ctx)
@@ -4451,8 +4521,12 @@ async def artifact_lineage(
                             )
                         )
                         added_edges.add(gp_edge_key)
-                if gp_list:
-                    logger.info("CW_LINEAGE_DEBUG: artifact_id=%s parent=%s grandparents=%s", id, parent_id_str, gp_list)
+                logger.info(
+                    "CW_LINEAGE_DEBUG: artifact_id=%s parent=%s grandparents=%s",
+                    id,
+                    parent_id_str,
+                    gp_list,
+                )
         except Exception as rec_err:
             logger.warning("CW_LINEAGE_DEBUG: recursion failed for parent %s: %s", parent_id_str, rec_err)
 
@@ -4478,18 +4552,23 @@ async def artifact_lineage(
                     break
         # S3 / SQLite lookups skipped to avoid extra billing unless already cached
         if matched_ds_id:
-            if matched_ds_id not in added_nodes:
-                nodes.append(ArtifactLineageNode(artifact_id=matched_ds_id, name=ds_name, source="config_json"))
-                added_nodes.add(matched_ds_id)
-            edge_key = (matched_ds_id, id)
-            if edge_key not in added_edges:
-                edges.append(
-                    ArtifactLineageEdge(
-                        from_node_artifact_id=matched_ds_id, to_node_artifact_id=id, relationship="dataset"
-                    )
+            ds_node_id = matched_ds_id
+        else:
+            # Expose external dataset dependency to make lineage graph informative
+            ds_node_id = f"external-dataset-{ds_name}"
+
+        if ds_node_id not in added_nodes:
+            nodes.append(ArtifactLineageNode(artifact_id=ds_node_id, name=ds_name, source="config_json"))
+            added_nodes.add(ds_node_id)
+        edge_key = (ds_node_id, id)
+        if edge_key not in added_edges:
+            edges.append(
+                ArtifactLineageEdge(
+                    from_node_artifact_id=ds_node_id, to_node_artifact_id=id, relationship="dataset"
                 )
-                added_edges.add(edge_key)
-            logger.info("CW_LINEAGE_DEBUG: Added dataset dependency ds_id=%s for model=%s", matched_ds_id, id)
+            )
+            added_edges.add(edge_key)
+        logger.info("CW_LINEAGE_DEBUG: Added dataset dependency ds_id=%s for model=%s", ds_node_id, id)
 
     logger.info(
         "CW_LINEAGE_GRAPH: artifact_id=%s nodes=%d edges=%d node_ids=%s",
@@ -5243,12 +5322,13 @@ async def model_artifact_rate(
                     logger.warning("DEBUG_RATE: ⚠️ NO HF DATA AVAILABLE for metrics calculation!")
                 sys.stdout.flush()
 
-                logger.info(
-                    "CW_RATE_DEBUG: no_hf_data id=%s metrics_url=%s source_url=%s",
-                    id,
-                    metrics_url,
-                    source_url,
-                )
+                if not hf_data:
+                    logger.info(
+                        "CW_RATE_DEBUG: no_hf_data id=%s metrics_url=%s source_url=%s",
+                        id,
+                        metrics_url,
+                        source_url,
+                    )
 
                 model_data = {
                     "url": metrics_url,

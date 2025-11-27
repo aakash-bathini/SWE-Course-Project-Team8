@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 
 async def metric(context: EvalContext) -> float:
     """
-    Calculate treescore as average of parent model scores
+    Calculate treescore as average of parent model scores.
+    Return 0.0 when no parents (previously returned -1 sentinel).
     """
     try:
         logger.info(
@@ -33,11 +34,11 @@ async def metric(context: EvalContext) -> float:
 
         if not parent_urls:
             logger.info(
-                "CW_TREESCORE_NO_PARENTS: url=%s category=%s returning -1 sentinel",
+                "CW_TREESCORE_NO_PARENTS: url=%s category=%s returning 0.0",
                 getattr(context, "url", None),
                 getattr(context, "category", None),
             )
-            return -1.0
+            return 0.0
 
         # Calculate scores for parent models
         parent_scores = []
