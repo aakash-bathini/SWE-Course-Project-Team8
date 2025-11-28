@@ -141,7 +141,7 @@ curl -X POST http://localhost:8000/authenticate \
 ├── .github/workflows/              # CI/CD pipelines
 │   ├── ci.yml                     # Continuous Integration
 │   └── cd.yml                     # Continuous Deployment
-├── ece461_fall_2025_openapi_spec.yaml  # OpenAPI spec v3.4.3
+├── ece461_fall_2025_openapi_spec.yaml  # OpenAPI spec v3.4.7
 └── README.md                       # This comprehensive guide
 ```
 
@@ -282,7 +282,7 @@ Response: 201 Created
 }
 ```
 
-### Artifact Endpoints (OpenAPI Spec v3.4.4)
+### Artifact Endpoints (OpenAPI Spec v3.4.7)
 
 ```http
 POST /artifact/{artifact_type}
@@ -306,7 +306,7 @@ Response: 201 Created
   }
 }
 ```
-Note: As of v3.4.4, servers may return 202 Accepted when rating is deferred asynchronously (e.g., when `X-Async-Ingest: true` or `?async=true` is used). The implementation here returns the same response body with HTTP 202 for frontend compatibility, and `/artifact/model/{id}/rate` will return 404 until rating succeeds.
+Note: As of v3.4.7, servers may return 202 Accepted when rating is deferred asynchronously (e.g., when `X-Async-Ingest: true` or `?async=true` is used). The implementation here returns the same response body with HTTP 202 for frontend compatibility, and `/artifact/model/{id}/rate` will return 404 until rating succeeds.
 
 ```http
 GET /artifacts/{artifact_type}/{id}
@@ -1027,7 +1027,7 @@ grep ERROR app.log
 - Enumerate: `GET /models` supports cursor-based pagination for large datasets
 - AWS: Uses multiple components (Lambda, API Gateway, S3, CloudWatch)
 - Default user: `ece30861defaultadminuser` present; if auth enabled, password as specified
-- OpenAPI: `/docs` served; schema validation enforced in CI; compliant with OpenAPI spec v3.4.3
+- OpenAPI: `/docs` served; schema validation enforced in CI; compliant with OpenAPI spec v3.4.7
 
 #### 1. Download Endpoint ✅
 **Endpoint**: `GET /models/{id}/download?aspect=<type>`
@@ -1050,7 +1050,7 @@ grep ERROR app.log
   - Model card parsing (README.md)
   - SHA256 checksum calculation
   - Automatic metrics calculation trigger
-  - Returns `download_url` field in response (OpenAPI spec v3.4.3)
+  - Returns `download_url` field in response (OpenAPI spec v3.4.7)
   - S3 metadata storage (production) or SQLite (local development)
   - Audit logging
 - **Storage**: S3 (production), local `uploads/{artifact_id}/` directory (development)
@@ -1178,7 +1178,7 @@ grep ERROR app.log
   - Retrieves artifact by ID and type
   - Type validation (returns 400 if type mismatch)
   - 404 if artifact doesn't exist
-  - Returns `download_url` field in response (OpenAPI spec v3.4.3)
+  - Returns `download_url` field in response (OpenAPI spec v3.4.7)
   - Debug logging for troubleshooting (CloudWatch logs)
   - Works with S3 (production), SQLite (local), and in-memory storage
 - ✅ Efficient for large datasets (millions of models)
@@ -1200,7 +1200,7 @@ grep ERROR app.log
 - `GET /models/{id}/download` - Now fully implemented (was 501 placeholder)
 - `POST /models/upload` - Now fully implemented (was 501 placeholder); returns `download_url` field
 - `POST /models/ingest` - Returns `download_url` field in response
-- `GET /artifacts/{artifact_type}/{id}` - Returns `download_url` field (OpenAPI spec v3.4.3)
+- `GET /artifacts/{artifact_type}/{id}` - Returns `download_url` field (OpenAPI spec v3.4.7)
 - `POST /artifact/{artifact_type}` - Returns `download_url` field; fixed threshold logic to exclude latency metrics
 - `GET /artifact/model/{id}/rate` - Now returns 11 metrics (was 8)
 
@@ -1220,7 +1220,7 @@ grep ERROR app.log
 }
 ```
 
-**Artifact endpoints** (OpenAPI spec v3.4.3) now include `download_url`:
+**Artifact endpoints** (OpenAPI spec v3.4.7) now include `download_url`:
 ```json
 {
   "metadata": {
