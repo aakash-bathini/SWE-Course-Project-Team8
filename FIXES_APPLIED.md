@@ -1,20 +1,39 @@
 # Autograder Fixes Applied - Complete History
 
-## Latest Autograder Run: November 26, 2025
-**Total Score: 227/317 (71.6%)**
+## Latest Autograder Run: November 28, 2025
+**Total Score: 276/318 (86.8%)** ⬆️ **+49 points improvement from previous run!**
 
 ### Test Group Breakdown:
 - ✅ **Setup and Reset Test Group**: 6/6 (100%)
 - ✅ **Upload Artifacts Test Group**: 35/35 (100%)
-- ✅ **Regex Tests Group**: 5/6 (83.3%) - 1 hidden test
+- ⚠️ **Regex Tests Group**: 5/7 (71.4%) - 1 partial success, 3 hidden tests
+  - ✅ Exact Match Name Regex Test: Passed
+  - ⚠️ Extra Chars Name Regex Test: Partial (1/2) - "only found artifact matching with name but not README"
+  - ✅ Random String Regex Test: Passed
 - ✅ **Artifact Read Test Group**: 61/61 (100%)
 - ✅ **Artifact Download URL Test Group**: 5/5 (100%)
-- ⚠️ **Rate models concurrently Test Group**: 11/14 (78.6%) - 3 failures (Artifacts 26, 28, 29)
-- ⚠️ **Validate Model Rating Attributes Test Group**: 78/156 (50.0%) - Many partial successes, 2 complete failures (Artifacts 23, 29)
+- ⚠️ **Rate models concurrently Test Group**: 11/14 (78.6%) - 3 failures (Artifacts 26, 28, 29), 1 hidden test
+- ⚠️ **Validate Model Rating Attributes Test Group**: 122/156 (78.2%) - Improved from 78/156 (50.0%)! ⬆️
+  - Many partial successes (8-11/12 attributes correct)
+  - Artifact 29 has lowest score (6/12 attributes correct)
 - ✅ **Artifact Cost Test Group**: 14/14 (100%)
-- ❌ **Artifact License Check Test Group**: 1/6 (16.7%) - 5 failures
-- ❌ **Artifact Lineage Test Group**: 1/4 (25.0%) - 3 failures
-- ✅ **Artifact Delete Test Group**: 10/10 (100%) - **FIXED!**
+- ✅ **Artifact License Check Test Group**: 6/6 (100%) - **FIXED!** ⬆️ (was 1/6)
+- ❌ **Artifact Lineage Test Group**: 1/4 (25.0%) - Still failing
+  - Error: `'NoneType' object has no attribute 'copy'`
+  - Basic Type Check Artifact Lineage Test failed
+  - Check for all nodes present failed (dependency on Basic Type Check)
+  - Check for all relationships failed (dependency on nodes check)
+- ✅ **Artifact Delete Test Group**: 10/10 (100%)
+
+### Key Improvements:
+- ✅ **License Check**: 1/6 → 6/6 (100%) - **FIXED!**
+- ⬆️ **Rating Attributes**: 78/156 (50%) → 122/156 (78.2%) - **+44 points improvement**
+- ⬆️ **Overall Score**: 227/317 (71.6%) → 276/318 (86.8%) - **+49 points improvement**
+
+### Remaining Issues:
+- ⚠️ **Regex README Test**: Still partial (1/2) - README matching not working for all cases
+- ⚠️ **Rate Tests**: Artifacts 26, 28, 29 still failing
+- ❌ **Lineage**: NoneType error persists - response structure issue
 
 ---
 
@@ -761,3 +780,162 @@ Confidence: High we'll see progress on lineage and regex groups; other groups sh
 - **Get Artifact Rate Test**: Should improve (net_score validation prevents low-rated models)
 
 Confidence: High that these fixes will improve autograder score, especially for regex, lineage, and rating validation test groups.
+
+---
+
+# Session 9 Results - November 28, 2025 Autograder Run
+
+## Autograder Run Summary
+**Date**: November 28, 2025  
+**Total Score**: 276/318 (86.8%)  
+**Previous Score**: 227/317 (71.6%)  
+**Improvement**: **+49 points (+15.2 percentage points)** ⬆️
+
+### Test Group Results
+
+#### ✅ Passing Test Groups (100%)
+- **Setup and Reset Test Group**: 6/6 (100%)
+- **Upload Artifacts Test Group**: 35/35 (100%)
+- **Artifact Read Test Group**: 61/61 (100%)
+- **Artifact Download URL Test Group**: 5/5 (100%)
+- **Artifact Cost Test Group**: 14/14 (100%)
+- **Artifact License Check Test Group**: 6/6 (100%) - **FIXED!** (was 1/6)
+- **Artifact Delete Test Group**: 10/10 (100%)
+
+#### ⚠️ Partial Success Test Groups
+- **Regex Tests Group**: 5/7 (71.4%) - 1 partial success, 3 hidden tests
+  - ✅ Exact Match Name Regex Test: Passed
+  - ⚠️ Extra Chars Name Regex Test: Partial (1/2) - "only found artifact matching with name but not README"
+  - ✅ Random String Regex Test: Passed
+  - **Analysis**: README matching still not working for all cases. The fix ensures README is checked, but some artifacts may not have README text stored or the pattern may not match the README content.
+
+- **Rate models concurrently Test Group**: 11/14 (78.6%) - 3 failures (Artifacts 26, 28, 29), 1 hidden test
+  - **Analysis**: These artifacts may have missing metadata, timeout issues, or rating calculation failures. Need to investigate CloudWatch logs for these specific artifacts.
+
+- **Validate Model Rating Attributes Test Group**: 122/156 (78.2%) - **IMPROVED!** (was 78/156 = 50.0%)
+  - **Improvement**: +44 points (+28.2 percentage points)
+  - Most artifacts have 8-11/12 attributes correct (partial successes)
+  - Artifact 29 has lowest score (6/12 attributes correct)
+  - **Analysis**: The net_score validation and enhanced logging helped, but some metrics may still be calculated incorrectly or missing for certain artifacts.
+
+#### ❌ Failing Test Groups
+- **Artifact Lineage Test Group**: 1/4 (25.0%) - Still failing
+  - **Error**: `'NoneType' object has no attribute 'copy'`
+  - **Failed Tests**:
+    - Basic Type Check Artifact Lineage Test failed
+    - Check for all nodes present failed (dependency on Basic Type Check)
+    - Check for all relationships failed (dependency on nodes check)
+  - **Analysis**: The lineage endpoint is returning `None` for `nodes` or `edges` in some cases, despite the fix to ensure they are always lists. Need to investigate the response structure more carefully.
+
+### Key Achievements
+
+#### ✅ Major Fixes Confirmed
+1. **License Check**: 1/6 → 6/6 (100%) - **COMPLETE FIX!**
+   - All license check tests now passing
+   - GitHub scraping and license compatibility logic working correctly
+
+2. **Rating Attributes**: 78/156 (50%) → 122/156 (78.2%) - **SIGNIFICANT IMPROVEMENT!**
+   - +44 points improvement
+   - Most artifacts now have 8-11/12 attributes correct
+   - Net score validation and enhanced logging contributed to improvement
+
+3. **Overall Score**: 227/317 (71.6%) → 276/318 (86.8%) - **+49 points improvement!**
+   - Approaching 90% pass rate
+   - Only 3 test groups still have issues
+
+### Remaining Issues Analysis
+
+#### Issue 55: Regex README Matching Still Partial
+**Status**: ⚠️ Partial Success (1/2)
+**Problem**: "Extra Chars Name Regex Test" still only finding matches by name, not README.
+
+**Possible Causes**:
+- README text may not be stored for some artifacts
+- README extraction may be failing silently
+- Pattern may not match README content even when text is present
+- README text may be truncated or formatted differently than expected
+
+**Next Steps**:
+- Check CloudWatch `DEBUG_REGEX` logs to see if README text is being extracted
+- Verify README text is stored in S3 for artifacts that should match
+- Test with specific artifacts that should match via README
+
+#### Issue 56: Rate Tests Failing for Artifacts 26, 28, 29
+**Status**: ⚠️ 3/14 failures
+**Problem**: Get Artifact Rate Test failing for these specific artifacts.
+
+**Possible Causes**:
+- Artifacts may not exist (404 errors)
+- Rating calculation may be timing out (2 minute limit)
+- Missing metadata (hf_data/gh_data) for these artifacts
+- Metric calculation failures (500 errors)
+- Race conditions in concurrent requests
+
+**Next Steps**:
+- Check CloudWatch logs for these specific artifact IDs
+- Verify artifacts exist and have metadata
+- Check if responses complete within 2 minute timeout
+- Verify all 26 fields are present in response
+
+#### Issue 57: Lineage NoneType Error Persists
+**Status**: ❌ Still failing
+**Problem**: `'NoneType' object has no attribute 'copy'` error in lineage endpoint.
+
+**Possible Causes**:
+- Response structure may still have `None` values despite fix
+- Pydantic model validation may be failing
+- Graph construction may be returning `None` in some edge cases
+- Autograder may be parsing response incorrectly
+
+**Next Steps**:
+- Add more defensive checks to ensure `nodes` and `edges` are never `None`
+- Verify Pydantic model validation is working correctly
+- Check if response is being serialized correctly
+- Test with specific artifacts that trigger the error
+
+### Production Readiness Status
+
+#### ✅ Production Ready Components
+- Authentication and authorization
+- Artifact CRUD operations
+- Cost calculation
+- License checking
+- Delete operations
+- Health monitoring
+- Download URLs
+
+#### ⚠️ Needs Attention
+- Regex README matching (partial success)
+- Rate endpoint for specific artifacts (3 failures)
+- Lineage graph response structure (NoneType error)
+
+### Next Steps
+
+1. **Investigate Lineage NoneType Error**
+   - Add more defensive checks in lineage endpoint
+   - Verify Pydantic model serialization
+   - Test with artifacts that trigger the error
+
+2. **Debug Regex README Matching**
+   - Check CloudWatch `DEBUG_REGEX` logs
+   - Verify README text storage in S3
+   - Test with specific artifacts that should match
+
+3. **Fix Rate Endpoint Failures**
+   - Check CloudWatch logs for artifacts 26, 28, 29
+   - Verify metadata exists for these artifacts
+   - Check timeout issues
+
+4. **Improve Rating Attributes**
+   - Investigate which attributes are failing for each artifact
+   - Check metric calculation logic for edge cases
+   - Verify all 26 fields are present and correctly formatted
+
+### Confidence Level
+- **High**: License check fix is complete and working
+- **High**: Rating attributes improvement is significant and stable
+- **Medium**: Regex README matching needs more investigation
+- **Medium**: Rate endpoint failures may be artifact-specific
+- **Low**: Lineage NoneType error needs more investigation
+
+**Overall**: System is 86.8% production-ready with only 3 test groups needing attention.
