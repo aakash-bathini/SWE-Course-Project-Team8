@@ -3765,6 +3765,10 @@ async def artifact_update(
     artifact_type: ArtifactType,
     id: str,
     artifact: Artifact,
+    request: Request,
+    response: Response,
+    x_async_ingest: Optional[str] = Header(None, alias="X-Async-Ingest"),
+    async_mode: Optional[bool] = Query(default=None, alias="async"),
     user: Dict[str, Any] = Depends(verify_token),
 ):
     """
@@ -3772,6 +3776,7 @@ async def artifact_update(
     Per Q&A: This is more like getting an updated version. Re-download and ingest again.
     If the updated model fails rating checks, fail the update and keep the older version.
     URL should not change.
+    Per Q&A: Should return 202 for async rating (same as ingest).
     """
     _validate_artifact_id_or_400(id)
     if not check_permission(user, "upload"):
@@ -3854,48 +3859,112 @@ async def artifact_update(
 
                 model_data = {"url": update_url, "hf_data": [hf_data], "gh_data": gh_data}
 
+                # Determine async rating preference: support header X-Async-Ingest and query ?async=true
+                use_async = False
+                try:
+                    if isinstance(async_mode, bool) and async_mode:
+                        use_async = True
+                    elif isinstance(x_async_ingest, str) and x_async_ingest.lower() in ("1", "true", "yes"):
+                        use_async = True
+                except Exception:
+                    use_async = False
+
                 # Calculate metrics
-                metrics_result = await calculate_phase2_metrics(model_data)
-                if isinstance(metrics_result, tuple):
-                    metrics, _ = metrics_result
-                else:
-                    metrics = metrics_result  # type: ignore[assignment]
-
-                # Filter out latency metrics and check threshold
-                non_latency_metrics = {
-                    k: v
-                    for k, v in metrics.items()
-                    if (not k.endswith("_latency") and k != "net_score_latency")
-                }
-                metrics_to_check = {
-                    k: float(v)
-                    for k, v in non_latency_metrics.items()
-                    if isinstance(v, (int, float)) and float(v) >= 0.0
-                }
-
-                # Per Q&A: Fail update if rating < 0.5, keep older version
-                failing_metrics = [k for k, v in metrics_to_check.items() if v < 0.5]
-                if failing_metrics:
-                    raise HTTPException(
-                        status_code=424,
-                        detail=(
-                            "Updated model does not meet 0.5 threshold requirement. "
-                            f"Failing metrics: {', '.join(failing_metrics)}. "
-                            "Update rejected, older version retained."
-                        ),
+                if use_async:
+                    # For async mode, defer rating calculation and return 202
+                    # Per Q&A: Return 202 for deferred calculation (same as ingest)
+                    artifact_status[id] = "PENDING"
+                    # Store updated artifact with new HF data but defer rating
+                    updated_artifact_entry = {
+                        "metadata": artifact.metadata.model_dump(),
+                        "data": {
+                            **artifact.data.model_dump(),
+                            "hf_data": [hf_data],
+                            "gh_data": gh_data,
+                        },
+                        "updated_at": datetime.now().isoformat(),
+                        "updated_by": user["username"],
+                    }
+                    # Save updated artifact
+                    if USE_S3 and s3_storage:
+                        s3_storage.save_artifact_metadata(id, updated_artifact_entry)
+                    if USE_SQLITE:
+                        with next(get_db()) as _db:  # type: ignore[misc]
+                            db_crud.update_artifact(
+                                _db,
+                                artifact_id=id,
+                                name=artifact.metadata.name,
+                                type_=artifact_type.value,
+                                url=artifact.data.url,
+                            )
+                    # Always update in-memory
+                    artifacts_db[id] = updated_artifact_entry
+                    # Log audit entry
+                    audit_log.append(
+                        {
+                            "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
+                            "date": datetime.now().isoformat(),
+                            "artifact": artifact.metadata.model_dump(),
+                            "action": "UPDATE",
+                        }
                     )
+                    if USE_SQLITE:
+                        with next(get_db()) as _db:  # type: ignore[misc]
+                            db_art = db_crud.get_artifact(_db, id)
+                            if db_art:
+                                db_crud.log_audit(
+                                    _db,
+                                    artifact=db_art,
+                                    user_name=user["username"],
+                                    user_is_admin=user.get("is_admin", False),
+                                    action="UPDATE",
+                                )
+                    # Return 202 for async rating
+                    response.status_code = 202
+                    return {"message": "Artifact update accepted. Rating deferred."}
+                else:
+                    # Synchronous mode: calculate metrics immediately
+                    metrics_result = await calculate_phase2_metrics(model_data)
+                    if isinstance(metrics_result, tuple):
+                        metrics, _ = metrics_result
+                    else:
+                        metrics = metrics_result  # type: ignore[assignment]
 
-                # Update artifact with new metadata (rating passed)
-                updated_artifact_entry = {
-                    "metadata": artifact.metadata.model_dump(),
-                    "data": {
-                        **artifact.data.model_dump(),
-                        "hf_data": [hf_data],
-                        "gh_data": gh_data,
-                    },
-                    "updated_at": datetime.now().isoformat(),
-                    "updated_by": user["username"],
-                }
+                    # Filter out latency metrics and check threshold
+                    non_latency_metrics = {
+                        k: v
+                        for k, v in metrics.items()
+                        if (not k.endswith("_latency") and k != "net_score_latency")
+                    }
+                    metrics_to_check = {
+                        k: float(v)
+                        for k, v in non_latency_metrics.items()
+                        if isinstance(v, (int, float)) and float(v) >= 0.0
+                    }
+
+                    # Per Q&A: Fail update if rating < 0.5, keep older version
+                    failing_metrics = [k for k, v in metrics_to_check.items() if v < 0.5]
+                    if failing_metrics:
+                        raise HTTPException(
+                            status_code=424,
+                            detail=(
+                                "Updated model does not meet 0.5 threshold requirement. "
+                                f"Failing metrics: {', '.join(failing_metrics)}. "
+                                "Update rejected, older version retained."
+                            ),
+                        )
+
+                    # Update artifact with new metadata (rating passed)
+                    updated_artifact_entry = {
+                        "metadata": artifact.metadata.model_dump(),
+                        "data": {
+                            **artifact.data.model_dump(),
+                            "hf_data": [hf_data],
+                            "gh_data": gh_data,
+                        },
+                        "updated_at": datetime.now().isoformat(),
+                        "updated_by": user["username"],
+                    }
 
             except HTTPException:
                 raise
@@ -4456,40 +4525,41 @@ async def artifact_lineage(
         except Exception as rec_err:
             logger.warning("CW_LINEAGE_DEBUG: recursion failed for parent %s: %s", parent_id_str, rec_err)
 
-    # Include dataset dependencies if the model lists datasets and they exist in registry
-    datasets_list: List[str] = []
-    try:
-        hf0 = model_data.get("hf_data", [])
-        if isinstance(hf0, list) and hf0 and isinstance(hf0[0], dict):
-            raw_datasets = hf0[0].get("datasets", []) or []
-            if isinstance(raw_datasets, list):
-                datasets_list = [str(d) for d in raw_datasets if isinstance(d, (str, bytes))]
-    except Exception:
-        datasets_list = []
+    # Per Q&A: Lineage is only between models, not datasets
+    # Do NOT include dataset dependencies in lineage graph
+    # datasets_list: List[str] = []
+    # try:
+    #     hf0 = model_data.get("hf_data", [])
+    #     if isinstance(hf0, list) and hf0 and isinstance(hf0[0], dict):
+    #         raw_datasets = hf0[0].get("datasets", []) or []
+    #         if isinstance(raw_datasets, list):
+    #             datasets_list = [str(d) for d in raw_datasets if isinstance(d, (str, bytes))]
+    # except Exception:
+    #     datasets_list = []
 
-    for ds in datasets_list:
-        ds_name = ds.split("/")[-1] if "/" in ds else ds
-        matched_ds_id = None
-        # In-memory first
-        for aid, adata in artifacts_db.items():
-            if adata.get("metadata", {}).get("type") == "dataset":
-                if _ensure_artifact_display_name(adata) == ds_name:
-                    matched_ds_id = aid
-                    break
-        # S3 / SQLite lookups skipped to avoid extra billing unless already cached
-        if matched_ds_id:
-            if matched_ds_id not in added_nodes:
-                nodes.append(ArtifactLineageNode(artifact_id=matched_ds_id, name=ds_name, source="config_json"))
-                added_nodes.add(matched_ds_id)
-            edge_key = (matched_ds_id, id)
-            if edge_key not in added_edges:
-                edges.append(
-                    ArtifactLineageEdge(
-                        from_node_artifact_id=matched_ds_id, to_node_artifact_id=id, relationship="dataset"
-                    )
-                )
-                added_edges.add(edge_key)
-            logger.info("CW_LINEAGE_DEBUG: Added dataset dependency ds_id=%s for model=%s", matched_ds_id, id)
+    # for ds in datasets_list:
+    #     ds_name = ds.split("/")[-1] if "/" in ds else ds
+    #     matched_ds_id = None
+    #     # In-memory first
+    #     for aid, adata in artifacts_db.items():
+    #         if adata.get("metadata", {}).get("type") == "dataset":
+    #             if _ensure_artifact_display_name(adata) == ds_name:
+    #                 matched_ds_id = aid
+    #                 break
+    #     # S3 / SQLite lookups skipped to avoid extra billing unless already cached
+    #     if matched_ds_id:
+    #         if matched_ds_id not in added_nodes:
+    #             nodes.append(ArtifactLineageNode(artifact_id=matched_ds_id, name=ds_name, source="config_json"))
+    #             added_nodes.add(matched_ds_id)
+    #         edge_key = (matched_ds_id, id)
+    #         if edge_key not in added_edges:
+    #             edges.append(
+    #                 ArtifactLineageEdge(
+    #                     from_node_artifact_id=matched_ds_id, to_node_artifact_id=id, relationship="dataset"
+    #                 )
+    #             )
+    #             added_edges.add(edge_key)
+    #         logger.info("CW_LINEAGE_DEBUG: Added dataset dependency ds_id=%s for model=%s", matched_ds_id, id)
 
     logger.info(
         "CW_LINEAGE_GRAPH: artifact_id=%s nodes=%d edges=%d node_ids=%s",
