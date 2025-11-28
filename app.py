@@ -3163,49 +3163,45 @@ async def artifact_by_regex(
                         f"in artifact {artifact_id}: {match_err}"
                     )
 
-            if name_matches or hf_name_matches:
-                match_source = (
-                    "metadata name" if name_matches else f"hf alias {matched_candidate!r}"
-                )
+            # Check README in stored hf_data if present; do NOT fetch/scrape in Lambda path
+            readme_text = ""
+            readme_matches = False
+            if not name_only:
+                # For partial matches, always check README even if name matches
+                # Per Q&A: "Extra Chars Name Regex Test" should find matches from README
+                data_block = art_data.get("data", {})
+                if isinstance(data_block, dict):
+                    hf_list = data_block.get("hf_data", [])
+                    if isinstance(hf_list, list) and hf_list:
+                        first = hf_list[0]
+                        if isinstance(first, dict):
+                            readme_text = str(first.get("readme_text", "") or "")
+                if readme_text:
+                    if len(readme_text) > 10000:
+                        readme_text = readme_text[:10000]
+                    readme_matches = _safe_text_search(
+                        pattern,
+                        readme_text,
+                        raw_pattern=raw_pattern,
+                        context="S3 README snippet",
+                    )
+            
+            # Add to matches if name, hf_name, or README matches
+            if name_matches or hf_name_matches or readme_matches:
+                match_sources = []
+                if name_matches:
+                    match_sources.append("metadata name")
+                if hf_name_matches:
+                    match_sources.append(f"hf alias {matched_candidate!r}")
+                if readme_matches:
+                    match_sources.append("README")
+                match_source = " + ".join(match_sources)
                 logger.info(
                     f"DEBUG_REGEX:   ✓ MATCH FOUND in S3: id={artifact_id}, "
                     f"{match_source} matches pattern='{raw_pattern}'"
                 )
-                matches.append(
-                    ArtifactMetadata(
-                        name=stored_name,
-                        id=artifact_id,
-                        type=ArtifactType(stored_type),
-                    )
-                )
-                seen_ids.add(artifact_id)
-                continue
-            else:
-                logger.info(
-                    f"DEBUG_REGEX:   ✗ NO MATCH in S3: id={artifact_id}, "
-                    f"name='{stored_name}' does NOT match pattern='{raw_pattern}'"
-                )
-            # Check README in stored hf_data if present; do NOT fetch/scrape in Lambda path
-            if name_only:
-                # Skip README matching for exact-name regexes
-                continue
-            readme_text = ""
-            data_block = art_data.get("data", {})
-            if isinstance(data_block, dict):
-                hf_list = data_block.get("hf_data", [])
-                if isinstance(hf_list, list) and hf_list:
-                    first = hf_list[0]
-                    if isinstance(first, dict):
-                        readme_text = str(first.get("readme_text", "") or "")
-            if readme_text:
-                if len(readme_text) > 10000:
-                    readme_text = readme_text[:10000]
-                if _safe_text_search(
-                    pattern,
-                    readme_text,
-                    raw_pattern=raw_pattern,
-                    context="S3 README snippet",
-                ):
+                # Only add once per artifact (deduplicate by seen_ids)
+                if artifact_id not in seen_ids:
                     matches.append(
                         ArtifactMetadata(
                             name=stored_name,
@@ -3214,6 +3210,11 @@ async def artifact_by_regex(
                         )
                     )
                     seen_ids.add(artifact_id)
+            else:
+                logger.info(
+                    f"DEBUG_REGEX:   ✗ NO MATCH in S3: id={artifact_id}, "
+                    f"name='{stored_name}' does NOT match pattern='{raw_pattern}'"
+                )
 
     # Check SQLite (local development)
     if USE_SQLITE:
@@ -4561,6 +4562,12 @@ async def artifact_lineage(
     #             added_edges.add(edge_key)
     #         logger.info("CW_LINEAGE_DEBUG: Added dataset dependency ds_id=%s for model=%s", matched_ds_id, id)
 
+    # Ensure nodes and edges are always lists (never None)
+    if not isinstance(nodes, list):
+        nodes = []
+    if not isinstance(edges, list):
+        edges = []
+    
     logger.info(
         "CW_LINEAGE_GRAPH: artifact_id=%s nodes=%d edges=%d node_ids=%s",
         id,
@@ -4568,7 +4575,16 @@ async def artifact_lineage(
         len(edges),
         [n.artifact_id for n in nodes],
     )
-    return ArtifactLineageGraph(nodes=nodes, edges=edges)
+    
+    # Ensure response is always valid - create graph with empty lists if needed
+    try:
+        graph = ArtifactLineageGraph(nodes=nodes, edges=edges)
+        logger.info(f"CW_LINEAGE_RESPONSE: Successfully created graph with {len(graph.nodes)} nodes and {len(graph.edges)} edges")
+        return graph
+    except Exception as e:
+        logger.error(f"CW_LINEAGE_ERROR: Failed to create ArtifactLineageGraph: {e}", exc_info=True)
+        # Return minimal valid graph on error
+        return ArtifactLineageGraph(nodes=[ArtifactLineageNode(artifact_id=id, name=artifact_name or id, source="config_json")], edges=[])
 
 
 @app.get("/models/{id}/lineage")
