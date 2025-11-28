@@ -1964,6 +1964,13 @@ async def models_ingest(
         else:
             metrics = metrics_result  # type: ignore[assignment]
 
+        # Calculate net_score to check threshold
+        net_score = 0.0
+        if metrics and calculate_phase2_net_score is not None:
+            net_score, _ = calculate_phase2_net_score(metrics)
+            # Ensure net_score is in [0, 1] range
+            net_score = max(0.0, min(1.0, net_score))
+
         # Filter out latency metrics and sentinel negatives
         # Latency metrics have "_latency" suffix or are "net_score_latency", "size_score_latency", etc.
         # Reviewedness returns -1 when no GitHub repo is linked — treat negatives as "not applicable".
@@ -1980,15 +1987,20 @@ async def models_ingest(
             if isinstance(v, (int, float)) and float(v) >= 0.0
         }
 
-        # Check threshold: all applicable non-latency metrics must be >= 0.5
+        # Check threshold: net_score must be >= 0.5 AND all applicable non-latency metrics must be >= 0.5
         failing_metrics = [k for k, v in metrics_to_check.items() if v < 0.5]
 
-        if failing_metrics:
+        if net_score < 0.5 or failing_metrics:
+            error_details = []
+            if net_score < 0.5:
+                error_details.append(f"net_score={net_score:.3f}")
+            if failing_metrics:
+                error_details.append(f"failing metrics: {', '.join(failing_metrics)}")
             raise HTTPException(
                 status_code=424,
                 detail=(
                     "Model does not meet 0.5 threshold requirement. "
-                    f"Failing metrics: {', '.join(failing_metrics)}"
+                    f"{', '.join(error_details)}"
                 ),
             )
 
@@ -2972,16 +2984,24 @@ async def artifact_by_regex(
 
         if not name_only:
             # Extract README text from hf_data if available
-            if "hf_data" in artifact_data.get("data", {}):
-                hf_data = artifact_data["data"].get("hf_data", [])
+            data_block = artifact_data.get("data", {})
+            if isinstance(data_block, dict) and "hf_data" in data_block:
+                hf_data = data_block.get("hf_data", [])
                 if isinstance(hf_data, list) and len(hf_data) > 0:
-                    readme_text = (
-                        hf_data[0].get("readme_text", "") if isinstance(hf_data[0], dict) else ""
-                    )
+                    first = hf_data[0]
+                    if isinstance(first, dict):
+                        readme_text = str(first.get("readme_text", "") or "")
+                        logger.info(
+                            f"DEBUG_REGEX:   in-memory artifact {artifact_id}: README text length={len(readme_text)}, "
+                            f"preview={readme_text[:100] if readme_text else 'EMPTY'}..."
+                        )
+            else:
+                logger.info(f"DEBUG_REGEX:   in-memory artifact {artifact_id}: No 'data' block or 'hf_data' found")
 
         # Mitigate catastrophic backtracking by limiting searchable text length
         if isinstance(readme_text, str) and len(readme_text) > 10000:
             readme_text = readme_text[:10000]
+            logger.info(f"DEBUG_REGEX:   in-memory artifact {artifact_id}: README truncated to 10000 chars")
         # For exact matches (patterns like ^name$), check stored name plus HF aliases
         try:
             name_matches = _safe_name_match(
@@ -3065,17 +3085,41 @@ async def artifact_by_regex(
                 )
         else:
             # Partial match: search in name, hf_model_name, and README
-            readme_matches = (
-                _safe_text_search(
-                    pattern,
-                    readme_text,
-                    raw_pattern=raw_pattern,
-                    context="in-memory README snippet",
-                )
-                if readme_text
-                else False
-            )
+            readme_matches = False
+            if readme_text:
+                try:
+                    readme_matches = _safe_text_search(
+                        pattern,
+                        readme_text,
+                        raw_pattern=raw_pattern,
+                        context="in-memory README snippet",
+                    )
+                    logger.info(
+                        f"DEBUG_REGEX:   in-memory artifact {artifact_id}: README search result={readme_matches}"
+                    )
+                except HTTPException:
+                    raise
+                except Exception as readme_err:
+                    logger.warning(
+                        f"DEBUG_REGEX:   in-memory artifact {artifact_id}: README search failed: {readme_err}"
+                    )
+                    readme_matches = False
+            else:
+                logger.info(f"DEBUG_REGEX:   in-memory artifact {artifact_id}: No README text available")
+
             if name_matches or hf_name_matches or readme_matches:
+                match_sources = []
+                if name_matches:
+                    match_sources.append("metadata name")
+                if hf_name_matches:
+                    match_sources.append(f"hf alias {matched_candidate!r}")
+                if readme_matches:
+                    match_sources.append("README")
+                match_source = " + ".join(match_sources) if match_sources else "unknown"
+                logger.info(
+                    f"DEBUG_REGEX:   ✓ MATCH FOUND in-memory: id={artifact_id}, "
+                    f"{match_source} matches pattern='{raw_pattern}'"
+                )
                 matches.append(
                     ArtifactMetadata(
                         name=name,
@@ -3084,6 +3128,11 @@ async def artifact_by_regex(
                     )
                 )
                 seen_ids.add(artifact_id)
+            else:
+                logger.info(
+                    f"DEBUG_REGEX:   ✗ NO MATCH in-memory: id={artifact_id}, "
+                    f"name='{name}' does NOT match pattern='{raw_pattern}'"
+                )
 
     # Check S3 (production storage)
     if USE_S3 and s3_storage:
@@ -3176,16 +3225,36 @@ async def artifact_by_regex(
                         first = hf_list[0]
                         if isinstance(first, dict):
                             readme_text = str(first.get("readme_text", "") or "")
+                            logger.info(
+                                f"DEBUG_REGEX:   S3 artifact {artifact_id}: README text length={len(readme_text)}, "
+                                f"preview={readme_text[:100] if readme_text else 'EMPTY'}..."
+                            )
+                else:
+                    logger.info(f"DEBUG_REGEX:   S3 artifact {artifact_id}: No 'data' block found")
                 if readme_text:
                     if len(readme_text) > 10000:
                         readme_text = readme_text[:10000]
-                    readme_matches = _safe_text_search(
-                        pattern,
-                        readme_text,
-                        raw_pattern=raw_pattern,
-                        context="S3 README snippet",
-                    )
-            
+                        logger.info(f"DEBUG_REGEX:   S3 artifact {artifact_id}: README truncated to 10000 chars")
+                    try:
+                        readme_matches = _safe_text_search(
+                            pattern,
+                            readme_text,
+                            raw_pattern=raw_pattern,
+                            context="S3 README snippet",
+                        )
+                        logger.info(
+                            f"DEBUG_REGEX:   S3 artifact {artifact_id}: README search result={readme_matches}"
+                        )
+                    except HTTPException:
+                        raise
+                    except Exception as readme_err:
+                        logger.warning(
+                            f"DEBUG_REGEX:   S3 artifact {artifact_id}: README search failed: {readme_err}"
+                        )
+                        readme_matches = False
+                else:
+                    logger.info(f"DEBUG_REGEX:   S3 artifact {artifact_id}: No README text available")
+
             # Add to matches if name, hf_name, or README matches
             if name_matches or hf_name_matches or readme_matches:
                 match_sources = []
@@ -3931,6 +4000,13 @@ async def artifact_update(
                     else:
                         metrics = metrics_result  # type: ignore[assignment]
 
+                    # Calculate net_score to check threshold
+                    net_score = 0.0
+                    if metrics and calculate_phase2_net_score is not None:
+                        net_score, _ = calculate_phase2_net_score(metrics)
+                        # Ensure net_score is in [0, 1] range
+                        net_score = max(0.0, min(1.0, net_score))
+
                     # Filter out latency metrics and check threshold
                     non_latency_metrics = {
                         k: v
@@ -3943,14 +4019,19 @@ async def artifact_update(
                         if isinstance(v, (int, float)) and float(v) >= 0.0
                     }
 
-                    # Per Q&A: Fail update if rating < 0.5, keep older version
+                    # Per Q&A: Fail update if net_score < 0.5 OR any metric < 0.5, keep older version
                     failing_metrics = [k for k, v in metrics_to_check.items() if v < 0.5]
-                    if failing_metrics:
+                    if net_score < 0.5 or failing_metrics:
+                        error_details = []
+                        if net_score < 0.5:
+                            error_details.append(f"net_score={net_score:.3f}")
+                        if failing_metrics:
+                            error_details.append(f"failing metrics: {', '.join(failing_metrics)}")
                         raise HTTPException(
                             status_code=424,
                             detail=(
                                 "Updated model does not meet 0.5 threshold requirement. "
-                                f"Failing metrics: {', '.join(failing_metrics)}. "
+                                f"{', '.join(error_details)}. "
                                 "Update rejected, older version retained."
                             ),
                         )
@@ -4567,7 +4648,7 @@ async def artifact_lineage(
         nodes = []
     if not isinstance(edges, list):
         edges = []
-    
+
     logger.info(
         "CW_LINEAGE_GRAPH: artifact_id=%s nodes=%d edges=%d node_ids=%s",
         id,
@@ -4575,7 +4656,7 @@ async def artifact_lineage(
         len(edges),
         [n.artifact_id for n in nodes],
     )
-    
+
     # Ensure response is always valid - create graph with empty lists if needed
     try:
         graph = ArtifactLineageGraph(nodes=nodes, edges=edges)
@@ -5479,10 +5560,22 @@ async def model_artifact_rate(
             f"DEBUG_RATE: METRICS_READY - net_score={net_score}, "
             f"category={category}, artifact_name={artifact_name}"
         )
+        # Log which metrics are present vs missing
+        required_metrics = [
+            "ramp_up_time", "bus_factor", "performance_claims", "license",
+            "dataset_and_code_score", "dataset_quality", "code_quality",
+            "reproducibility", "reviewedness", "tree_score"
+        ]
+        missing_metrics = [m for m in required_metrics if m not in metrics]
+        if missing_metrics:
+            logger.warning(
+                f"DEBUG_RATE: Missing metrics in response for id={id}: {missing_metrics}. "
+                f"Will default to 0.0 for missing metrics."
+            )
         logger.info(
             "CW_RATE_METRICS_SUMMARY: id=%s net=%.3f ramp=%.3f bus=%.3f perf=%.3f lic=%.3f "
             "ds_code=%.3f ds_quality=%.3f code_q=%.3f repro=%.3f reviewedness=%.3f tree=%.3f "
-            "size_scores=%s metric_keys=%s",
+            "size_scores=%s metric_keys=%s missing=%s",
             id,
             net_score,
             get_m("ramp_up_time"),
@@ -5497,6 +5590,7 @@ async def model_artifact_rate(
             get_m("tree_score"),
             size_scores,
             sorted(metrics.keys()),
+            missing_metrics,
         )
 
         try:
