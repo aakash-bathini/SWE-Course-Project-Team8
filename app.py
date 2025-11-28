@@ -68,7 +68,7 @@ except ImportError as e:
 app = FastAPI(
     title="ECE 461 - Fall 2025 - Project Phase 2",
     description="API for ECE 461/Fall 2025/Project Phase 2: A Trustworthy Model Registry",
-    version="3.4.6",
+    version="3.4.7",
     docs_url="/docs",
     redoc_url="/redoc",
 )

@@ -657,4 +657,107 @@ All fixes have been thoroughly tested locally and are ready for production deplo
 - Ingest/rating threshold regressions from tree_score sentinel resolved.
 - Concurrent rating unaffected; added lineage logging aids debugging if any edge remains.
 
-Confidence: High we’ll see progress on lineage and regex groups; other groups should remain stable.
+Confidence: High we'll see progress on lineage and regex groups; other groups should remain stable.
+
+---
+
+# Session 8 Fixes - November 28, 2025 (Regex README, Lineage, PUT Async, Rating Validation)
+
+## Issue 47: Regex README Search Not Checking README When Name Matches
+**Problem**: "Extra Chars Name Regex Test" was failing because README text was not being checked when artifact name already matched the pattern. The code had a `continue` statement that skipped README checking.
+
+**Fix Applied** (app.py, lines 3178-3257):
+- Removed `continue` statement after name/HF name matching
+- Ensured README is always checked for partial matches (non-exact patterns)
+- Added comprehensive logging for README extraction and matching
+- Consolidated match source tracking to show all match sources (name, HF alias, README)
+- Enhanced error handling for README search operations
+
+**Result**: ✅ README text is now always checked for partial regex matches, should fix "Extra Chars Name Regex Test"
+
+## Issue 48: Lineage Graph Including Datasets (Should Only Include Models)
+**Problem**: Per Q&A clarification, lineage should only be between models, not datasets. The autograder was failing because datasets were being included in the lineage graph.
+
+**Fix Applied** (app.py, lines 4526-4659):
+- Commented out dataset dependency inclusion logic
+- Ensured `nodes` and `edges` are always initialized as lists (prevents `NoneType` errors)
+- Added validation to ensure response structure is always valid
+- Enhanced logging for lineage graph construction
+
+**Result**: ✅ Lineage graphs now only include model-to-model relationships, should fix "Artifact Lineage Test Group"
+
+## Issue 49: PUT Endpoint Missing Async Support
+**Problem**: PUT endpoint did not support asynchronous rating like the POST ingest endpoint. Autograder expects 202 status code for async rating.
+
+**Fix Applied** (app.py, lines 3833-4010):
+- Added support for `X-Async-Ingest` header and `?async=true` query parameter
+- Returns 202 status code when async mode is enabled
+- Defers rating calculation for async updates
+- Maintains synchronous mode as default
+
+**Result**: ✅ PUT endpoint now supports async rating with 202 response, matches POST ingest behavior
+
+## Issue 50: PUT Endpoint Missing Net Score Validation
+**Problem**: PUT endpoint was not validating `net_score` against 0.5 threshold, only individual metrics. Per Q&A, both individual metrics and net_score must be >= 0.5.
+
+**Fix Applied** (app.py, lines 3995-4010):
+- Added `net_score` calculation and validation
+- Checks both individual metrics and `net_score` against 0.5 threshold
+- Fails update with 424 status if threshold not met
+- Keeps older version when update fails (per Q&A requirement)
+
+**Result**: ✅ PUT endpoint now validates net_score threshold, should improve rating validation tests
+
+## Issue 51: POST Ingest Missing Net Score Validation
+**Problem**: POST `/models/ingest` endpoint was not validating `net_score` against 0.5 threshold.
+
+**Fix Applied** (app.py, lines 1919-2080):
+- Added `net_score` calculation and validation to ingest endpoint
+- Checks both individual metrics and `net_score` against 0.5 threshold
+- Fails ingest with 424 status if threshold not met
+
+**Result**: ✅ POST ingest now validates net_score threshold
+
+## Issue 52: Enhanced Logging for Regex Search
+**Problem**: Insufficient logging made it difficult to debug regex search failures, especially README matching.
+
+**Fix Applied** (app.py, lines 2985-3109, 3178-3257):
+- Added detailed logging for README text extraction (length, preview)
+- Added logging for README search results (match/no match)
+- Added logging when README text is missing
+- Enhanced match source tracking to show all sources (name, HF alias, README)
+- Added error handling and logging for README search failures
+
+**Result**: ✅ Better debugging visibility for regex search operations
+
+## Issue 53: Enhanced Logging for Lambda Handler
+**Problem**: Lambda handler logs did not include endpoint path and method, making it difficult to debug which API call resulted in a particular status code.
+
+**Fix Applied** (app.py, handler function):
+- Added endpoint path and HTTP method to response logging
+- Extracts path and method from event object
+- Logs: `Returning response: method={method} path={path} statusCode={status}`
+
+**Result**: ✅ Better debugging visibility for Lambda responses
+
+## Issue 54: Flake8 Whitespace Errors
+**Problem**: Blank lines contained trailing whitespace, causing flake8 W293 errors.
+
+**Fix Applied** (app.py):
+- Removed trailing whitespace from blank lines (lines 3109, 3257, 4009, 4651, 4659)
+
+**Result**: ✅ All flake8 checks now pass
+
+## Testing
+- ✅ `pytest -q` (local) passing
+- ✅ `flake8 .` passing (no whitespace errors)
+- ✅ All code quality checks passing
+
+## Expected Impact for Next Autograder Run
+- **Extra Chars Name Regex Test**: Should pass (README now always checked)
+- **Artifact Lineage Test Group**: Should pass (datasets excluded, valid response structure)
+- **PUT Async 202**: Should pass (async support added)
+- **Rating Validation**: Should improve (net_score validation added)
+- **Get Artifact Rate Test**: Should improve (net_score validation prevents low-rated models)
+
+Confidence: High that these fixes will improve autograder score, especially for regex, lineage, and rating validation test groups.
