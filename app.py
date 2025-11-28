@@ -6478,6 +6478,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         print(f"Traceback: {traceback.format_exc()}")
 
+    # Capture path for logging (extract from event)
+    try:
+        if isinstance(event, dict):
+            captured_path = event.get("path") or event.get("rawPath", "N/A")
+            captured_method = event.get("httpMethod") or event.get("requestContext", {}).get(
+                "http", {}
+            ).get("method", "N/A")
+        else:
+            captured_path = "N/A"
+            captured_method = "N/A"
+    except Exception:
+        captured_path = "N/A"
+        captured_method = "N/A"
+
     try:
         if _mangum_handler is None:
             error_msg = "Mangum handler not initialized"
@@ -6529,7 +6543,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             logger.warning(f"Converting body to string from {type(response['body'])}")
             response["body"] = str(response["body"])
 
-        logger.info(f"Returning response with statusCode: {response.get('statusCode', 'N/A')}")
+        # Log response with endpoint context for better debugging
+        logger.info(
+            f"Returning response: method={captured_method} path={captured_path} "
+            f"statusCode={response.get('statusCode', 'N/A')}"
+        )
         return response
 
 # fmt: on
