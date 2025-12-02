@@ -6277,10 +6277,17 @@ async def model_cost_alias(
 
 @app.get("/tracks")
 async def get_tracks() -> Dict[str, List[str]]:
-    """Get the list of tracks a student has planned to implement"""
+    """
+    Get the list of tracks a student has planned to implement in their code.
+    Per OpenAPI spec v3.4.7, valid track names are:
+    - "Performance track"
+    - "Access control track"
+    - "High assurance track"
+    - "Other Security track"
+    """
     return {
         "plannedTracks": [
-            "Security extended track",
+            "Other Security track",
         ]
     }
 
