@@ -4164,6 +4164,13 @@ async def artifact_lineage(
 ) -> ArtifactLineageGraph:
     """Get lineage graph for a model artifact (BASELINE)"""
     _validate_artifact_id_or_400(id)
+    logger.info(
+        "CW_LINEAGE_START: artifact_id=%s use_s3=%s use_sqlite=%s in_memory=%s",
+        id,
+        USE_S3,
+        USE_SQLITE,
+        id in artifacts_db,
+    )
     # Resolve artifact and collect HF metadata
     artifact_name: Optional[str] = None
     model_data: Dict[str, Any] = {"url": None, "hf_data": [], "gh_data": [], "source_url": None}
@@ -4195,6 +4202,17 @@ async def artifact_lineage(
                 except Exception:
                     gh_data_raw = []
             model_data["gh_data"] = gh_data_raw if isinstance(gh_data_raw, list) else [gh_data_raw] if gh_data_raw else []
+            logger.info(
+                "CW_LINEAGE_S3_METADATA: artifact_id=%s name=%s url=%s source_url=%s hf_type=%s hf_len=%s gh_type=%s gh_len=%s",
+                id,
+                artifact_name,
+                model_data.get("url"),
+                model_data.get("source_url"),
+                type(hf_data_raw).__name__,
+                len(hf_data_raw) if hasattr(hf_data_raw, "__len__") else None,
+                type(gh_data_raw).__name__,
+                len(gh_data_raw) if hasattr(gh_data_raw, "__len__") else None,
+            )
     if not artifact_name and id in artifacts_db:
         a = artifacts_db[id]
         if a.get("metadata", {}).get("type") != "model":
@@ -4220,6 +4238,17 @@ async def artifact_lineage(
             except Exception:
                 gh_data_raw = []
         model_data["gh_data"] = gh_data_raw if isinstance(gh_data_raw, list) else [gh_data_raw] if gh_data_raw else []
+        logger.info(
+            "CW_LINEAGE_MEM_METADATA: artifact_id=%s name=%s url=%s source_url=%s hf_type=%s hf_len=%s gh_type=%s gh_len=%s",
+            id,
+            artifact_name,
+            model_data.get("url"),
+            model_data.get("source_url"),
+            type(hf_data_raw).__name__,
+            len(hf_data_raw) if hasattr(hf_data_raw, "__len__") else None,
+            type(gh_data_raw).__name__,
+            len(gh_data_raw) if hasattr(gh_data_raw, "__len__") else None,
+        )
     if not artifact_name and USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
@@ -4228,8 +4257,15 @@ async def artifact_lineage(
             if art.type != "model":
                 raise HTTPException(status_code=400, detail="Not a model artifact.")
             artifact_name = str(art.name)
+            logger.info(
+                "CW_LINEAGE_SQLITE_METADATA: artifact_id=%s name=%s url=%s",
+                id,
+                artifact_name,
+                getattr(art, "url", None),
+            )
 
     if not artifact_name:
+        logger.warning("CW_LINEAGE_NOT_FOUND: artifact_id=%s", id)
         raise HTTPException(status_code=404, detail="Artifact does not exist.")
 
     # Fallback: if no HF metadata was stored but we see a HF URL, try to scrape once.
@@ -4243,7 +4279,14 @@ async def artifact_lineage(
                 scraped_hf_data, _ = scrape_hf_url(model_data["url"])
                 if isinstance(scraped_hf_data, dict):
                     model_data["hf_data"] = [scraped_hf_data]
+                logger.info(
+                    "CW_LINEAGE_SCRAPE: artifact_id=%s attempted_scrape=True success=%s scraped_keys=%s",
+                    id,
+                    isinstance(scraped_hf_data, dict),
+                    list(scraped_hf_data.keys()) if isinstance(scraped_hf_data, dict) else None,
+                )
         except Exception:
+            logger.warning("CW_LINEAGE_SCRAPE: artifact_id=%s scrape_failed=True url=%s", id, url, exc_info=True)
             pass
 
     # CRITICAL: Ensure hf_data is properly formatted before passing to EvalContext
@@ -4274,6 +4317,14 @@ async def artifact_lineage(
             except Exception:
                 pass
     model_data["hf_data"] = hf_data_cleaned
+    logger.info(
+        "CW_LINEAGE_HF_CLEANED: artifact_id=%s hf_count=%d hf_keys=%s gh_count=%d gh_type=%s",
+        id,
+        len(model_data["hf_data"]),
+        list(model_data["hf_data"][0].keys()) if model_data["hf_data"] else [],
+        len(model_data.get("gh_data", [])) if isinstance(model_data.get("gh_data"), list) else 0,
+        type(model_data.get("gh_data")).__name__,
+    )
 
     # Extract parents using treescore helper
     parents: List[str] = []
@@ -4284,6 +4335,14 @@ async def artifact_lineage(
         from src.metrics.treescore import _extract_parent_models  # local to avoid cycles
 
         parents = _extract_parent_models(ctx)
+        logger.info(
+            "CW_LINEAGE_CONTEXT: artifact_id=%s ctx_url=%s ctx_category=%s ctx_hf_count=%s ctx_gh_count=%s",
+            id,
+            getattr(ctx, "url", None),
+            getattr(ctx, "category", None),
+            len(getattr(ctx, "hf_data", []) or []),
+            len(getattr(ctx, "gh_data", []) or []),
+        )
     except Exception as e:
         logger.error(f"Error in lineage extraction for artifact {id}: {e}", exc_info=True)
         parents = []
@@ -4498,7 +4557,29 @@ async def artifact_lineage(
         len(edges),
         [n.artifact_id for n in nodes],
     )
-    return ArtifactLineageGraph(nodes=nodes, edges=edges)
+    if nodes:
+        nodes_preview = [(n.artifact_id, n.name, n.source) for n in nodes[:5]]
+    else:
+        nodes_preview = []
+    edges_preview = [
+        (e.from_node_artifact_id, e.to_node_artifact_id, e.relationship) for e in edges[:5]
+    ]
+    logger.info(
+        "CW_LINEAGE_DETAILS: artifact_id=%s nodes_preview=%s edges_preview=%s",
+        id,
+        nodes_preview,
+        edges_preview,
+    )
+
+    # Ensure response is always valid - create graph with empty lists if needed
+    try:
+        graph = ArtifactLineageGraph(nodes=nodes, edges=edges)
+        logger.info(f"CW_LINEAGE_RESPONSE: Successfully created graph with {len(graph.nodes)} nodes and {len(graph.edges)} edges")
+        return graph
+    except Exception as e:
+        logger.error(f"CW_LINEAGE_ERROR: Failed to create ArtifactLineageGraph: {e}", exc_info=True)
+        # Return minimal valid graph on error
+        return ArtifactLineageGraph(nodes=[ArtifactLineageNode(artifact_id=id, name=artifact_name or id, source="config_json")], edges=[])
 
 
 @app.get("/models/{id}/lineage")
