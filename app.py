@@ -4746,7 +4746,13 @@ async def artifact_lineage(
     # Ensure response is always valid - create graph with empty lists if needed
     try:
         graph = ArtifactLineageGraph(nodes=nodes, edges=edges)
-        logger.info(f"CW_LINEAGE_RESPONSE: Successfully created graph with {len(graph.nodes)} nodes and {len(graph.edges)} edges")
+        graph_dict = graph.model_dump()
+        logger.info(
+            "CW_LINEAGE_RESPONSE: Successfully created graph with %d nodes and %d edges body=%s",
+            len(graph.nodes),
+            len(graph.edges),
+            graph_dict,
+        )
         return graph
     except Exception as e:
         logger.error(f"CW_LINEAGE_ERROR: Failed to create ArtifactLineageGraph: {e}", exc_info=True)
