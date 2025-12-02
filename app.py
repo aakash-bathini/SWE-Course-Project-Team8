@@ -47,7 +47,7 @@ try:
     from fastapi.security import HTTPBearer
     from fastapi.responses import FileResponse, JSONResponse
     from pydantic import BaseModel
-    from typing import List, Optional, Dict, Any, Tuple, Callable
+    from typing import List, Optional, Dict, Any, Tuple, Callable, Union
     from datetime import datetime, timezone
     from enum import Enum
     from mangum import Mangum
@@ -4309,10 +4309,10 @@ async def artifact_audit(
     return entries
 
 
-@app.get("/artifact/model/{id}/lineage")
+@app.get("/artifact/model/{id}/lineage", response_model=None)
 async def artifact_lineage(
     id: str, user: Dict[str, Any] = Depends(verify_token)
-) -> ArtifactLineageGraph:
+) -> Union[ArtifactLineageGraph, JSONResponse]:
     """Get lineage graph for a model artifact (BASELINE)"""
 
     def _minimal_graph_response(
@@ -4755,10 +4755,10 @@ async def artifact_lineage(
         return ArtifactLineageGraph(nodes=[ArtifactLineageNode(artifact_id=id, name=artifact_name or id, source="config_json")], edges=[])
 
 
-@app.get("/models/{id}/lineage")
+@app.get("/models/{id}/lineage", response_model=None)
 async def model_lineage_alias(
     id: str, user: Dict[str, Any] = Depends(verify_token)
-) -> ArtifactLineageGraph:
+) -> Union[ArtifactLineageGraph, JSONResponse]:
     """
     Alias route for lineage to match spec examples.
     Delegates to /artifact/model/{id}/lineage.
@@ -5911,8 +5911,9 @@ async def artifact_cost(
         if artifact_type == ArtifactType.MODEL:
             try:
                 lineage_graph = await artifact_lineage(id, user)
-                # For each parent node in lineage, calculate its cost
-                for edge in lineage_graph.edges:
+                # If lineage returned an error response, treat as no dependencies
+                edges_iterable = getattr(lineage_graph, "edges", []) if hasattr(lineage_graph, "edges") else []
+                for edge in edges_iterable:
                     parent_id = edge.from_node_artifact_id
                     # Skip external dependencies (they don't have costs in our registry)
                     if parent_id.startswith("external-"):
