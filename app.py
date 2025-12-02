@@ -3101,7 +3101,15 @@ async def artifact_by_regex(
                 seen_ids.add(artifact_id)
             elif name_matches or hf_name_matches or readme_matches_exact:
                 # Fallback: regex match (in case pattern has special characters)
-                match_source = "metadata name" if name_matches else f"hf alias '{matched_candidate}'"
+                # Build match_sources list to correctly log all match types including README
+                match_sources = []
+                if name_matches:
+                    match_sources.append("metadata name")
+                if hf_name_matches:
+                    match_sources.append(f"hf alias {matched_candidate!r}")
+                if readme_matches_exact:
+                    match_sources.append("README")
+                match_source = " + ".join(match_sources) if match_sources else "unknown"
                 logger.info(
                     f"DEBUG_REGEX:   ✓ MATCH FOUND in-memory: id={artifact_id}, "
                     f"{match_source} matches pattern='{raw_pattern}'"
@@ -3644,15 +3652,22 @@ async def artifact_create(
 
                 # Compute metrics (synchronous call in background thread)
                 import asyncio
+                loop = None
                 try:
                     # Create new event loop for this thread
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     metrics_result = loop.run_until_complete(calculate_phase2_metrics(model_data))
-                    loop.close()
                 except Exception as e:
                     logger.error(f"DEBUG_ASYNC_RATING: Failed to compute metrics for {artifact_id}: {e}", exc_info=True)
                     metrics_result = ({}, {})
+                finally:
+                    # Always close the event loop to prevent resource leaks
+                    if loop is not None:
+                        try:
+                            loop.close()
+                        except Exception as close_err:
+                            logger.warning(f"DEBUG_ASYNC_RATING: Error closing event loop for {artifact_id}: {close_err}")
 
                 if isinstance(metrics_result, tuple):
                     _, _ = metrics_result  # Unpack but don't use - just for status update
@@ -4050,15 +4065,22 @@ async def artifact_update(
                             logger.info(f"DEBUG_ASYNC_RATING: Starting async rating computation for update id={id}")
                             # Compute metrics (synchronous call in background thread)
                             import asyncio
+                            loop = None
                             try:
                                 # Create new event loop for this thread
                                 loop = asyncio.new_event_loop()
                                 asyncio.set_event_loop(loop)
                                 metrics_result = loop.run_until_complete(calculate_phase2_metrics(model_data))
-                                loop.close()
                             except Exception as e:
                                 logger.error(f"DEBUG_ASYNC_RATING: Failed to compute metrics for update {id}: {e}", exc_info=True)
                                 metrics_result = ({}, {})
+                            finally:
+                                # Always close the event loop to prevent resource leaks
+                                if loop is not None:
+                                    try:
+                                        loop.close()
+                                    except Exception as close_err:
+                                        logger.warning(f"DEBUG_ASYNC_RATING: Error closing event loop for update {id}: {close_err}")
 
                             if isinstance(metrics_result, tuple):
                                 _, _ = metrics_result  # Unpack but don't use - just for status update
