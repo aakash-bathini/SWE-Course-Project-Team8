@@ -68,7 +68,7 @@ except ImportError as e:
 app = FastAPI(
     title="ECE 461 - Fall 2025 - Project Phase 2",
     description="API for ECE 461/Fall 2025/Project Phase 2: A Trustworthy Model Registry",
-    version="3.4.6",
+    version="3.4.7",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -1964,6 +1964,13 @@ async def models_ingest(
         else:
             metrics = metrics_result  # type: ignore[assignment]
 
+        # Calculate net_score to check threshold
+        net_score = 0.0
+        if metrics and calculate_phase2_net_score is not None:
+            net_score, _ = calculate_phase2_net_score(metrics)
+            # Ensure net_score is in [0, 1] range
+            net_score = max(0.0, min(1.0, net_score))
+
         # Filter out latency metrics and sentinel negatives
         # Latency metrics have "_latency" suffix or are "net_score_latency", "size_score_latency", etc.
         # Reviewedness returns -1 when no GitHub repo is linked — treat negatives as "not applicable".
@@ -1980,15 +1987,20 @@ async def models_ingest(
             if isinstance(v, (int, float)) and float(v) >= 0.0
         }
 
-        # Check threshold: all applicable non-latency metrics must be >= 0.5
+        # Check threshold: net_score must be >= 0.5 AND all applicable non-latency metrics must be >= 0.5
         failing_metrics = [k for k, v in metrics_to_check.items() if v < 0.5]
 
-        if failing_metrics:
+        if net_score < 0.5 or failing_metrics:
+            error_details = []
+            if net_score < 0.5:
+                error_details.append(f"net_score={net_score:.3f}")
+            if failing_metrics:
+                error_details.append(f"failing metrics: {', '.join(failing_metrics)}")
             raise HTTPException(
                 status_code=424,
                 detail=(
                     "Model does not meet 0.5 threshold requirement. "
-                    f"Failing metrics: {', '.join(failing_metrics)}"
+                    f"{', '.join(error_details)}"
                 ),
             )
 
@@ -2972,16 +2984,24 @@ async def artifact_by_regex(
 
         if not name_only:
             # Extract README text from hf_data if available
-            if "hf_data" in artifact_data.get("data", {}):
-                hf_data = artifact_data["data"].get("hf_data", [])
+            data_block = artifact_data.get("data", {})
+            if isinstance(data_block, dict) and "hf_data" in data_block:
+                hf_data = data_block.get("hf_data", [])
                 if isinstance(hf_data, list) and len(hf_data) > 0:
-                    readme_text = (
-                        hf_data[0].get("readme_text", "") if isinstance(hf_data[0], dict) else ""
-                    )
+                    first = hf_data[0]
+                    if isinstance(first, dict):
+                        readme_text = str(first.get("readme_text", "") or "")
+                        logger.info(
+                            f"DEBUG_REGEX:   in-memory artifact {artifact_id}: README text length={len(readme_text)}, "
+                            f"preview={readme_text[:100] if readme_text else 'EMPTY'}..."
+                        )
+            else:
+                logger.info(f"DEBUG_REGEX:   in-memory artifact {artifact_id}: No 'data' block or 'hf_data' found")
 
         # Mitigate catastrophic backtracking by limiting searchable text length
         if isinstance(readme_text, str) and len(readme_text) > 10000:
             readme_text = readme_text[:10000]
+            logger.info(f"DEBUG_REGEX:   in-memory artifact {artifact_id}: README truncated to 10000 chars")
         # For exact matches (patterns like ^name$), check stored name plus HF aliases
         try:
             name_matches = _safe_name_match(
@@ -3065,17 +3085,41 @@ async def artifact_by_regex(
                 )
         else:
             # Partial match: search in name, hf_model_name, and README
-            readme_matches = (
-                _safe_text_search(
-                    pattern,
-                    readme_text,
-                    raw_pattern=raw_pattern,
-                    context="in-memory README snippet",
-                )
-                if readme_text
-                else False
-            )
+            readme_matches = False
+            if readme_text:
+                try:
+                    readme_matches = _safe_text_search(
+                        pattern,
+                        readme_text,
+                        raw_pattern=raw_pattern,
+                        context="in-memory README snippet",
+                    )
+                    logger.info(
+                        f"DEBUG_REGEX:   in-memory artifact {artifact_id}: README search result={readme_matches}"
+                    )
+                except HTTPException:
+                    raise
+                except Exception as readme_err:
+                    logger.warning(
+                        f"DEBUG_REGEX:   in-memory artifact {artifact_id}: README search failed: {readme_err}"
+                    )
+                    readme_matches = False
+            else:
+                logger.info(f"DEBUG_REGEX:   in-memory artifact {artifact_id}: No README text available")
+
             if name_matches or hf_name_matches or readme_matches:
+                match_sources = []
+                if name_matches:
+                    match_sources.append("metadata name")
+                if hf_name_matches:
+                    match_sources.append(f"hf alias {matched_candidate!r}")
+                if readme_matches:
+                    match_sources.append("README")
+                match_source = " + ".join(match_sources) if match_sources else "unknown"
+                logger.info(
+                    f"DEBUG_REGEX:   ✓ MATCH FOUND in-memory: id={artifact_id}, "
+                    f"{match_source} matches pattern='{raw_pattern}'"
+                )
                 matches.append(
                     ArtifactMetadata(
                         name=name,
@@ -3084,6 +3128,11 @@ async def artifact_by_regex(
                     )
                 )
                 seen_ids.add(artifact_id)
+            else:
+                logger.info(
+                    f"DEBUG_REGEX:   ✗ NO MATCH in-memory: id={artifact_id}, "
+                    f"name='{name}' does NOT match pattern='{raw_pattern}'"
+                )
 
     # Check S3 (production storage)
     if USE_S3 and s3_storage:
@@ -3163,49 +3212,65 @@ async def artifact_by_regex(
                         f"in artifact {artifact_id}: {match_err}"
                     )
 
-            if name_matches or hf_name_matches:
-                match_source = (
-                    "metadata name" if name_matches else f"hf alias {matched_candidate!r}"
-                )
+            # Check README in stored hf_data if present; do NOT fetch/scrape in Lambda path
+            readme_text = ""
+            readme_matches = False
+            if not name_only:
+                # For partial matches, always check README even if name matches
+                # Per Q&A: "Extra Chars Name Regex Test" should find matches from README
+                data_block = art_data.get("data", {})
+                if isinstance(data_block, dict):
+                    hf_list = data_block.get("hf_data", [])
+                    if isinstance(hf_list, list) and hf_list:
+                        first = hf_list[0]
+                        if isinstance(first, dict):
+                            readme_text = str(first.get("readme_text", "") or "")
+                            logger.info(
+                                f"DEBUG_REGEX:   S3 artifact {artifact_id}: README text length={len(readme_text)}, "
+                                f"preview={readme_text[:100] if readme_text else 'EMPTY'}..."
+                            )
+                else:
+                    logger.info(f"DEBUG_REGEX:   S3 artifact {artifact_id}: No 'data' block found")
+                if readme_text:
+                    if len(readme_text) > 10000:
+                        readme_text = readme_text[:10000]
+                        logger.info(f"DEBUG_REGEX:   S3 artifact {artifact_id}: README truncated to 10000 chars")
+                    try:
+                        readme_matches = _safe_text_search(
+                            pattern,
+                            readme_text,
+                            raw_pattern=raw_pattern,
+                            context="S3 README snippet",
+                        )
+                        logger.info(
+                            f"DEBUG_REGEX:   S3 artifact {artifact_id}: README search result={readme_matches}"
+                        )
+                    except HTTPException:
+                        raise
+                    except Exception as readme_err:
+                        logger.warning(
+                            f"DEBUG_REGEX:   S3 artifact {artifact_id}: README search failed: {readme_err}"
+                        )
+                        readme_matches = False
+                else:
+                    logger.info(f"DEBUG_REGEX:   S3 artifact {artifact_id}: No README text available")
+
+            # Add to matches if name, hf_name, or README matches
+            if name_matches or hf_name_matches or readme_matches:
+                match_sources = []
+                if name_matches:
+                    match_sources.append("metadata name")
+                if hf_name_matches:
+                    match_sources.append(f"hf alias {matched_candidate!r}")
+                if readme_matches:
+                    match_sources.append("README")
+                match_source = " + ".join(match_sources)
                 logger.info(
                     f"DEBUG_REGEX:   ✓ MATCH FOUND in S3: id={artifact_id}, "
                     f"{match_source} matches pattern='{raw_pattern}'"
                 )
-                matches.append(
-                    ArtifactMetadata(
-                        name=stored_name,
-                        id=artifact_id,
-                        type=ArtifactType(stored_type),
-                    )
-                )
-                seen_ids.add(artifact_id)
-                continue
-            else:
-                logger.info(
-                    f"DEBUG_REGEX:   ✗ NO MATCH in S3: id={artifact_id}, "
-                    f"name='{stored_name}' does NOT match pattern='{raw_pattern}'"
-                )
-            # Check README in stored hf_data if present; do NOT fetch/scrape in Lambda path
-            if name_only:
-                # Skip README matching for exact-name regexes
-                continue
-            readme_text = ""
-            data_block = art_data.get("data", {})
-            if isinstance(data_block, dict):
-                hf_list = data_block.get("hf_data", [])
-                if isinstance(hf_list, list) and hf_list:
-                    first = hf_list[0]
-                    if isinstance(first, dict):
-                        readme_text = str(first.get("readme_text", "") or "")
-            if readme_text:
-                if len(readme_text) > 10000:
-                    readme_text = readme_text[:10000]
-                if _safe_text_search(
-                    pattern,
-                    readme_text,
-                    raw_pattern=raw_pattern,
-                    context="S3 README snippet",
-                ):
+                # Only add once per artifact (deduplicate by seen_ids)
+                if artifact_id not in seen_ids:
                     matches.append(
                         ArtifactMetadata(
                             name=stored_name,
@@ -3214,6 +3279,11 @@ async def artifact_by_regex(
                         )
                     )
                     seen_ids.add(artifact_id)
+            else:
+                logger.info(
+                    f"DEBUG_REGEX:   ✗ NO MATCH in S3: id={artifact_id}, "
+                    f"name='{stored_name}' does NOT match pattern='{raw_pattern}'"
+                )
 
     # Check SQLite (local development)
     if USE_SQLITE:
@@ -3765,6 +3835,10 @@ async def artifact_update(
     artifact_type: ArtifactType,
     id: str,
     artifact: Artifact,
+    request: Request,
+    response: Response,
+    x_async_ingest: Optional[str] = Header(None, alias="X-Async-Ingest"),
+    async_mode: Optional[bool] = Query(default=None, alias="async"),
     user: Dict[str, Any] = Depends(verify_token),
 ):
     """
@@ -3772,6 +3846,7 @@ async def artifact_update(
     Per Q&A: This is more like getting an updated version. Re-download and ingest again.
     If the updated model fails rating checks, fail the update and keep the older version.
     URL should not change.
+    Per Q&A: Should return 202 for async rating (same as ingest).
     """
     _validate_artifact_id_or_400(id)
     if not check_permission(user, "upload"):
@@ -3854,48 +3929,124 @@ async def artifact_update(
 
                 model_data = {"url": update_url, "hf_data": [hf_data], "gh_data": gh_data}
 
+                # Determine async rating preference: support header X-Async-Ingest and query ?async=true
+                use_async = False
+                try:
+                    if isinstance(async_mode, bool) and async_mode:
+                        use_async = True
+                    elif isinstance(x_async_ingest, str) and x_async_ingest.lower() in ("1", "true", "yes"):
+                        use_async = True
+                except Exception:
+                    use_async = False
+
                 # Calculate metrics
-                metrics_result = await calculate_phase2_metrics(model_data)
-                if isinstance(metrics_result, tuple):
-                    metrics, _ = metrics_result
-                else:
-                    metrics = metrics_result  # type: ignore[assignment]
-
-                # Filter out latency metrics and check threshold
-                non_latency_metrics = {
-                    k: v
-                    for k, v in metrics.items()
-                    if (not k.endswith("_latency") and k != "net_score_latency")
-                }
-                metrics_to_check = {
-                    k: float(v)
-                    for k, v in non_latency_metrics.items()
-                    if isinstance(v, (int, float)) and float(v) >= 0.0
-                }
-
-                # Per Q&A: Fail update if rating < 0.5, keep older version
-                failing_metrics = [k for k, v in metrics_to_check.items() if v < 0.5]
-                if failing_metrics:
-                    raise HTTPException(
-                        status_code=424,
-                        detail=(
-                            "Updated model does not meet 0.5 threshold requirement. "
-                            f"Failing metrics: {', '.join(failing_metrics)}. "
-                            "Update rejected, older version retained."
-                        ),
+                if use_async:
+                    # For async mode, defer rating calculation and return 202
+                    # Per Q&A: Return 202 for deferred calculation (same as ingest)
+                    artifact_status[id] = "PENDING"
+                    # Store updated artifact with new HF data but defer rating
+                    updated_artifact_entry = {
+                        "metadata": artifact.metadata.model_dump(),
+                        "data": {
+                            **artifact.data.model_dump(),
+                            "hf_data": [hf_data],
+                            "gh_data": gh_data,
+                        },
+                        "updated_at": datetime.now().isoformat(),
+                        "updated_by": user["username"],
+                    }
+                    # Save updated artifact
+                    if USE_S3 and s3_storage:
+                        s3_storage.save_artifact_metadata(id, updated_artifact_entry)
+                    if USE_SQLITE:
+                        with next(get_db()) as _db:  # type: ignore[misc]
+                            db_crud.update_artifact(
+                                _db,
+                                artifact_id=id,
+                                name=artifact.metadata.name,
+                                type_=artifact_type.value,
+                                url=artifact.data.url,
+                            )
+                    # Always update in-memory
+                    artifacts_db[id] = updated_artifact_entry
+                    # Log audit entry
+                    audit_log.append(
+                        {
+                            "user": {"name": user["username"], "is_admin": user.get("is_admin", False)},
+                            "date": datetime.now().isoformat(),
+                            "artifact": artifact.metadata.model_dump(),
+                            "action": "UPDATE",
+                        }
                     )
+                    if USE_SQLITE:
+                        with next(get_db()) as _db:  # type: ignore[misc]
+                            db_art = db_crud.get_artifact(_db, id)
+                            if db_art:
+                                db_crud.log_audit(
+                                    _db,
+                                    artifact=db_art,
+                                    user_name=user["username"],
+                                    user_is_admin=user.get("is_admin", False),
+                                    action="UPDATE",
+                                )
+                    # Return 202 for async rating
+                    response.status_code = 202
+                    return {"message": "Artifact update accepted. Rating deferred."}
+                else:
+                    # Synchronous mode: calculate metrics immediately
+                    metrics_result = await calculate_phase2_metrics(model_data)
+                    if isinstance(metrics_result, tuple):
+                        metrics, _ = metrics_result
+                    else:
+                        metrics = metrics_result  # type: ignore[assignment]
 
-                # Update artifact with new metadata (rating passed)
-                updated_artifact_entry = {
-                    "metadata": artifact.metadata.model_dump(),
-                    "data": {
-                        **artifact.data.model_dump(),
-                        "hf_data": [hf_data],
-                        "gh_data": gh_data,
-                    },
-                    "updated_at": datetime.now().isoformat(),
-                    "updated_by": user["username"],
-                }
+                    # Calculate net_score to check threshold
+                    net_score = 0.0
+                    if metrics and calculate_phase2_net_score is not None:
+                        net_score, _ = calculate_phase2_net_score(metrics)
+                        # Ensure net_score is in [0, 1] range
+                        net_score = max(0.0, min(1.0, net_score))
+
+                    # Filter out latency metrics and check threshold
+                    non_latency_metrics = {
+                        k: v
+                        for k, v in metrics.items()
+                        if (not k.endswith("_latency") and k != "net_score_latency")
+                    }
+                    metrics_to_check = {
+                        k: float(v)
+                        for k, v in non_latency_metrics.items()
+                        if isinstance(v, (int, float)) and float(v) >= 0.0
+                    }
+
+                    # Per Q&A: Fail update if net_score < 0.5 OR any metric < 0.5, keep older version
+                    failing_metrics = [k for k, v in metrics_to_check.items() if v < 0.5]
+                    if net_score < 0.5 or failing_metrics:
+                        error_details = []
+                        if net_score < 0.5:
+                            error_details.append(f"net_score={net_score:.3f}")
+                        if failing_metrics:
+                            error_details.append(f"failing metrics: {', '.join(failing_metrics)}")
+                        raise HTTPException(
+                            status_code=424,
+                            detail=(
+                                "Updated model does not meet 0.5 threshold requirement. "
+                                f"{', '.join(error_details)}. "
+                                "Update rejected, older version retained."
+                            ),
+                        )
+
+                    # Update artifact with new metadata (rating passed)
+                    updated_artifact_entry = {
+                        "metadata": artifact.metadata.model_dump(),
+                        "data": {
+                            **artifact.data.model_dump(),
+                            "hf_data": [hf_data],
+                            "gh_data": gh_data,
+                        },
+                        "updated_at": datetime.now().isoformat(),
+                        "updated_by": user["username"],
+                    }
 
             except HTTPException:
                 raise
@@ -4515,40 +4666,47 @@ async def artifact_lineage(
         except Exception as rec_err:
             logger.warning("CW_LINEAGE_DEBUG: recursion failed for parent %s: %s", parent_id_str, rec_err)
 
-    # Include dataset dependencies if the model lists datasets and they exist in registry
-    datasets_list: List[str] = []
-    try:
-        hf0 = model_data.get("hf_data", [])
-        if isinstance(hf0, list) and hf0 and isinstance(hf0[0], dict):
-            raw_datasets = hf0[0].get("datasets", []) or []
-            if isinstance(raw_datasets, list):
-                datasets_list = [str(d) for d in raw_datasets if isinstance(d, (str, bytes))]
-    except Exception:
-        datasets_list = []
+    # Per Q&A: Lineage is only between models, not datasets
+    # Do NOT include dataset dependencies in lineage graph
+    # datasets_list: List[str] = []
+    # try:
+    #     hf0 = model_data.get("hf_data", [])
+    #     if isinstance(hf0, list) and hf0 and isinstance(hf0[0], dict):
+    #         raw_datasets = hf0[0].get("datasets", []) or []
+    #         if isinstance(raw_datasets, list):
+    #             datasets_list = [str(d) for d in raw_datasets if isinstance(d, (str, bytes))]
+    # except Exception:
+    #     datasets_list = []
 
-    for ds in datasets_list:
-        ds_name = ds.split("/")[-1] if "/" in ds else ds
-        matched_ds_id = None
-        # In-memory first
-        for aid, adata in artifacts_db.items():
-            if adata.get("metadata", {}).get("type") == "dataset":
-                if _ensure_artifact_display_name(adata) == ds_name:
-                    matched_ds_id = aid
-                    break
-        # S3 / SQLite lookups skipped to avoid extra billing unless already cached
-        if matched_ds_id:
-            if matched_ds_id not in added_nodes:
-                nodes.append(ArtifactLineageNode(artifact_id=matched_ds_id, name=ds_name, source="config_json"))
-                added_nodes.add(matched_ds_id)
-            edge_key = (matched_ds_id, id)
-            if edge_key not in added_edges:
-                edges.append(
-                    ArtifactLineageEdge(
-                        from_node_artifact_id=matched_ds_id, to_node_artifact_id=id, relationship="dataset"
-                    )
-                )
-                added_edges.add(edge_key)
-            logger.info("CW_LINEAGE_DEBUG: Added dataset dependency ds_id=%s for model=%s", matched_ds_id, id)
+    # for ds in datasets_list:
+    #     ds_name = ds.split("/")[-1] if "/" in ds else ds
+    #     matched_ds_id = None
+    #     # In-memory first
+    #     for aid, adata in artifacts_db.items():
+    #         if adata.get("metadata", {}).get("type") == "dataset":
+    #             if _ensure_artifact_display_name(adata) == ds_name:
+    #                 matched_ds_id = aid
+    #                 break
+    #     # S3 / SQLite lookups skipped to avoid extra billing unless already cached
+    #     if matched_ds_id:
+    #         if matched_ds_id not in added_nodes:
+    #             nodes.append(ArtifactLineageNode(artifact_id=matched_ds_id, name=ds_name, source="config_json"))
+    #             added_nodes.add(matched_ds_id)
+    #         edge_key = (matched_ds_id, id)
+    #         if edge_key not in added_edges:
+    #             edges.append(
+    #                 ArtifactLineageEdge(
+    #                     from_node_artifact_id=matched_ds_id, to_node_artifact_id=id, relationship="dataset"
+    #                 )
+    #             )
+    #             added_edges.add(edge_key)
+    #         logger.info("CW_LINEAGE_DEBUG: Added dataset dependency ds_id=%s for model=%s", matched_ds_id, id)
+
+    # Ensure nodes and edges are always lists (never None)
+    if not isinstance(nodes, list):
+        nodes = []
+    if not isinstance(edges, list):
+        edges = []
 
     logger.info(
         "CW_LINEAGE_GRAPH: artifact_id=%s nodes=%d edges=%d node_ids=%s",
@@ -5474,10 +5632,22 @@ async def model_artifact_rate(
             f"DEBUG_RATE: METRICS_READY - net_score={net_score}, "
             f"category={category}, artifact_name={artifact_name}"
         )
+        # Log which metrics are present vs missing
+        required_metrics = [
+            "ramp_up_time", "bus_factor", "performance_claims", "license",
+            "dataset_and_code_score", "dataset_quality", "code_quality",
+            "reproducibility", "reviewedness", "tree_score"
+        ]
+        missing_metrics = [m for m in required_metrics if m not in metrics]
+        if missing_metrics:
+            logger.warning(
+                f"DEBUG_RATE: Missing metrics in response for id={id}: {missing_metrics}. "
+                f"Will default to 0.0 for missing metrics."
+            )
         logger.info(
             "CW_RATE_METRICS_SUMMARY: id=%s net=%.3f ramp=%.3f bus=%.3f perf=%.3f lic=%.3f "
             "ds_code=%.3f ds_quality=%.3f code_q=%.3f repro=%.3f reviewedness=%.3f tree=%.3f "
-            "size_scores=%s metric_keys=%s",
+            "size_scores=%s metric_keys=%s missing=%s",
             id,
             net_score,
             get_m("ramp_up_time"),
@@ -5492,6 +5662,7 @@ async def model_artifact_rate(
             get_m("tree_score"),
             size_scores,
             sorted(metrics.keys()),
+            missing_metrics,
         )
 
         try:
@@ -6473,6 +6644,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         print(f"Traceback: {traceback.format_exc()}")
 
+    # Capture path for logging (extract from event)
+    try:
+        if isinstance(event, dict):
+            captured_path = event.get("path") or event.get("rawPath", "N/A")
+            captured_method = event.get("httpMethod") or event.get("requestContext", {}).get(
+                "http", {}
+            ).get("method", "N/A")
+        else:
+            captured_path = "N/A"
+            captured_method = "N/A"
+    except Exception:
+        captured_path = "N/A"
+        captured_method = "N/A"
+
     try:
         if _mangum_handler is None:
             error_msg = "Mangum handler not initialized"
@@ -6524,7 +6709,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             logger.warning(f"Converting body to string from {type(response['body'])}")
             response["body"] = str(response["body"])
 
-        logger.info(f"Returning response with statusCode: {response.get('statusCode', 'N/A')}")
+        # Log response with endpoint context for better debugging
+        logger.info(
+            f"Returning response: method={captured_method} path={captured_path} "
+            f"statusCode={response.get('statusCode', 'N/A')}"
+        )
         return response
 
 # fmt: on
