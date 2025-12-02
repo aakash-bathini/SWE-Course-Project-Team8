@@ -6284,9 +6284,14 @@ async def get_tracks() -> Dict[str, List[str]]:
     - "Access control track"
     - "High assurance track"
     - "Other Security track"
+    
+    This implementation includes:
+    - "Access control track": User permissions, role-based access control, token-based authentication
+    - "Other Security track": Sensitive models, package confusion audit, download auditing
     """
     return {
         "plannedTracks": [
+            "Access control track",
             "Other Security track",
         ]
     }
