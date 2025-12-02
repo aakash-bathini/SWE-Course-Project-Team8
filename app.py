@@ -45,9 +45,9 @@ try:
     )
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.security import HTTPBearer
-    from fastapi.responses import FileResponse, JSONResponse
+    from fastapi.responses import FileResponse
     from pydantic import BaseModel
-    from typing import List, Optional, Dict, Any, Tuple, Callable, Union
+    from typing import List, Optional, Dict, Any, Tuple, Callable
     from datetime import datetime, timezone
     from enum import Enum
     from mangum import Mangum
@@ -4309,25 +4309,24 @@ async def artifact_audit(
     return entries
 
 
-@app.get("/artifact/model/{id}/lineage", response_model=None)
+@app.get("/artifact/model/{id}/lineage")
 async def artifact_lineage(
-    id: str, user: Dict[str, Any] = Depends(verify_token)
-) -> Union[ArtifactLineageGraph, JSONResponse]:
+    id: str, response: Response, user: Dict[str, Any] = Depends(verify_token)
+) -> ArtifactLineageGraph:
     """Get lineage graph for a model artifact (BASELINE)"""
 
-    def _minimal_graph_response(
-        reason: str, status_code: int, name_fallback: Optional[str] = None
-    ) -> JSONResponse:
+    def _minimal_graph(reason: str, status_code: int, name_fallback: Optional[str] = None) -> ArtifactLineageGraph:
         """
         Return a minimal graph with appropriate status for error cases.
         Keeps JSON shape stable while preserving error semantics.
         """
         node_name = name_fallback or id
         logger.warning("CW_LINEAGE_MINIMAL: artifact_id=%s reason=%s", id, reason)
-        graph = ArtifactLineageGraph(
+        if response is not None:
+            response.status_code = status_code
+        return ArtifactLineageGraph(
             nodes=[ArtifactLineageNode(artifact_id=id, name=node_name, source=reason)], edges=[]
         )
-        return JSONResponse(status_code=status_code, content=graph.model_dump())
 
     _validate_artifact_id_or_400(id)
     logger.info(
@@ -4346,7 +4345,7 @@ async def artifact_lineage(
         s3_meta = s3_storage.get_artifact_metadata(id)
         if s3_meta:
             if s3_meta.get("metadata", {}).get("type") != "model":
-                return _minimal_graph_response("not_model_s3", status_code=400, name_fallback=artifact_name)
+                return _minimal_graph("not_model_s3", status_code=400, name_fallback=artifact_name)
             artifact_name = s3_meta.get("metadata", {}).get("name")
             model_data["url"] = s3_meta.get("data", {}).get("url")
             model_data["source_url"] = s3_meta.get("data", {}).get("source_url") or model_data["url"]
@@ -4382,7 +4381,7 @@ async def artifact_lineage(
     if not artifact_name and id in artifacts_db:
         a = artifacts_db[id]
         if a.get("metadata", {}).get("type") != "model":
-            return _minimal_graph_response("not_model_memory", status_code=400, name_fallback=artifact_name)
+            return _minimal_graph("not_model_memory", status_code=400, name_fallback=artifact_name)
         artifact_name = a.get("metadata", {}).get("name")
         model_data["url"] = a.get("data", {}).get("url")
         model_data["source_url"] = a.get("data", {}).get("source_url") or model_data["url"]
@@ -4419,9 +4418,9 @@ async def artifact_lineage(
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
             if not art:
-                return _minimal_graph_response("not_found_sqlite", status_code=404, name_fallback=artifact_name)
+                return _minimal_graph("not_found_sqlite", status_code=404, name_fallback=artifact_name)
             if art.type != "model":
-                return _minimal_graph_response("not_model_sqlite", status_code=400, name_fallback=artifact_name)
+                return _minimal_graph("not_model_sqlite", status_code=400, name_fallback=artifact_name)
             artifact_name = str(art.name)
             logger.info(
                 "CW_LINEAGE_SQLITE_METADATA: artifact_id=%s name=%s url=%s",
@@ -4432,7 +4431,7 @@ async def artifact_lineage(
 
     if not artifact_name:
         logger.warning("CW_LINEAGE_NOT_FOUND: artifact_id=%s", id)
-        return _minimal_graph_response("not_found", status_code=404, name_fallback=artifact_name)
+        return _minimal_graph("not_found", status_code=404, name_fallback=artifact_name)
 
     # Fallback: if no HF metadata was stored but we see a HF URL, try to scrape once.
     # Prefer source_url (original HF URL) when available for scraping/parsing
@@ -4755,16 +4754,17 @@ async def artifact_lineage(
         return ArtifactLineageGraph(nodes=[ArtifactLineageNode(artifact_id=id, name=artifact_name or id, source="config_json")], edges=[])
 
 
-@app.get("/models/{id}/lineage", response_model=None)
+@app.get("/models/{id}/lineage")
 async def model_lineage_alias(
     id: str, user: Dict[str, Any] = Depends(verify_token)
-) -> Union[ArtifactLineageGraph, JSONResponse]:
+) -> ArtifactLineageGraph:
     """
     Alias route for lineage to match spec examples.
     Delegates to /artifact/model/{id}/lineage.
     """
     _validate_artifact_id_or_400(id)
-    return await artifact_lineage(id, user)  # type: ignore[arg-type]
+    # FastAPI injects Response automatically for the underlying handler; create one for this direct call.
+    return await artifact_lineage(id, Response(), user)
 
 
 @app.post("/artifact/model/{id}/license-check")
@@ -5910,7 +5910,7 @@ async def artifact_cost(
         # For models, find dependencies: parent models (from lineage), code, and datasets
         if artifact_type == ArtifactType.MODEL:
             try:
-                lineage_graph = await artifact_lineage(id, user)
+                lineage_graph = await artifact_lineage(id, Response(), user)
                 # If lineage returned an error response, treat as no dependencies
                 edges_iterable = getattr(lineage_graph, "edges", []) if hasattr(lineage_graph, "edges") else []
                 for edge in edges_iterable:
