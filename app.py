@@ -45,7 +45,7 @@ try:
     )
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.security import HTTPBearer
-    from fastapi.responses import FileResponse
+    from fastapi.responses import FileResponse, JSONResponse
     from pydantic import BaseModel
     from typing import List, Optional, Dict, Any, Tuple, Callable
     from datetime import datetime, timezone
@@ -4309,13 +4309,13 @@ async def artifact_audit(
     return entries
 
 
-@app.get("/artifact/model/{id}/lineage")
+@app.get("/artifact/model/{id}/lineage", response_model=None)
 async def artifact_lineage(
     id: str, response: Response, user: Dict[str, Any] = Depends(verify_token)
-) -> ArtifactLineageGraph:
+) -> JSONResponse:
     """Get lineage graph for a model artifact (BASELINE)"""
 
-    def _minimal_graph(reason: str, status_code: int, name_fallback: Optional[str] = None) -> ArtifactLineageGraph:
+    def _minimal_graph(reason: str, status_code: int, name_fallback: Optional[str] = None) -> JSONResponse:
         """
         Return a minimal graph with appropriate status for error cases.
         Keeps JSON shape stable while preserving error semantics.
@@ -4324,9 +4324,18 @@ async def artifact_lineage(
         logger.warning("CW_LINEAGE_MINIMAL: artifact_id=%s reason=%s", id, reason)
         if response is not None:
             response.status_code = status_code
-        return ArtifactLineageGraph(
+        graph = ArtifactLineageGraph(
             nodes=[ArtifactLineageNode(artifact_id=id, name=node_name, source=reason)], edges=[]
         )
+        graph_dict = graph.model_dump()
+        logger.info(
+            "CW_LINEAGE_RESPONSE: minimal graph artifact_id=%s nodes=%s edges=%s body=%s",
+            id,
+            len(graph_dict.get("nodes", []) if isinstance(graph_dict, dict) else []),
+            len(graph_dict.get("edges", []) if isinstance(graph_dict, dict) else []),
+            graph_dict,
+        )
+        return JSONResponse(status_code=status_code, content=graph_dict)
 
     _validate_artifact_id_or_400(id)
     logger.info(
@@ -4753,24 +4762,28 @@ async def artifact_lineage(
             len(graph.edges),
             graph_dict,
         )
-        return graph
+        return JSONResponse(status_code=response.status_code, content=graph_dict)
     except Exception as e:
         logger.error(f"CW_LINEAGE_ERROR: Failed to create ArtifactLineageGraph: {e}", exc_info=True)
         # Return minimal valid graph on error
-        return ArtifactLineageGraph(nodes=[ArtifactLineageNode(artifact_id=id, name=artifact_name or id, source="config_json")], edges=[])
+        fallback = ArtifactLineageGraph(
+            nodes=[ArtifactLineageNode(artifact_id=id, name=artifact_name or id, source="config_json")], edges=[]
+        )
+        fb_dict = fallback.model_dump()
+        return JSONResponse(status_code=500, content=fb_dict)
 
 
-@app.get("/models/{id}/lineage")
+@app.get("/models/{id}/lineage", response_model=None)
 async def model_lineage_alias(
-    id: str, user: Dict[str, Any] = Depends(verify_token)
-) -> ArtifactLineageGraph:
+    id: str, response: Response, user: Dict[str, Any] = Depends(verify_token)
+) -> JSONResponse:
     """
     Alias route for lineage to match spec examples.
     Delegates to /artifact/model/{id}/lineage.
     """
     _validate_artifact_id_or_400(id)
-    # FastAPI injects Response automatically for the underlying handler; create one for this direct call.
-    return await artifact_lineage(id, Response(), user)
+    # FastAPI injects Response automatically for the underlying handler; propagate it for the alias as well.
+    return await artifact_lineage(id, response, user)
 
 
 @app.post("/artifact/model/{id}/license-check")
