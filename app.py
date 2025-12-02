@@ -3083,7 +3083,7 @@ async def artifact_by_regex(
                         f"DEBUG_REGEX:   in-memory artifact {artifact_id}: README check failed in exact path: {readme_err}"
                     )
                     readme_matches_exact = False
-            
+
             if exact_name_match or exact_hf_match:
                 match_source = "exact metadata name" if exact_name_match else f"exact hf alias '{pattern_name}'"
                 if readme_matches_exact:
@@ -3618,7 +3618,7 @@ async def artifact_create(
         # /rate endpoint will block until this completes
         async_event = threading.Event()
         async_rating_events[artifact_id] = async_event
-        
+
         def compute_async_rating():
             """Background thread to compute rating asynchronously"""
             try:
@@ -3630,19 +3630,19 @@ async def artifact_create(
                     artifact_status[artifact_id] = "INVALID"
                     async_event.set()
                     return
-                
+
                 # Extract model data for metrics calculation
                 data_block = artifact_data.get("data", {})
                 source_url = data_block.get("source_url") or data_block.get("url", "")
                 hf_data_list = data_block.get("hf_data", [])
                 gh_data_list = data_block.get("gh_data", [])
-                
+
                 model_data = {
                     "url": source_url,
                     "hf_data": hf_data_list if isinstance(hf_data_list, list) else [hf_data_list] if hf_data_list else [],
                     "gh_data": gh_data_list if isinstance(gh_data_list, list) else [gh_data_list] if gh_data_list else [],
                 }
-                
+
                 # Compute metrics (synchronous call in background thread)
                 import asyncio
                 try:
@@ -3654,12 +3654,12 @@ async def artifact_create(
                 except Exception as e:
                     logger.error(f"DEBUG_ASYNC_RATING: Failed to compute metrics for {artifact_id}: {e}", exc_info=True)
                     metrics_result = ({}, {})
-                
+
                 if isinstance(metrics_result, tuple):
-                    metrics, _ = metrics_result
+                    _, _ = metrics_result  # Unpack but don't use - just for status update
                 else:
-                    metrics = metrics_result
-                
+                    _ = metrics_result  # Don't use - just for status update
+
                 # Cache the rating (minimal structure for now, full rating computed on /rate call)
                 # Just mark as READY so /rate can compute synchronously
                 artifact_status[artifact_id] = "READY"
@@ -3669,12 +3669,12 @@ async def artifact_create(
                 logger.error(f"DEBUG_ASYNC_RATING: Error in async rating thread for {artifact_id}: {e}", exc_info=True)
                 artifact_status[artifact_id] = "READY"  # Mark as READY to allow fallback computation
                 async_event.set()
-        
+
         # Start background thread
         rating_thread = threading.Thread(target=compute_async_rating, daemon=True)
         rating_thread.start()
         logger.info(f"DEBUG_ASYNC_RATING: Started background thread for async rating of id={artifact_id}")
-        
+
         # Align with spec v3.4.4: allow 202 for async rating flows. Return body for frontend compatibility.
         response.status_code = 202
     return Artifact(
@@ -4044,7 +4044,7 @@ async def artifact_update(
                     artifact_status[id] = "PENDING"
                     async_event = threading.Event()
                     async_rating_events[id] = async_event
-                    
+
                     def compute_async_rating_update():
                         """Background thread to compute rating asynchronously for update"""
                         try:
@@ -4060,12 +4060,12 @@ async def artifact_update(
                             except Exception as e:
                                 logger.error(f"DEBUG_ASYNC_RATING: Failed to compute metrics for update {id}: {e}", exc_info=True)
                                 metrics_result = ({}, {})
-                            
+
                             if isinstance(metrics_result, tuple):
-                                metrics, _ = metrics_result
+                                _, _ = metrics_result  # Unpack but don't use - just for status update
                             else:
-                                metrics = metrics_result
-                            
+                                _ = metrics_result  # Don't use - just for status update
+
                             # Mark as READY so /rate can compute synchronously
                             artifact_status[id] = "READY"
                             logger.info(f"DEBUG_ASYNC_RATING: Async rating computation completed for update id={id}")
@@ -4074,7 +4074,7 @@ async def artifact_update(
                             logger.error(f"DEBUG_ASYNC_RATING: Error in async rating thread for update {id}: {e}", exc_info=True)
                             artifact_status[id] = "READY"  # Mark as READY to allow fallback computation
                             async_event.set()
-                    
+
                     # Start background thread
                     rating_thread = threading.Thread(target=compute_async_rating_update, daemon=True)
                     rating_thread.start()
@@ -4894,10 +4894,10 @@ async def artifact_lineage(
         if not isinstance(edges, list):
             logger.warning("CW_LINEAGE_FIX: edges was not a list, converting: %s", type(edges))
             edges = []
-        
+
         graph = ArtifactLineageGraph(nodes=nodes, edges=edges)
         graph_dict = graph.model_dump()
-        
+
         # CRITICAL: Ensure graph_dict is a valid dict with nodes and edges as lists
         if not isinstance(graph_dict, dict):
             logger.error("CW_LINEAGE_ERROR: model_dump() returned non-dict: %s", type(graph_dict))
@@ -4910,7 +4910,7 @@ async def artifact_lineage(
             if "edges" not in graph_dict or not isinstance(graph_dict["edges"], list):
                 logger.warning("CW_LINEAGE_FIX: edges missing or not list in dict, fixing")
                 graph_dict["edges"] = [e.model_dump() if hasattr(e, "model_dump") else e for e in edges]
-        
+
         logger.info(
             "CW_LINEAGE_RESPONSE: Successfully created graph with %d nodes and %d edges body=%s",
             len(graph_dict.get("nodes", [])),
@@ -5236,7 +5236,7 @@ async def model_artifact_rate(
                     return rating_cache[id]
                 # If async completed but no cache, status should be READY now - continue to compute
         else:
-            logger.info(f"DEBUG_RATE: PENDING status but no async event found, computing synchronously")
+            logger.info("DEBUG_RATE: PENDING status but no async event found, computing synchronously")
 
     # Check if rating is already cached (for concurrent requests)
     if id in rating_cache:
@@ -5263,6 +5263,7 @@ async def model_artifact_rate(
         source_url: Optional[str] = None
         artifact_name: Optional[str] = None
         artifact_found = False
+        hf_data: Optional[Dict[str, Any]] = None  # Initialize hf_data for category determination
 
         # Check in-memory first (same-request artifacts, Lambda cold start protection)
         logger.info(
@@ -5278,6 +5279,10 @@ async def model_artifact_rate(
             artifact_url = data_block.get("url", "")
             # Prefer original HF URL when present for metrics & classification
             source_url = data_block.get("source_url") or artifact_url
+            # Extract hf_data for category determination
+            hf_data_list = data_block.get("hf_data", [])
+            if isinstance(hf_data_list, list) and len(hf_data_list) > 0:
+                hf_data = hf_data_list[0] if isinstance(hf_data_list[0], dict) else None
             logger.info(
                 "DEBUG_RATE:   Found in-memory: type=%s, name='%s', url=%s, source_url=%s",
                 stored_type,
@@ -5317,6 +5322,10 @@ async def model_artifact_rate(
                     data_block = existing_data.get("data", {}) or {}
                     artifact_url = data_block.get("url", "")
                     source_url = data_block.get("source_url") or artifact_url
+                    # Extract hf_data for category determination
+                    hf_data_list = data_block.get("hf_data", [])
+                    if isinstance(hf_data_list, list) and len(hf_data_list) > 0:
+                        hf_data = hf_data_list[0] if isinstance(hf_data_list[0], dict) else None
                     logger.info(
                         "DEBUG_RATE:   Found in S3: type=%s, name='%s', url=%s, source_url=%s",
                         artifact_type,
@@ -5422,7 +5431,7 @@ async def model_artifact_rate(
             category = "code"
         elif metrics_url and "dataset" in metrics_url.lower():
             category = "dataset"
-        
+
         # Ensure category is never empty (autograder requirement)
         if not category or not isinstance(category, str):
             category = "unknown"
@@ -6284,7 +6293,7 @@ async def get_tracks() -> Dict[str, List[str]]:
     - "Access control track"
     - "High assurance track"
     - "Other Security track"
-    
+
     This implementation includes:
     - "Access control track": User permissions, role-based access control, token-based authentication
     - "Other Security track": Sensitive models, package confusion audit, download auditing
