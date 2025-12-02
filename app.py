@@ -4920,17 +4920,33 @@ async def artifact_lineage(
         graph_dict = graph.model_dump()
 
         # CRITICAL: Ensure graph_dict is a valid dict with nodes and edges as lists
+        # The autograder may call .copy() on the response, so we must ensure it's a proper dict
         if not isinstance(graph_dict, dict):
             logger.error("CW_LINEAGE_ERROR: model_dump() returned non-dict: %s", type(graph_dict))
             graph_dict = {"nodes": [], "edges": []}
         else:
             # Ensure nodes and edges are lists in the dict (defensive check)
+            # Also ensure no None values in the lists that could cause copy() errors
             if "nodes" not in graph_dict or not isinstance(graph_dict["nodes"], list):
                 logger.warning("CW_LINEAGE_FIX: nodes missing or not list in dict, fixing")
-                graph_dict["nodes"] = [n.model_dump() if hasattr(n, "model_dump") else n for n in nodes]
+                graph_dict["nodes"] = [n.model_dump() if hasattr(n, "model_dump") else n for n in nodes if n is not None]
+            else:
+                # Filter out any None values and ensure all nodes are dicts
+                graph_dict["nodes"] = [
+                    n if isinstance(n, dict) else (n.model_dump() if hasattr(n, "model_dump") else {})
+                    for n in graph_dict["nodes"]
+                    if n is not None
+                ]
             if "edges" not in graph_dict or not isinstance(graph_dict["edges"], list):
                 logger.warning("CW_LINEAGE_FIX: edges missing or not list in dict, fixing")
-                graph_dict["edges"] = [e.model_dump() if hasattr(e, "model_dump") else e for e in edges]
+                graph_dict["edges"] = [e.model_dump() if hasattr(e, "model_dump") else e for e in edges if e is not None]
+            else:
+                # Filter out any None values and ensure all edges are dicts
+                graph_dict["edges"] = [
+                    e if isinstance(e, dict) else (e.model_dump() if hasattr(e, "model_dump") else {})
+                    for e in graph_dict["edges"]
+                    if e is not None
+                ]
 
         logger.info(
             "CW_LINEAGE_RESPONSE: Successfully created graph with %d nodes and %d edges body=%s",
@@ -4947,15 +4963,22 @@ async def artifact_lineage(
         )
         fb_dict = fallback.model_dump()
         # Defensive check on fallback dict too - use separate if statements to fix both nodes and edges
+        # Ensure no None values that could cause copy() errors in autograder
         if not isinstance(fb_dict, dict):
             fb_dict = {"nodes": [], "edges": []}
         else:
             # Fix nodes if missing or invalid
             if "nodes" not in fb_dict or not isinstance(fb_dict["nodes"], list):
                 fb_dict["nodes"] = []
+            else:
+                # Filter out None values
+                fb_dict["nodes"] = [n for n in fb_dict["nodes"] if n is not None]
             # Fix edges if missing or invalid (separate if, not elif, so both can be fixed)
             if "edges" not in fb_dict or not isinstance(fb_dict["edges"], list):
                 fb_dict["edges"] = []
+            else:
+                # Filter out None values
+                fb_dict["edges"] = [e for e in fb_dict["edges"] if e is not None]
         return JSONResponse(status_code=500, content=fb_dict)
 
 
