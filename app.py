@@ -4311,7 +4311,7 @@ async def artifact_audit(
 
 @app.get("/artifact/model/{id}/lineage", response_model=None)
 async def artifact_lineage(
-    id: str, response: Response, user: Dict[str, Any] = Depends(verify_token)
+    id: str, user: Dict[str, Any] = Depends(verify_token)
 ) -> JSONResponse:
     """Get lineage graph for a model artifact (BASELINE)"""
 
@@ -4322,8 +4322,6 @@ async def artifact_lineage(
         """
         node_name = name_fallback or id
         logger.warning("CW_LINEAGE_MINIMAL: artifact_id=%s reason=%s", id, reason)
-        if response is not None:
-            response.status_code = status_code
         graph = ArtifactLineageGraph(
             nodes=[ArtifactLineageNode(artifact_id=id, name=node_name, source=reason)], edges=[]
         )
@@ -4762,7 +4760,7 @@ async def artifact_lineage(
             len(graph.edges),
             graph_dict,
         )
-        return JSONResponse(status_code=response.status_code, content=graph_dict)
+        return JSONResponse(status_code=200, content=graph_dict)
     except Exception as e:
         logger.error(f"CW_LINEAGE_ERROR: Failed to create ArtifactLineageGraph: {e}", exc_info=True)
         # Return minimal valid graph on error
@@ -4775,15 +4773,14 @@ async def artifact_lineage(
 
 @app.get("/models/{id}/lineage", response_model=None)
 async def model_lineage_alias(
-    id: str, response: Response, user: Dict[str, Any] = Depends(verify_token)
+    id: str, user: Dict[str, Any] = Depends(verify_token)
 ) -> JSONResponse:
     """
     Alias route for lineage to match spec examples.
     Delegates to /artifact/model/{id}/lineage.
     """
     _validate_artifact_id_or_400(id)
-    # FastAPI injects Response automatically for the underlying handler; propagate it for the alias as well.
-    return await artifact_lineage(id, response, user)
+    return await artifact_lineage(id, user)
 
 
 @app.post("/artifact/model/{id}/license-check")
@@ -5929,7 +5926,7 @@ async def artifact_cost(
         # For models, find dependencies: parent models (from lineage), code, and datasets
         if artifact_type == ArtifactType.MODEL:
             try:
-                lineage_graph = await artifact_lineage(id, Response(), user)
+                lineage_graph = await artifact_lineage(id, user)
                 # If lineage returned an error response, treat as no dependencies
                 edges_iterable = getattr(lineage_graph, "edges", []) if hasattr(lineage_graph, "edges") else []
                 for edge in edges_iterable:
