@@ -150,7 +150,6 @@ artifact_status: Dict[str, str] = {}  # artifact_id -> PENDING | READY | INVALID
 rating_locks: Dict[str, threading.Lock] = {}  # artifact_id -> Lock for concurrent rating requests
 rating_cache: Dict[str, Dict[str, Any]] = {}  # artifact_id -> cached rating result
 async_rating_events: Dict[str, threading.Event] = {}  # artifact_id -> Event to signal async rating completion
-async_rating_futures: Dict[str, threading.Event] = {}  # artifact_id -> Event to signal async rating completion
 users_db: Dict[str, Dict[str, Any]] = {}
 audit_log: List[Dict[str, Any]] = []
 
@@ -4925,13 +4924,16 @@ async def artifact_lineage(
             nodes=[ArtifactLineageNode(artifact_id=id, name=artifact_name or id, source="config_json")], edges=[]
         )
         fb_dict = fallback.model_dump()
-        # Defensive check on fallback dict too
+        # Defensive check on fallback dict too - use separate if statements to fix both nodes and edges
         if not isinstance(fb_dict, dict):
             fb_dict = {"nodes": [], "edges": []}
-        elif "nodes" not in fb_dict or not isinstance(fb_dict["nodes"], list):
-            fb_dict["nodes"] = []
-        elif "edges" not in fb_dict or not isinstance(fb_dict["edges"], list):
-            fb_dict["edges"] = []
+        else:
+            # Fix nodes if missing or invalid
+            if "nodes" not in fb_dict or not isinstance(fb_dict["nodes"], list):
+                fb_dict["nodes"] = []
+            # Fix edges if missing or invalid (separate if, not elif, so both can be fixed)
+            if "edges" not in fb_dict or not isinstance(fb_dict["edges"], list):
+                fb_dict["edges"] = []
         return JSONResponse(status_code=500, content=fb_dict)
 
 
