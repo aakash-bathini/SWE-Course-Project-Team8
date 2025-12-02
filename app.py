@@ -6545,9 +6545,10 @@ async def artifact_cost(
         # For models, find dependencies: parent models (from lineage), code, and datasets
         if artifact_type == ArtifactType.MODEL:
             try:
-                lineage_graph = await artifact_lineage(id, user)
-                # If lineage returned an error response, treat as no dependencies
-                edges_iterable = getattr(lineage_graph, "edges", []) if hasattr(lineage_graph, "edges") else []
+                # Use internal helper to get lineage graph structure (not JSONResponse)
+                lineage_graph, _, _ = await _build_lineage_graph_internal(id, user)
+                # Get edges from the graph object
+                edges_iterable = lineage_graph.edges if hasattr(lineage_graph, "edges") else []
                 for edge in edges_iterable:
                     parent_id = edge.from_node_artifact_id
                     # Skip external dependencies (they don't have costs in our registry)
