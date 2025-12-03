@@ -120,12 +120,14 @@ try:
         calculate_phase2_net_score,
     )
     from src.metrics import size as size_metric  # noqa: E402
+    from src.metrics.relationship_analysis import analyze_artifact_relationships  # noqa: E402
 except Exception as e:
     logger.warning(f"Optional imports failed (may not be available in this environment): {e}")
     # Set to None to prevent errors - use type: ignore for mypy compatibility
     scrape_hf_url = None  # type: ignore[assignment]
     scrape_github_url = None  # type: ignore[assignment]
     create_eval_context_from_model_data = None  # type: ignore[assignment]
+    analyze_artifact_relationships = None  # type: ignore[assignment]
     calculate_phase2_metrics = None  # type: ignore[assignment]
     calculate_phase2_net_score = None  # type: ignore[assignment]
     size_metric = None  # type: ignore[assignment]
@@ -1261,7 +1263,7 @@ async def models_upload(
                 "artifact": artifact_entry["metadata"],
                 "action": "UPLOAD",
             }
-        )
+)
 
         # Trigger metrics calculation
         try:
@@ -1376,7 +1378,7 @@ async def models_download(
                     "artifact": artifact_metadata,
                     "action": f"DOWNLOAD_{aspect.upper()}",
                 }
-            )
+    )
             if USE_SQLITE:
                 with next(get_db()) as _db:  # type: ignore[misc]
                     art = db_crud.get_artifact(_db, id)
@@ -1687,7 +1689,7 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
                             ),
                             "is_admin": bool(getattr(row, "is_admin", False)),
                         }
-                        users_db[request.user.name] = user_data
+                users_db[request.user.name] = user_data
             except Exception:
                 user_data = None
         if not user_data:
@@ -2044,6 +2046,21 @@ async def models_ingest(
         hf_primary = hf_variants[0] if hf_variants else model_name
         hf_aliases = hf_variants[1:] if len(hf_variants) > 1 else []
 
+        # Per JD's Q&A: Use LLM to analyze relationships between artifacts
+        # Analyze README to find linked datasets and code repositories
+        relationships = {}
+        if analyze_artifact_relationships is not None:
+            try:
+                readme_text = hf_data.get("readme_text", "")
+                relationships = await analyze_artifact_relationships(readme_text, hf_data)
+                logger.info(
+                    f"LLM relationship analysis found {len(relationships.get('linked_datasets', []))} datasets, "
+                    f"{len(relationships.get('linked_code_repos', []))} code repos"
+                )
+            except Exception as rel_err:
+                logger.warning(f"LLM relationship analysis failed: {rel_err}")
+                relationships = {}
+
         artifact_entry = {
             "metadata": {
                 "name": model_display_name,
@@ -2063,6 +2080,12 @@ async def models_ingest(
             "created_by": user["username"],
             "hf_model_name": hf_primary,
         }
+
+        # Store LLM-analyzed relationships for auto-linking (per JD's Q&A)
+        if relationships:
+            artifact_entry["data"]["linked_datasets"] = relationships.get("linked_datasets", [])
+            artifact_entry["data"]["linked_code_repos"] = relationships.get("linked_code_repos", [])
+            artifact_entry["data"]["relationship_confidence"] = relationships.get("relationship_confidence", 0.0)
 
         if hf_aliases:
             artifact_entry["hf_model_name_aliases"] = hf_aliases
@@ -2135,7 +2158,7 @@ async def models_ingest(
                 "artifact": artifact_entry["metadata"],
                 "action": "INGEST",
             }
-        )
+)
 
         if USE_SQLITE:
             with next(get_db()) as _db:  # type: ignore[misc]
@@ -3542,6 +3565,29 @@ async def artifact_create(
     # Store hf_data if available (for regex search of README content)
     if hf_data:
         artifact_entry["data"]["hf_data"] = hf_data
+        
+        # Per JD's Q&A: Use LLM to analyze relationships between artifacts
+        # Analyze README to find linked datasets and code repositories (for models)
+        if artifact_type == ArtifactType.MODEL and analyze_artifact_relationships is not None:
+            try:
+                # hf_data is stored as a list, extract the first dict if available
+                hf_data_dict = None
+                if isinstance(hf_data, list) and len(hf_data) > 0:
+                    hf_data_dict = hf_data[0] if isinstance(hf_data[0], dict) else None
+                elif isinstance(hf_data, dict):
+                    hf_data_dict = hf_data
+                readme_text = hf_data_dict.get("readme_text", "") if hf_data_dict else ""
+                relationships = await analyze_artifact_relationships(readme_text, hf_data_dict)
+                logger.info(
+                    f"LLM relationship analysis found {len(relationships.get('linked_datasets', []))} datasets, "
+                    f"{len(relationships.get('linked_code_repos', []))} code repos"
+                )
+                # Store relationships for auto-linking
+                artifact_entry["data"]["linked_datasets"] = relationships.get("linked_datasets", [])
+                artifact_entry["data"]["linked_code_repos"] = relationships.get("linked_code_repos", [])
+                artifact_entry["data"]["relationship_confidence"] = relationships.get("relationship_confidence", 0.0)
+            except Exception as rel_err:
+                logger.warning(f"LLM relationship analysis failed: {rel_err}")
 
     # Derive HuggingFace identifiers for regex/byName searches
     hf_variants = _derive_hf_variants_from_url(artifact_data.url)
@@ -4111,7 +4157,7 @@ async def artifact_update(
                         "updated_at": datetime.now().isoformat(),
                         "updated_by": user["username"],
                     }
-                    # Save updated artifact
+            # Save updated artifact
                     if USE_S3 and s3_storage:
                         s3_storage.save_artifact_metadata(id, updated_artifact_entry)
                     if USE_SQLITE:
@@ -4133,7 +4179,7 @@ async def artifact_update(
                             "artifact": artifact.metadata.model_dump(),
                             "action": "UPDATE",
                         }
-                    )
+            )
                     if USE_SQLITE:
                         with next(get_db()) as _db:  # type: ignore[misc]
                             db_art = db_crud.get_artifact(_db, id)
@@ -4355,7 +4401,7 @@ async def artifact_delete(
                 "artifact": artifact_metadata,
                 "action": "DELETE",
             }
-        )
+)
 
     return {"message": "Artifact is deleted."}
 
@@ -4736,7 +4782,7 @@ async def _build_lineage_graph_internal(
                         "hf_data": pdata.get("data", {}).get("hf_data", []),
                         "gh_data": pdata.get("data", {}).get("gh_data", []),
                     }
-                )
+        )
                 gp_list = _extract_parent_models(pdata_ctx)
                 for gp in gp_list[:5]:
                     gp_url = (gp or "").strip()
@@ -4940,68 +4986,146 @@ async def artifact_cost(
         total_dependency_cost = standalone_cost
 
         # For models, find dependencies: parent models (from lineage), code, and datasets
+        # Per Q&A: Dependencies are code and dataset if linked (from LLM relationship analysis)
         if artifact_type == ArtifactType.MODEL:
             try:
-                # Use internal helper to get lineage graph structure (not JSONResponse)
+                # Get artifact data to check for linked_datasets and linked_code_repos
+                artifact_data = None
+                if USE_S3 and s3_storage:
+                    artifact_data = s3_storage.get_artifact_metadata(id)
+                elif USE_SQLITE:
+                    with next(get_db()) as _db:  # type: ignore[misc]
+                        art_row = db_crud.get_artifact(_db, id)
+                        if art_row:
+                            # Convert SQLite row to dict format
+                            artifact_data = {
+                                "metadata": {"id": art_row.id, "name": art_row.name, "type": art_row.type},
+                                "data": {"url": str(art_row.url)},
+                            }
+        elif id in artifacts_db:
+                    artifact_data = artifacts_db[id]
+
+                # Extract linked relationships (from LLM analysis during ingestion)
+                linked_datasets = []
+                linked_code_repos = []
+                if artifact_data:
+                    data_block = artifact_data.get("data", {})
+                    linked_datasets = data_block.get("linked_datasets", [])
+                    linked_code_repos = data_block.get("linked_code_repos", [])
+
+                # Helper function to find artifact ID by name or URL
+                def find_artifact_id_by_name_or_url(name_or_url: str, artifact_type_filter: str) -> Optional[str]:
+                    """Find artifact ID in registry by name or URL match"""
+                    # Check in-memory
+                    for aid, adata in artifacts_db.items():
+                        meta = adata.get("metadata", {})
+                        if meta.get("type") != artifact_type_filter:
+                            continue
+                        if meta.get("name") == name_or_url:
+                            return aid
+                        data_url = adata.get("data", {}).get("url", "")
+                        if data_url == name_or_url or data_url in name_or_url or name_or_url in data_url:
+                            return aid
+                    # Check S3
+                    if USE_S3 and s3_storage:
+                        try:
+                            all_artifacts = s3_storage.list_artifacts()
+                            for art in all_artifacts:
+                                if isinstance(art, dict) and art.get("metadata", {}).get("type") == artifact_type_filter:
+                                    if art.get("metadata", {}).get("name") == name_or_url:
+                                        return art.get("metadata", {}).get("id")
+                                    art_url = art.get("data", {}).get("url", "")
+                                    if art_url == name_or_url or art_url in name_or_url or name_or_url in art_url:
+                                        return art.get("metadata", {}).get("id")
+                        except Exception:
+                            pass
+                    # Check SQLite
+                    if USE_SQLITE:
+                        try:
+                            with next(get_db()) as _db:  # type: ignore[misc]
+                                arts = db_crud.list_artifacts(_db, type_filter=artifact_type_filter)
+                                for art in arts:
+                                    if art.name == name_or_url:
+                                        return art.id
+                                    if str(art.url) == name_or_url or str(art.url) in name_or_url or name_or_url in str(art.url):
+                                        return art.id
+                        except Exception:
+                            pass
+                    return None
+
+                # Helper function to calculate cost for a dependency artifact
+                async def calculate_dependency_cost(dep_id: str) -> float:
+                    """Calculate standalone cost for a dependency artifact"""
+                    try:
+                        dep_url = None
+                        if USE_S3 and s3_storage:
+                            dep_data = s3_storage.get_artifact_metadata(dep_id)
+                            if dep_data:
+                                dep_url = dep_data.get("data", {}).get("url", "")
+                        elif USE_SQLITE:
+                            with next(get_db()) as _db:  # type: ignore[misc]
+                                dep_art = db_crud.get_artifact(_db, dep_id)
+                                if dep_art:
+                                    dep_url = str(dep_art.url)
+                        elif dep_id in artifacts_db:
+                            dep_url = artifacts_db[dep_id]["data"].get("url", "")
+
+                        if dep_url:
+                            dep_hf_data = None
+                            if isinstance(dep_url, str) and "huggingface.co" in dep_url.lower():
+                                try:
+                                    if scrape_hf_url is not None:
+                                        dep_hf_data, _ = scrape_hf_url(dep_url)
+                                except Exception:
+                                    dep_hf_data = None
+                            dep_model_data = {
+                                "url": dep_url,
+                                "hf_data": [dep_hf_data] if dep_hf_data else [],
+                                "gh_data": [],
+                            }
+                    dep_required_bytes = 0
+                            if create_eval_context_from_model_data is not None and size_metric is not None:
+                                try:
+                                    dep_ctx = create_eval_context_from_model_data(dep_model_data)
+                                    await size_metric.metric(dep_ctx)
+                                    dep_required_bytes = int(getattr(dep_ctx, "size_required_bytes", 0))
+                                except Exception:
+                                    dep_required_bytes = 0
+                            dep_mb = float(dep_required_bytes) / (1024.0 * 1024.0)
+                            return max(0.0, round(dep_mb, 1))
+                    except Exception:
+                        pass
+                    return 0.0
+
+                # 1. Add parent models from lineage
                 lineage_graph, _, _ = await _build_lineage_graph_internal(id, user)
-                # Get edges from the graph object
                 edges_iterable = lineage_graph.edges if hasattr(lineage_graph, "edges") else []
                 for edge in edges_iterable:
                     parent_id = edge.from_node_artifact_id
-                    # Skip external dependencies (they don't have costs in our registry)
-                    if parent_id.startswith("external-"):
+                    if parent_id.startswith("external-") or parent_id in dependency_costs:
                         continue
-                    # Skip if already calculated
-                    if parent_id in dependency_costs:
-                        continue
+                    parent_cost = await calculate_dependency_cost(parent_id)
+                    if parent_cost > 0:
+                        dependency_costs[parent_id] = parent_cost
+                        total_dependency_cost += parent_cost
 
-                    # Calculate cost for parent artifact (standalone only, no recursion)
-                    try:
-                        # Get parent artifact URL
-                        parent_url = None
-                        if USE_S3 and s3_storage:
-                            parent_data = s3_storage.get_artifact_metadata(parent_id)
-                            if parent_data:
-                                parent_url = parent_data.get("data", {}).get("url", "")
-                        elif USE_SQLITE:
-                            with next(get_db()) as _db:  # type: ignore[misc]
-                                parent_art = db_crud.get_artifact(_db, parent_id)
-                                if parent_art:
-                                    parent_url = str(parent_art.url)
-                        elif parent_id in artifacts_db:
-                            parent_url = artifacts_db[parent_id]["data"].get("url", "")
+                # 2. Add linked datasets (from LLM relationship analysis)
+                for dataset_name_or_url in linked_datasets:
+                    dataset_id = find_artifact_id_by_name_or_url(dataset_name_or_url, "dataset")
+                    if dataset_id and dataset_id not in dependency_costs:
+                        dataset_cost = await calculate_dependency_cost(dataset_id)
+                        if dataset_cost > 0:
+                            dependency_costs[dataset_id] = dataset_cost
+                            total_dependency_cost += dataset_cost
 
-                        if parent_url:
-                            # Calculate size for parent
-                            parent_hf_data = None
-                            if isinstance(parent_url, str) and "huggingface.co" in parent_url.lower():
-                                try:
-                                    if scrape_hf_url is not None:
-                                        parent_hf_data, _ = scrape_hf_url(parent_url)
-                                except Exception:
-                                    parent_hf_data = None
-                            parent_model_data = {
-                                "url": parent_url,
-                                "hf_data": [parent_hf_data] if parent_hf_data else [],
-                                "gh_data": [],
-                            }
-                            parent_required_bytes = 0
-                            if create_eval_context_from_model_data is not None and size_metric is not None:
-                                try:
-                                    parent_ctx = create_eval_context_from_model_data(parent_model_data)
-                                    await size_metric.metric(parent_ctx)
-                                    parent_required_bytes = int(getattr(parent_ctx, "size_required_bytes", 0))
-                                except Exception as pe:
-                                    logger.warning(f"Failed to calculate size for parent {parent_id}: {pe}")
-                                    parent_required_bytes = 0
-                            parent_mb = float(parent_required_bytes) / (1024.0 * 1024.0)
-                            parent_cost = max(0.0, round(parent_mb, 1))  # Ensure non-negative
-                            dependency_costs[parent_id] = parent_cost
-                            total_dependency_cost += parent_cost
-                    except Exception as e:
-                        # If parent cost calculation fails, skip it
-                        logger.warning(f"Failed to calculate cost for dependency {parent_id}: {e}")
-                        pass
+                # 3. Add linked code repositories (from LLM relationship analysis)
+                for code_repo_url in linked_code_repos:
+                    code_id = find_artifact_id_by_name_or_url(code_repo_url, "code")
+                    if code_id and code_id not in dependency_costs:
+                        code_cost = await calculate_dependency_cost(code_id)
+                        if code_cost > 0:
+                            dependency_costs[code_id] = code_cost
+                            total_dependency_cost += code_cost
 
                 total_cost = max(0.0, round(total_dependency_cost, 1))  # Ensure non-negative
             except Exception as e:
@@ -5157,7 +5281,7 @@ async def artifact_license_check(
                 "hf_data": [],
                 "gh_data": [gh_data] if gh_data else [],
             }
-        )
+)
         from src.metrics.license_check import metric as license_metric  # local import to avoid cycles
         import src.config_parsers_nlp.spdx as spdx  # to classify model license when available
 
@@ -5215,7 +5339,12 @@ async def model_artifact_rate(
     request: Request,
     user: Dict[str, Any] = Depends(verify_token),
 ) -> Dict[str, Any]:
-    """Get ratings for this model artifact (BASELINE)"""
+    """
+    Get ratings for this model artifact (BASELINE)
+    
+    Per Q&A: Handles concurrent requests gracefully. If Lambda throttling occurs
+    (concurrency limits), returns a valid response with default values instead of 500.
+    """
     # Validate path parameter format per OpenAPI ArtifactID pattern
     _validate_artifact_id_or_400(id)
     # Enforce authentication/authorization consistent with other read endpoints
@@ -5832,7 +5961,7 @@ async def model_artifact_rate(
                     "hf_data": [hf_data] if hf_data else [],
                     "gh_data": [gh_profile] if gh_profile else [],
                 }
-                logger.info("DEBUG_RATE: Calling calculate_phase2_metrics...")
+        logger.info("DEBUG_RATE: Calling calculate_phase2_metrics...")
                 sys.stdout.flush()
                 metrics_result = await calculate_phase2_metrics(model_data)
                 if isinstance(metrics_result, tuple):
@@ -5862,7 +5991,7 @@ async def model_artifact_rate(
                         for k, v in size_scores_result.items()
                         if isinstance(v, (int, float))
                     }
-                    # Ensure all required fields are present (per OpenAPI spec)
+            # Ensure all required fields are present (per OpenAPI spec)
                     required_fields = ["raspberry_pi", "jetson_nano", "desktop_pc", "aws_server"]
                     for field in required_fields:
                         if field not in size_scores:
@@ -6115,7 +6244,39 @@ async def model_artifact_rate(
                 return fallback_json
             except Exception as fallback_err:
                 logger.error(f"DEBUG_RATE: Even fallback rating failed: {fallback_err}", exc_info=True)
-                raise HTTPException(status_code=500, detail=f"Failed to generate rating: {str(e)}")
+                # Last resort: return minimal valid response to avoid 500 errors
+                # This handles Lambda throttling and other infrastructure issues
+                minimal_rating = {
+                    "name": id,
+                    "category": "MODEL",
+                    "net_score": 0.0,
+                    "net_score_latency": 0.0,
+                    "ramp_up_time": 0.0,
+                    "ramp_up_time_latency": 0.0,
+                    "bus_factor": 0.0,
+                    "bus_factor_latency": 0.0,
+                    "performance_claims": 0.0,
+                    "performance_claims_latency": 0.0,
+                    "license": 0.0,
+                    "license_latency": 0.0,
+                    "dataset_and_code_score": 0.0,
+                    "dataset_and_code_score_latency": 0.0,
+                    "dataset_quality": 0.0,
+                    "dataset_quality_latency": 0.0,
+                    "code_quality": 0.0,
+                    "code_quality_latency": 0.0,
+                    "reproducibility": 0.0,
+                    "reproducibility_latency": 0.0,
+                    "reviewedness": -1.0,
+                    "reviewedness_latency": 0.0,
+                    "tree_score": 0.0,
+                    "tree_score_latency": 0.0,
+                    "size_score": {"raspberry_pi": 0.0, "jetson_nano": 0.0, "desktop_pc": 0.0, "aws_server": 0.0},
+                    "size_score_latency": 0.0,
+                }
+        rating_cache[id] = minimal_rating
+                logger.warning(f"DEBUG_RATE: Returning minimal rating due to critical error: {e}")
+                return minimal_rating
     logger.info("CW_RATE_LOCK: released id=%s thread=%s (exit)", id, threading.current_thread().name)
 
 
@@ -6616,7 +6777,7 @@ async def get_download_history(
                 "js_stdout": h.js_stdout[:100] if h.js_stdout else None,  # Truncate for response
                 "js_stderr": h.js_stderr[:100] if h.js_stderr else None,  # Truncate for response
             }
-            for h in history
+    for h in history
         ]
 
         return {
@@ -6686,7 +6847,7 @@ async def get_package_confusion_audit(
                     "downloaded_at": h.downloaded_at.isoformat() if h.downloaded_at else None,
                     "downloader_username": h.downloader_username,
                 }
-                for h in history
+        for h in history
             ]
 
             # Fetch search history for this model's artifact

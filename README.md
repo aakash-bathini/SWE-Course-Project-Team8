@@ -1777,10 +1777,13 @@ Coverage reports are in `htmlcov/` (run `pytest --cov` to generate). Every repor
 
 ## LLM Usage
 
-LLMs are used in two places:
+LLMs are used in three places:
 
-**1. In the code (README analysis):**
+**1. In the code (README analysis for performance claims):**
 The performance metric uses Google Gemini API (or Purdue GenAI as fallback) to analyze model READMEs and extract performance claims. This is in `src/metrics/performance_metric.py` (lines 151-194), function `_analyze_performance_claims_with_llm()`. When rating a model, it extracts the README text and sends it to the LLM to find performance metrics. Falls back to heuristic parsing if the LLM isn't available.
+
+**2. In the code (Relationship analysis between artifacts):**
+The relationship analysis module uses LLM to analyze READMEs and extract relationships between artifacts (models, datasets, code repositories). This is in `src/metrics/relationship_analysis.py`, function `analyze_artifact_relationships()`. When ingesting a model, it analyzes the README to find linked datasets and code repositories mentioned in the documentation. This enables auto-linking of related artifacts, as recommended by JD in the Q&A: "guide it to match the autograder tests" for auto-linking features. Falls back to heuristic regex extraction if the LLM isn't available.
 
 Uses Gemini API when available:
 ```python
@@ -1794,10 +1797,10 @@ Or Purdue GenAI API:
 url = "https://genai.rcac.purdue.edu/api/chat/completions"
 ```
 
-**2. During development:**
+**3. During development:**
 Used LLMs for code generation, refactoring, bug fixes, documentation, test cases, and code review. Git history shows LLM-assisted work on metric calculations, error handling, API endpoints, and tests.
 
-Note: Using API-based LLM (Gemini/Purdue GenAI) rather than AWS SageMaker, which is partial credit per the rubric. The integration is production-ready and runs automatically during model rating.
+Note: Using API-based LLM (Gemini/Purdue GenAI) rather than AWS SageMaker, which is partial credit per the rubric. The integration is production-ready and runs automatically during model ingestion and rating.
 
 ---
 
