@@ -5961,7 +5961,7 @@ async def model_artifact_rate(
                     "hf_data": [hf_data] if hf_data else [],
                     "gh_data": [gh_profile] if gh_profile else [],
                 }
-        logger.info("DEBUG_RATE: Calling calculate_phase2_metrics...")
+                logger.info("DEBUG_RATE: Calling calculate_phase2_metrics...")
                 sys.stdout.flush()
                 metrics_result = await calculate_phase2_metrics(model_data)
                 if isinstance(metrics_result, tuple):
