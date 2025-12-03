@@ -4898,7 +4898,7 @@ async def artifact_cost(
             try:
                 import json
                 hf_list = json.loads(hf_list)
-    except Exception:
+            except Exception:
                 hf_list = []
         if isinstance(hf_list, list) and hf_list:
             first = hf_list[0]
