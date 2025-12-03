@@ -142,20 +142,23 @@ def _extract_parent_models(context: EvalContext) -> list[str]:
         )
 
         # Check for model-index with base_model references
+        # NOTE: Per Q&A, lineage should only include models, NOT datasets
+        # The model-index results contain dataset names (for evaluation), not parent models
+        # So we skip extracting from model-index results to avoid including datasets
+        # Parent models should come from base_model field only
         if isinstance(card_yaml, dict):
+            # Check if there's a base_model in the model-index structure itself
             model_index = card_yaml.get("model-index", [])
             if isinstance(model_index, list):
                 for entry in model_index:
                     if isinstance(entry, dict):
-                        results = entry.get("results", [])
-                        if isinstance(results, list):
-                            for result in results:
-                                if isinstance(result, dict):
-                                    dataset_name = result.get("dataset", {})
-                                    if isinstance(dataset_name, dict):
-                                        name = dataset_name.get("name")
-                                        if name and "/" in name:
-                                            parent_urls.append(_normalize_model_url(name))
+                        # Look for base_model in the entry itself, not in results
+                        entry_base_model = entry.get("base_model")
+                        if entry_base_model:
+                            if isinstance(entry_base_model, str):
+                                parent_urls.append(_normalize_model_url(entry_base_model))
+                            elif isinstance(entry_base_model, list):
+                                parent_urls.extend(_normalize_model_url(m) for m in entry_base_model)
             logger.info("CW_TREESCORE_EXTRACT_MODEL_INDEX: parents_now=%s", parent_urls)
 
         # Check tags for fine-tuned indicators

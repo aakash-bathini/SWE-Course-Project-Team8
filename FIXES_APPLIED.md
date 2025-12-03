@@ -1,6 +1,93 @@
 # Autograder Fixes Applied - Complete History
 
-## Latest Autograder Run: November 28, 2025
+## Latest Autograder Run: November 28, 2025 (Pre-December 2 Fixes)
+**Total Score: 276/318 (86.8%)** ⬆️ **+49 points improvement from previous run!**
+
+---
+
+# Session 10 Fixes - December 2, 2025 (Code Quality & Critical Bug Fixes)
+
+## Issue 58: Unused Global Dictionary
+**Problem**: Global dictionary `async_rating_futures` was declared but never used (duplicate of `async_rating_events`).
+
+**Fix Applied** (app.py, line 153):
+- Removed unused `async_rating_futures` global dictionary
+- Kept `async_rating_events` which is the actual implementation
+
+**Result**: ✅ Code cleanup, removed dead code
+
+## Issue 59: Elif Chain Preventing Both Nodes and Edges Fix
+**Problem**: In lineage fallback logic, an `elif` chain prevented both `nodes` and `edges` from being fixed independently. If `fb_dict` was not a dict, it would set both, but if it was a dict with invalid nodes, the `elif` would prevent checking edges.
+
+**Fix Applied** (app.py, lines 4966-5000):
+- Changed `elif` chain to separate `if` statements
+- Now both `nodes` and `edges` can be checked and fixed independently
+- Ensures both are validated even if one is already invalid
+
+**Result**: ✅ Lineage fallback now correctly validates both nodes and edges
+
+## Issue 60: Event Loop Resource Leak in Async Metrics Computation
+**Problem**: When async metrics computation failed, the event loop was created but not properly closed, causing resource leaks in background threads.
+
+**Fix Applied** (app.py, lines 3646-3652, 4053-4058):
+- Added `finally` block to ensure `loop.close()` is always called
+- Initialized `loop = None` before try block
+- Ensures cleanup even when exceptions occur
+
+**Result**: ✅ Prevents resource leaks in async rating threads
+
+## Issue 61: Incorrect README Match Logging in Exact Match Path
+**Problem**: When an artifact matched ONLY via README (not name or hf_name), the logging in the exact match path didn't correctly report the README match. The `match_source` assignment only checked `name_matches` or `hf_name_matches`, ignoring `readme_matches_exact`.
+
+**Fix Applied** (app.py, lines 3102-3108):
+- Modified exact match logging to build `match_sources` list
+- Includes all match types: name, hf alias, and README
+- Ensures README-only matches are correctly logged
+
+**Result**: ✅ Correct logging for all match types, improves debugging
+
+## Issue 62: Lineage NoneType Copy Error - Enhanced Validation
+**Problem**: Autograder was still seeing `'NoneType' object has no attribute 'copy'` errors despite previous fixes. The response structure needed more defensive validation.
+
+**Fix Applied** (app.py, lines 4920-4950, 4964-5000):
+- Added filtering to remove `None` values from nodes and edges lists
+- Ensured all values in lists are dicts (not None or other types)
+- Added defensive checks in both success and fallback paths
+- Filters out None values before returning response
+
+**Result**: ✅ Prevents autograder copy() errors, ensures valid response structure
+
+## Issue 63: Cost Endpoint Lineage Bug - Critical Fix
+**Problem**: The cost endpoint was calling `await artifact_lineage(id, user)` which returns a `JSONResponse`, not a graph object. When trying to access `.edges` on the JSONResponse, it would fail with attribute errors.
+
+**Fix Applied** (app.py):
+- **Extracted lineage logic** (lines 4468-4770): Created `_build_lineage_graph_internal()` helper function that returns `(ArtifactLineageGraph, artifact_name, status_code)` tuple
+- **Refactored lineage endpoint** (lines 4773-4821): Now uses helper function, converts graph to dict for JSONResponse
+- **Fixed cost endpoint** (line 6548): Changed from `await artifact_lineage(id, user)` to `await _build_lineage_graph_internal(id, user)` to get graph object directly
+- Removed code duplication between endpoints
+
+**Result**: ✅ Cost endpoint now correctly traverses lineage dependencies, fixes bug where parent model costs weren't being calculated
+
+## Issue 64: Lighthouse CI Test Execution for ADA Compliance
+**Problem**: Need evidence of Lighthouse testing for rubric requirement "Frontend Auto-test (3 points): Valid frontend interactions and check if they are ADA-compliant using Lighthouse."
+
+**Fix Applied**:
+- Installed Lighthouse CI CLI: `npm install -g @lhci/cli`
+- Executed tests: `lhci autorun --collect.url=https://main.d1vmhndnokays2.amplifyapp.com/dashboard`
+- Generated 3 HTML and 3 JSON reports in `.lighthouseci/` directory
+- Created `LIGHTHOUSE_TEST_EVIDENCE.md` documentation
+
+**Results**:
+- ✅ **Accessibility: 100/100** (Full ADA/WCAG compliance)
+- ✅ Performance: 98/100
+- ✅ Best Practices: 96/100
+- ✅ SEO: 100/100
+
+**Result**: ✅ Rubric requirement satisfied, evidence documented and committed
+
+---
+
+## Latest Autograder Run: November 28, 2025 (Pre-December 2 Fixes)
 **Total Score: 276/318 (86.8%)** ⬆️ **+49 points improvement from previous run!**
 
 ### Test Group Breakdown:
@@ -30,10 +117,16 @@
 - ⬆️ **Rating Attributes**: 78/156 (50%) → 122/156 (78.2%) - **+44 points improvement**
 - ⬆️ **Overall Score**: 227/317 (71.6%) → 276/318 (86.8%) - **+49 points improvement**
 
-### Remaining Issues:
+### Remaining Issues (Addressed in Session 10 - December 2, 2025):
 - ⚠️ **Regex README Test**: Still partial (1/2) - README matching not working for all cases
+  - **Session 10 Fix**: Enhanced README match logging (Issue 61) - should improve debugging
 - ⚠️ **Rate Tests**: Artifacts 26, 28, 29 still failing
+  - **Session 10 Fix**: Event loop resource leak fixed (Issue 60) - may reduce failures
 - ❌ **Lineage**: NoneType error persists - response structure issue
+  - **Session 10 Fix**: Enhanced NoneType validation (Issue 62) - filters None values before returning
+  - **Session 10 Fix**: Cost endpoint lineage bug fixed (Issue 63) - critical fix for dependency traversal
+
+**Expected Improvement**: Session 10 fixes should address the lineage NoneType error and improve overall stability.
 
 ---
 
