@@ -36,7 +36,9 @@ dmypy.json
 .coverage.*
 coverage.xml
 *.cover
-htmlcov/
+# htmlcov/ - ALLOWED: Coverage reports needed for rubric evidence (test coverage)
+# Commented out to allow coverage HTML reports to be visible
+# htmlcov/
 .hypothesis/
 .tox/
 .nox/
@@ -164,14 +166,17 @@ chromedriver
 config.local.*
 settings.local.*
 
-# OpenAPI specification (not needed in repo)
-ece461_fall_2025_openapi_spec.yaml
+# OpenAPI specification - REQUIRED: Autograder needs this!
+# ece461_fall_2025_openapi_spec.yaml - NOT IGNORED (must be visible)
 
 # Local verification docs (not needed in repo)
 REQUIREMENTS_VERIFICATION.md
 
-# PDF documents (instructions and rubrics)
+# PDF documents (instructions and rubrics) - Keep ignored as requested
 *.pdf
 Phase 2 Instructions.pdf
 Project_2_Delivery_rubric.pdf
-.lighthouseci/
+
+# Lighthouse CI reports - ALLOWED: Evidence needed for rubric (ADA compliance)
+# Commented out to allow Lighthouse test evidence to be visible
+# .lighthouseci/
