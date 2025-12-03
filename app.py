@@ -5341,7 +5341,7 @@ async def model_artifact_rate(
 ) -> Dict[str, Any]:
     """
     Get ratings for this model artifact (BASELINE)
-    
+
     Per Q&A: Handles concurrent requests gracefully. If Lambda throttling occurs
     (concurrency limits), returns a valid response with default values instead of 500.
     """
