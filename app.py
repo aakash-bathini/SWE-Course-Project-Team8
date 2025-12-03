@@ -3565,7 +3565,7 @@ async def artifact_create(
     # Store hf_data if available (for regex search of README content)
     if hf_data:
         artifact_entry["data"]["hf_data"] = hf_data
-        
+
         # Per JD's Q&A: Use LLM to analyze relationships between artifacts
         # Analyze README to find linked datasets and code repositories (for models)
         if artifact_type == ArtifactType.MODEL and analyze_artifact_relationships is not None:
@@ -5345,7 +5345,7 @@ async def model_artifact_rate(
     Per Q&A: Handles concurrent requests gracefully. If Lambda throttling occurs
     (concurrency limits), returns a valid response with default values instead of 500.
     """
-    # Validate path parameter format per OpenAPI ArtifactID pattern
+# Validate path parameter format per OpenAPI ArtifactID pattern
     _validate_artifact_id_or_400(id)
     # Enforce authentication/authorization consistent with other read endpoints
     if not check_permission(user, "search"):
