@@ -4197,7 +4197,7 @@ async def artifact_update(
                     return {"message": "Artifact update accepted. Rating deferred."}
                 else:
                     # Synchronous mode: calculate metrics immediately
-                metrics_result = await calculate_phase2_metrics(model_data)
+                    metrics_result = await calculate_phase2_metrics(model_data)
                 if isinstance(metrics_result, tuple):
                     metrics, _ = metrics_result
                 else:
