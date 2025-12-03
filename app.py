@@ -5002,7 +5002,7 @@ async def artifact_cost(
                                 "metadata": {"id": art_row.id, "name": art_row.name, "type": art_row.type},
                                 "data": {"url": str(art_row.url)},
                             }
-        elif id in artifacts_db:
+                elif id in artifacts_db:
                     artifact_data = artifacts_db[id]
 
                 # Extract linked relationships (from LLM analysis during ingestion)
