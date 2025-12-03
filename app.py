@@ -5019,7 +5019,7 @@ async def artifact_cost(
                 def find_artifact_id_by_name_or_url(name_or_url: str, artifact_type_filter: str) -> Optional[str]:
                     """Find artifact ID in registry by name or URL match"""
                     # Check in-memory
-        for aid, adata in artifacts_db.items():
+                    for aid, adata in artifacts_db.items():
                         meta = adata.get("metadata", {})
                         if meta.get("type") != artifact_type_filter:
                             continue
