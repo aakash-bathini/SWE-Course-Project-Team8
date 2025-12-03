@@ -1918,6 +1918,6 @@ Results:
 - Best Practices: 96/100
 - SEO: 100/100
 
-Lighthouse CI ran 3 times for consistency. All reports are stored in `.lighthouseci/` directory (3 HTML reports, 3 JSON reports, and assertion results). The frontend interface meets all accessibility requirements as verified by Lighthouse's automated accessibility audit.
+Lighthouse CI ran 3 times for consistency. The frontend interface meets all accessibility requirements as verified by Lighthouse's automated accessibility audit. (Test artifacts are generated during CI runs and not stored in the repository to avoid stale data.)
 
 ---
