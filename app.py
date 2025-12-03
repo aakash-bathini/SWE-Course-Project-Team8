@@ -5571,7 +5571,7 @@ async def model_artifact_rate(
             else:
                 logger.info("DEBUG_RATE: Metrics calculation functions available, proceeding with calculation")
                 sys.stdout.flush()
-                hf_data: Optional[Dict[str, Any]] = None
+                # hf_data already defined at function scope (line 5364), reuse it
                 gh_profile: Optional[Dict[str, Any]] = None
 
                 # For ingested models, try to get hf_data and gh_data from stored artifact data
