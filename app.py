@@ -4223,14 +4223,15 @@ async def artifact_update(
                 }
 
                     # Per Q&A: Fail update if net_score < 0.5 OR any metric < 0.5, keep older version
-                failing_metrics = [k for k, v in metrics_to_check.items() if v < 0.5]
+                    failing_metrics = [k for k, v in metrics_to_check.items() if v < 0.5]
+
                     if net_score < 0.5 or failing_metrics:
                         error_details = []
                         if net_score < 0.5:
                             error_details.append(f"net_score={net_score:.3f}")
-                if failing_metrics:
+                        if failing_metrics:
                             error_details.append(f"failing metrics: {', '.join(failing_metrics)}")
-                    raise HTTPException(
+                        raise HTTPException(
                         status_code=424,
                         detail=(
                             "Updated model does not meet 0.5 threshold requirement. "
