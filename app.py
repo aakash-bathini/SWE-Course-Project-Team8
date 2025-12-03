@@ -4776,13 +4776,13 @@ async def artifact_lineage(
 ) -> JSONResponse:
     """Get lineage graph for a model artifact (BASELINE)"""
     _validate_artifact_id_or_400(id)
-    
+
     # Use internal helper to build graph
     graph, artifact_name, status_code = await _build_lineage_graph_internal(id, user)
-    
+
     # Convert graph to dict and ensure no None values
     graph_dict = graph.model_dump()
-    
+
     # CRITICAL: Ensure graph_dict is a valid dict with nodes and edges as lists
     # The autograder may call .copy() on the response, so we must ensure it's a proper dict
     if not isinstance(graph_dict, dict):
@@ -4821,484 +4821,213 @@ async def artifact_lineage(
     return JSONResponse(status_code=status_code, content=graph_dict)
 
 
-# Duplicate lineage code removed - now using _build_lineage_graph_internal() helper function
-    # Priority: S3 > SQLite > in-memory (rich metadata only from S3/memory)
-    if False and USE_S3 and s3_storage:
-        s3_meta = s3_storage.get_artifact_metadata(id)
-        if s3_meta:
-            if s3_meta.get("metadata", {}).get("type") != "model":
-                return _minimal_graph("not_model_s3", status_code=400, name_fallback=artifact_name)
-            artifact_name = s3_meta.get("metadata", {}).get("name")
-            model_data["url"] = s3_meta.get("data", {}).get("url")
-            model_data["source_url"] = s3_meta.get("data", {}).get("source_url") or model_data["url"]
-            # Parse hf_data if it's stored as a JSON string
-            hf_data_raw = s3_meta.get("data", {}).get("hf_data", [])
-            if isinstance(hf_data_raw, str):
-                try:
-                    import json
-                    hf_data_raw = json.loads(hf_data_raw)
-                except Exception:
-                    hf_data_raw = []
-            model_data["hf_data"] = hf_data_raw if isinstance(hf_data_raw, list) else [hf_data_raw] if hf_data_raw else []
-            # Parse gh_data if it's stored as a JSON string
-            gh_data_raw = s3_meta.get("data", {}).get("gh_data", [])
-            if isinstance(gh_data_raw, str):
-                try:
-                    import json
-                    gh_data_raw = json.loads(gh_data_raw)
-                except Exception:
-                    gh_data_raw = []
-            model_data["gh_data"] = gh_data_raw if isinstance(gh_data_raw, list) else [gh_data_raw] if gh_data_raw else []
-            logger.info(
-                "CW_LINEAGE_S3_METADATA: artifact_id=%s name=%s url=%s source_url=%s hf_type=%s hf_len=%s gh_type=%s gh_len=%s",
-                id,
-                artifact_name,
-                model_data.get("url"),
-                model_data.get("source_url"),
-                type(hf_data_raw).__name__,
-                len(hf_data_raw) if hasattr(hf_data_raw, "__len__") else None,
-                type(gh_data_raw).__name__,
-                len(gh_data_raw) if hasattr(gh_data_raw, "__len__") else None,
-            )
-    if not artifact_name and id in artifacts_db:
-        a = artifacts_db[id]
-        if a.get("metadata", {}).get("type") != "model":
-            return _minimal_graph("not_model_memory", status_code=400, name_fallback=artifact_name)
-        artifact_name = a.get("metadata", {}).get("name")
-        model_data["url"] = a.get("data", {}).get("url")
-        model_data["source_url"] = a.get("data", {}).get("source_url") or model_data["url"]
-        # Parse hf_data if it's stored as a JSON string
-        hf_data_raw = a.get("data", {}).get("hf_data", [])
-        if isinstance(hf_data_raw, str):
+@app.get("/artifact/{artifact_type}/{id}/cost", response_model=Dict[str, ArtifactCost])
+async def artifact_cost(
+    artifact_type: ArtifactType,
+    id: str,
+    dependency: bool = Query(False),
+    user: Dict[str, Any] = Depends(verify_token),
+) -> Dict[str, ArtifactCost]:
+    """Get the cost of an artifact (BASELINE)"""
+    _validate_artifact_id_or_400(id)
+    if not check_permission(user, "search"):
+        raise HTTPException(status_code=401, detail="You do not have permission to search.")
+    # Check if artifact exists - Priority: S3 (production) > SQLite (local) > in-memory
+    url: Optional[str] = None
+    hf_data: Optional[Dict[str, Any]] = None
+    if USE_S3 and s3_storage:
+        existing_data = s3_storage.get_artifact_metadata(id)
+        if not existing_data:
+            raise HTTPException(status_code=404, detail="Artifact does not exist.")
+        if existing_data.get("metadata", {}).get("type") != artifact_type.value:
+            raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+        data_block = existing_data.get("data", {}) or {}
+        # Prefer original HF URL when available for size estimation; fall back to stored url.
+        url = data_block.get("source_url") or data_block.get("url", "")
+        hf_list = data_block.get("hf_data", [])
+        # Parse hf_data if stored as JSON string
+        if isinstance(hf_list, str):
             try:
                 import json
-                hf_data_raw = json.loads(hf_data_raw)
+                hf_list = json.loads(hf_list)
             except Exception:
-                hf_data_raw = []
-        model_data["hf_data"] = hf_data_raw if isinstance(hf_data_raw, list) else [hf_data_raw] if hf_data_raw else []
-        # Parse gh_data if it's stored as a JSON string
-        gh_data_raw = a.get("data", {}).get("gh_data", [])
-        if isinstance(gh_data_raw, str):
-            try:
-                import json
-                gh_data_raw = json.loads(gh_data_raw)
-            except Exception:
-                gh_data_raw = []
-        model_data["gh_data"] = gh_data_raw if isinstance(gh_data_raw, list) else [gh_data_raw] if gh_data_raw else []
-        logger.info(
-            "CW_LINEAGE_MEM_METADATA: artifact_id=%s name=%s url=%s source_url=%s hf_type=%s hf_len=%s gh_type=%s gh_len=%s",
-            id,
-            artifact_name,
-            model_data.get("url"),
-            model_data.get("source_url"),
-            type(hf_data_raw).__name__,
-            len(hf_data_raw) if hasattr(hf_data_raw, "__len__") else None,
-            type(gh_data_raw).__name__,
-            len(gh_data_raw) if hasattr(gh_data_raw, "__len__") else None,
-        )
-    if not artifact_name and USE_SQLITE:
+                hf_list = []
+        if isinstance(hf_list, list) and hf_list:
+            first = hf_list[0]
+            if isinstance(first, dict):
+                hf_data = first
+            elif isinstance(first, str):
+                try:
+                    import json
+                    parsed = json.loads(first)
+                    if isinstance(parsed, dict):
+                        hf_data = parsed
+                except Exception:
+                    pass
+    elif USE_SQLITE:
         with next(get_db()) as _db:  # type: ignore[misc]
             art = db_crud.get_artifact(_db, id)
             if not art:
-                return _minimal_graph("not_found_sqlite", status_code=404, name_fallback=artifact_name)
-            if art.type != "model":
-                return _minimal_graph("not_model_sqlite", status_code=400, name_fallback=artifact_name)
-            artifact_name = str(art.name)
-            logger.info(
-                "CW_LINEAGE_SQLITE_METADATA: artifact_id=%s name=%s url=%s",
-                id,
-                artifact_name,
-                getattr(art, "url", None),
-            )
-
-    if not artifact_name:
-        logger.warning("CW_LINEAGE_NOT_FOUND: artifact_id=%s", id)
-        return _minimal_graph("not_found", status_code=404, name_fallback=artifact_name)
+                raise HTTPException(status_code=404, detail="Artifact does not exist.")
+            if art.type != artifact_type.value:
+                raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+            # art.url is a SQLAlchemy Column at type-check time; coerce to str.
+            url = str(art.url)
+    else:
+        if id not in artifacts_db:
+            raise HTTPException(status_code=404, detail="Artifact does not exist.")
+        artifact_data = artifacts_db[id]
+        if artifact_data["metadata"]["type"] != artifact_type.value:
+            raise HTTPException(status_code=400, detail="Artifact type mismatch.")
+        data_block = artifact_data.get("data", {})
+        url = data_block.get("source_url") or data_block.get("url", "")
+        hf_list = data_block.get("hf_data", [])
+        if isinstance(hf_list, list) and hf_list:
+            first = hf_list[0]
+            if isinstance(first, dict):
+                hf_data = first
 
     # Fallback: if no HF metadata was stored but we see a HF URL, try to scrape once.
-    # Prefer source_url (original HF URL) when available for scraping/parsing
-    url = model_data.get("source_url") or model_data.get("url")
-    is_hf_url = url and isinstance(url, str) and "huggingface.co" in url.lower()
-    has_hf_data = model_data.get("hf_data") and model_data["hf_data"]
-    if not has_hf_data and is_hf_url:
+    if hf_data is None and isinstance(url, str) and "huggingface.co" in url.lower():
         try:
             if scrape_hf_url is not None:
-                scraped_hf_data, _ = scrape_hf_url(model_data["url"])
-                if isinstance(scraped_hf_data, dict):
-                    model_data["hf_data"] = [scraped_hf_data]
-                logger.info(
-                    "CW_LINEAGE_SCRAPE: artifact_id=%s attempted_scrape=True success=%s scraped_keys=%s",
-                    id,
-                    isinstance(scraped_hf_data, dict),
-                    list(scraped_hf_data.keys()) if isinstance(scraped_hf_data, dict) else None,
-                )
+                hf_data, _ = scrape_hf_url(url)
         except Exception:
-            logger.warning("CW_LINEAGE_SCRAPE: artifact_id=%s scrape_failed=True url=%s", id, url, exc_info=True)
-            pass
+            hf_data = None
 
-    # CRITICAL: Ensure hf_data is properly formatted before passing to EvalContext
-    # hf_data must be a list of dicts, not a string or single dict
-    hf_data_final = model_data.get("hf_data", [])
-    if isinstance(hf_data_final, str):
-        try:
-            import json
-            parsed = json.loads(hf_data_final)
-            hf_data_final = [parsed] if isinstance(parsed, dict) else parsed if isinstance(parsed, list) else []
-        except Exception:
-            hf_data_final = []
-    elif isinstance(hf_data_final, dict):
-        hf_data_final = [hf_data_final]
-    elif not isinstance(hf_data_final, list):
-        hf_data_final = []
-    # Ensure all items in list are dicts, not strings
-    hf_data_cleaned = []
-    for item in hf_data_final:
-        if isinstance(item, dict):
-            hf_data_cleaned.append(item)
-        elif isinstance(item, str):
+    # Ensure hf_data is a list of dicts (not strings)
+    hf_data_list = []
+    if hf_data:
+        if isinstance(hf_data, dict):
+            hf_data_list = [hf_data]
+        elif isinstance(hf_data, str):
             try:
                 import json
-                parsed = json.loads(item)
-                if isinstance(parsed, dict):
-                    hf_data_cleaned.append(parsed)
+                parsed = json.loads(hf_data)
+                hf_data_list = [parsed] if isinstance(parsed, dict) else []
             except Exception:
-                pass
-    model_data["hf_data"] = hf_data_cleaned
-    logger.info(
-        "CW_LINEAGE_HF_CLEANED: artifact_id=%s hf_count=%d hf_keys=%s gh_count=%d gh_type=%s",
-        id,
-        len(model_data["hf_data"]),
-        list(model_data["hf_data"][0].keys()) if model_data["hf_data"] else [],
-        len(model_data.get("gh_data", [])) if isinstance(model_data.get("gh_data"), list) else 0,
-        type(model_data.get("gh_data")).__name__,
-    )
-
-    # Extract parents using treescore helper
-    parents: List[str] = []
-    try:
-        if create_eval_context_from_model_data is None:
-            raise RuntimeError("Lineage extraction unavailable")
-        ctx = create_eval_context_from_model_data(model_data)  # type: ignore[arg-type]
-        from src.metrics.treescore import _extract_parent_models  # local to avoid cycles
-
-        parents = _extract_parent_models(ctx)
-        logger.info(
-            "CW_LINEAGE_CONTEXT: artifact_id=%s ctx_url=%s ctx_category=%s ctx_hf_count=%s ctx_gh_count=%s",
-            id,
-            getattr(ctx, "url", None),
-            getattr(ctx, "category", None),
-            len(getattr(ctx, "hf_data", []) or []),
-            len(getattr(ctx, "gh_data", []) or []),
-        )
-    except Exception as e:
-        logger.error(f"Error in lineage extraction for artifact {id}: {e}", exc_info=True)
-        parents = []
-    logger.info("CW_LINEAGE_PARENTS: artifact_id=%s parents=%s", id, parents)
-    logger.info("CW_LINEAGE_DEBUG: artifact_id=%s hf_keys=%s url=%s source_url=%s", id, list(model_data.get("hf_data", [{}])[0].keys()) if model_data.get("hf_data") else [], model_data.get("url"), model_data.get("source_url"))
-
-    # Build graph: self node + parent nodes and edges (parent -> child)
-    nodes: List[ArtifactLineageNode] = [
-        ArtifactLineageNode(artifact_id=id, name=artifact_name or id, source="config_json")
-    ]
-    edges: List[ArtifactLineageEdge] = []
-    added_nodes = {id}
-    added_edges: set[tuple[str, str]] = set()
-
-    # Preload S3 metadata once to reduce repeated calls (billing-friendly)
-    s3_artifacts_cache: List[Dict[str, Any]] = []
-    if USE_S3 and s3_storage:
+                hf_data_list = []
+        elif isinstance(hf_data, list):
+            for item in hf_data:
+                if isinstance(item, dict):
+                    hf_data_list.append(item)
+                elif isinstance(item, str):
+                    try:
+                        import json
+                        parsed = json.loads(item)
+                        if isinstance(parsed, dict):
+                            hf_data_list.append(parsed)
+                    except Exception:
+                        pass
+    model_data = {"url": url or "", "hf_data": hf_data_list, "gh_data": []}
+    required_bytes = 0
+    if create_eval_context_from_model_data is not None and size_metric is not None:
         try:
-            s3_artifacts_cache = s3_storage.list_artifacts_by_queries([{"name": "*", "types": ["model"]}])
-        except Exception:
-            s3_artifacts_cache = []
+            ctx = create_eval_context_from_model_data(model_data)
+            await size_metric.metric(ctx)
+            required_bytes = int(getattr(ctx, "size_required_bytes", 0))
+        except Exception as e:
+            logger.warning(f"Failed to calculate size for artifact {id}: {e}")
+            required_bytes = 0
+    mb = float(required_bytes) / (1024.0 * 1024.0)
+    standalone_cost = max(0.0, round(mb, 1))  # Ensure non-negative
+    total_cost = standalone_cost
 
-    # Check if parent models exist in registry (by name matching)
-    # Try both exact match and case-insensitive match for robustness
-    for p in parents[:10]:
-        parent_url = (p or "").strip()
-        if not parent_url:
-            continue
-        # Extract parent name from URL (e.g., "https://huggingface.co/microsoft/resnet-50" -> "resnet-50")
-        parent_name = parent_url.rstrip("/").split("/")[-1] or parent_url
-        # Also try with owner prefix (e.g., "microsoft/resnet-50")
-        parent_name_with_owner = "/".join(parent_url.rstrip("/").split("/")[-2:]) if "/" in parent_url else parent_name
-        # Normalize parent URL for matching
-        parent_url_normalized = parent_url.lower().rstrip("/")
-        parent_id = None
+    # If dependency=true, calculate total cost including dependencies
+    # Per Q&A: Dependencies are code and dataset if linked, plus parent models from lineage
+    if dependency:
+        dependency_costs: Dict[str, float] = {id: standalone_cost}
+        total_dependency_cost = standalone_cost
 
-        # Try to find parent in registry by name (exact match first, then case-insensitive)
-        # Check all storage layers
-        if USE_S3 and s3_storage:
+        # For models, find dependencies: parent models (from lineage), code, and datasets
+        if artifact_type == ArtifactType.MODEL:
             try:
-                for art_data in s3_artifacts_cache:
-                    stored_name = _ensure_artifact_display_name(art_data)
-                    stored_url = art_data.get("data", {}).get("url", "")
-                    stored_url_normalized = str(stored_url).lower().rstrip("/") if stored_url else ""
-                    # Try exact match
-                    if stored_name == parent_name or stored_name == parent_name_with_owner:
-                        parent_id = art_data.get("metadata", {}).get("id")
-                        break
-                    # Try URL match (most reliable for HF models)
-                    if stored_url_normalized and parent_url_normalized and stored_url_normalized == parent_url_normalized:
-                        parent_id = art_data.get("metadata", {}).get("id")
-                        break
-                    # Try case-insensitive match
-                    stored_lower = stored_name.lower()
-                    parent_lower = parent_name.lower()
-                    owner_lower = parent_name_with_owner.lower()
-                    if stored_lower == parent_lower or stored_lower == owner_lower:
-                        parent_id = art_data.get("metadata", {}).get("id")
-                        break
-                    # Try matching against HF model name aliases
-                    hf_candidates = _get_hf_name_candidates(art_data)
-                    if parent_name in hf_candidates or parent_name_with_owner in hf_candidates:
-                        parent_id = art_data.get("metadata", {}).get("id")
-                        break
-            except Exception:
-                pass
-
-        # Check in-memory
-        if not parent_id:
-            for aid, adata in artifacts_db.items():
-                if adata.get("metadata", {}).get("type") == "model":
-                    stored_name = _ensure_artifact_display_name(adata)
-                    stored_url = adata.get("data", {}).get("url", "")
-                    stored_url_normalized = str(stored_url).lower().rstrip("/") if stored_url else ""
-                    # Try exact match
-                    if stored_name == parent_name or stored_name == parent_name_with_owner:
-                        parent_id = aid
-                        break
-                    # Try URL match (most reliable for HF models)
-                    if stored_url_normalized and parent_url_normalized and stored_url_normalized == parent_url_normalized:
-                        parent_id = aid
-                        break
-                    # Try case-insensitive match
-                    stored_lower = stored_name.lower()
-                    parent_lower = parent_name.lower()
-                    owner_lower = parent_name_with_owner.lower()
-                    if stored_lower == parent_lower or stored_lower == owner_lower:
-                        parent_id = aid
-                        break
-                    # Try matching against HF model name aliases
-                    hf_candidates = _get_hf_name_candidates(adata)
-                    if parent_name in hf_candidates or parent_name_with_owner in hf_candidates:
-                        parent_id = aid
-                        break
-
-        # Check SQLite
-        if not parent_id and USE_SQLITE:
-            try:
-                with next(get_db()) as _db:  # type: ignore[misc]
-                    from src.db import models as db_models
-                    # Try exact match first
-                    parent_arts = _db.query(db_models.Artifact).filter(
-                        db_models.Artifact.name == parent_name,
-                        db_models.Artifact.type == "model"
-                    ).all()
-                    if not parent_arts:
-                        # Try case-insensitive match
-                        parent_arts = _db.query(db_models.Artifact).filter(
-                            db_models.Artifact.name.ilike(parent_name),
-                            db_models.Artifact.type == "model"
-                        ).all()
-                    if parent_arts:
-                        parent_id = parent_arts[0].id
-            except Exception:
-                pass
-
-        # If parent found in registry, use its ID; otherwise use external ID
-        if not parent_id:
-            parent_id = f"external-{parent_name}"
-        parent_id_str = str(parent_id)
-
-        if parent_id_str not in added_nodes:
-            nodes.append(
-                ArtifactLineageNode(artifact_id=parent_id_str, name=parent_name, source="config_json")
-            )
-            added_nodes.add(parent_id_str)
-
-        edge_key = (parent_id_str, str(id))
-        if edge_key not in added_edges:
-            edges.append(
-                ArtifactLineageEdge(
-                    from_node_artifact_id=parent_id_str, to_node_artifact_id=id, relationship="base_model"
-                )
-            )
-            added_edges.add(edge_key)
-
-        # Optional shallow recursion: include grandparents if metadata exists locally (no extra network)
-        try:
-            if parent_id_str in artifacts_db and create_eval_context_from_model_data is not None:
-                pdata = artifacts_db[parent_id_str]
-                pdata_ctx = create_eval_context_from_model_data(
-                    {
-                        "url": pdata.get("data", {}).get("source_url") or pdata.get("data", {}).get("url"),
-                        "hf_data": pdata.get("data", {}).get("hf_data", []),
-                        "gh_data": pdata.get("data", {}).get("gh_data", []),
-                    }
-                )
-                gp_list = _extract_parent_models(pdata_ctx)
-                for gp in gp_list[:5]:
-                    gp_url = (gp or "").strip()
-                    if not gp_url:
+                # Use internal helper to get lineage graph structure (not JSONResponse)
+                lineage_graph, _, _ = await _build_lineage_graph_internal(id, user)
+                # Get edges from the graph object
+                edges_iterable = lineage_graph.edges if hasattr(lineage_graph, "edges") else []
+                for edge in edges_iterable:
+                    parent_id = edge.from_node_artifact_id
+                    # Skip external dependencies (they don't have costs in our registry)
+                    if parent_id.startswith("external-"):
                         continue
-                    gp_name = gp_url.rstrip("/").split("/")[-1] or gp_url
-                    gp_id = f"external-{gp_name}"
-                    if gp_id not in added_nodes:
-                        nodes.append(ArtifactLineageNode(artifact_id=gp_id, name=gp_name, source="config_json"))
-                        added_nodes.add(gp_id)
-                    gp_edge_key = (gp_id, parent_id_str)
-                    if gp_edge_key not in added_edges:
-                        edges.append(
-                            ArtifactLineageEdge(
-                                from_node_artifact_id=gp_id,
-                                to_node_artifact_id=parent_id_str,
-                                relationship="base_model",
-                            )
-                        )
-                        added_edges.add(gp_edge_key)
-                if gp_list:
-                    logger.info("CW_LINEAGE_DEBUG: artifact_id=%s parent=%s grandparents=%s", id, parent_id_str, gp_list)
-        except Exception as rec_err:
-            logger.warning("CW_LINEAGE_DEBUG: recursion failed for parent %s: %s", parent_id_str, rec_err)
+                    # Skip if already calculated
+                    if parent_id in dependency_costs:
+                        continue
 
-    # Per Q&A: Lineage is only between models, not datasets
-    # Do NOT include dataset dependencies in lineage graph
-    # datasets_list: List[str] = []
-    # try:
-    #     hf0 = model_data.get("hf_data", [])
-    #     if isinstance(hf0, list) and hf0 and isinstance(hf0[0], dict):
-    #         raw_datasets = hf0[0].get("datasets", []) or []
-    #         if isinstance(raw_datasets, list):
-    #             datasets_list = [str(d) for d in raw_datasets if isinstance(d, (str, bytes))]
-    # except Exception:
-    #     datasets_list = []
+                    # Calculate cost for parent artifact (standalone only, no recursion)
+                    try:
+                        # Get parent artifact URL
+                        parent_url = None
+                        if USE_S3 and s3_storage:
+                            parent_data = s3_storage.get_artifact_metadata(parent_id)
+                            if parent_data:
+                                parent_url = parent_data.get("data", {}).get("url", "")
+                        elif USE_SQLITE:
+                            with next(get_db()) as _db:  # type: ignore[misc]
+                                parent_art = db_crud.get_artifact(_db, parent_id)
+                                if parent_art:
+                                    parent_url = str(parent_art.url)
+                        elif parent_id in artifacts_db:
+                            parent_url = artifacts_db[parent_id]["data"].get("url", "")
 
-    # for ds in datasets_list:
-    #     ds_name = ds.split("/")[-1] if "/" in ds else ds
-    #     matched_ds_id = None
-    #     # In-memory first
-    #     for aid, adata in artifacts_db.items():
-    #         if adata.get("metadata", {}).get("type") == "dataset":
-    #             if _ensure_artifact_display_name(adata) == ds_name:
-    #                 matched_ds_id = aid
-    #                 break
-    #     # S3 / SQLite lookups skipped to avoid extra billing unless already cached
-    #     if matched_ds_id:
-    #         if matched_ds_id not in added_nodes:
-    #             nodes.append(ArtifactLineageNode(artifact_id=matched_ds_id, name=ds_name, source="config_json"))
-    #             added_nodes.add(matched_ds_id)
-    #         edge_key = (matched_ds_id, id)
-    #         if edge_key not in added_edges:
-    #             edges.append(
-    #                 ArtifactLineageEdge(
-    #                     from_node_artifact_id=matched_ds_id, to_node_artifact_id=id, relationship="dataset"
-    #                 )
-    #             )
-    #             added_edges.add(edge_key)
-    #         logger.info("CW_LINEAGE_DEBUG: Added dataset dependency ds_id=%s for model=%s", matched_ds_id, id)
+                        if parent_url:
+                            # Calculate size for parent
+                            parent_hf_data = None
+                            if isinstance(parent_url, str) and "huggingface.co" in parent_url.lower():
+                                try:
+                                    if scrape_hf_url is not None:
+                                        parent_hf_data, _ = scrape_hf_url(parent_url)
+                                except Exception:
+                                    parent_hf_data = None
+                            parent_model_data = {
+                                "url": parent_url,
+                                "hf_data": [parent_hf_data] if parent_hf_data else [],
+                                "gh_data": [],
+                            }
+                            parent_required_bytes = 0
+                            if create_eval_context_from_model_data is not None and size_metric is not None:
+                                try:
+                                    parent_ctx = create_eval_context_from_model_data(parent_model_data)
+                                    await size_metric.metric(parent_ctx)
+                                    parent_required_bytes = int(getattr(parent_ctx, "size_required_bytes", 0))
+                                except Exception as pe:
+                                    logger.warning(f"Failed to calculate size for parent {parent_id}: {pe}")
+                                    parent_required_bytes = 0
+                            parent_mb = float(parent_required_bytes) / (1024.0 * 1024.0)
+                            parent_cost = max(0.0, round(parent_mb, 1))  # Ensure non-negative
+                            dependency_costs[parent_id] = parent_cost
+                            total_dependency_cost += parent_cost
+                    except Exception as e:
+                        # If parent cost calculation fails, skip it
+                        logger.warning(f"Failed to calculate cost for dependency {parent_id}: {e}")
+                        pass
 
-    # Ensure nodes and edges are always lists (never None)
-    if not isinstance(nodes, list):
-        nodes = []
-    if not isinstance(edges, list):
-        edges = []
+                total_cost = max(0.0, round(total_dependency_cost, 1))  # Ensure non-negative
+            except Exception as e:
+                # If lineage calculation fails, just use standalone cost
+                logger.warning(f"Failed to get lineage for cost calculation: {e}")
+                total_cost = standalone_cost
+                # Ensure dependency_costs still has the main artifact
+                if id not in dependency_costs:
+                    dependency_costs[id] = standalone_cost
+        else:
+            # For non-model artifacts with dependency=true, total_cost equals standalone_cost
+            total_cost = standalone_cost
+            # Ensure dependency_costs has the main artifact
+            if id not in dependency_costs:
+                dependency_costs[id] = standalone_cost
 
-    logger.info(
-        "CW_LINEAGE_GRAPH: artifact_id=%s nodes=%d edges=%d node_ids=%s",
-        id,
-        len(nodes),
-        len(edges),
-        [n.artifact_id for n in nodes],
-    )
-    if nodes:
-        nodes_preview = [(n.artifact_id, n.name, n.source) for n in nodes[:5]]
+        # Build result with all dependencies
+        result: Dict[str, ArtifactCost] = {}
+        for dep_id, dep_cost in dependency_costs.items():
+            result[dep_id] = ArtifactCost(total_cost=dep_cost)
+        # Main artifact also gets standalone_cost
+        result[id] = ArtifactCost(total_cost=total_cost, standalone_cost=standalone_cost)
+        return result
     else:
-        nodes_preview = []
-    edges_preview = [
-        (e.from_node_artifact_id, e.to_node_artifact_id, e.relationship) for e in edges[:5]
-    ]
-    logger.info(
-        "CW_LINEAGE_DETAILS: artifact_id=%s nodes_preview=%s edges_preview=%s",
-        id,
-        nodes_preview,
-        edges_preview,
-    )
-
-    # Ensure response is always valid - create graph with empty lists if needed
-    try:
-        # Double-check nodes and edges are lists before creating graph
-        if not isinstance(nodes, list):
-            logger.warning("CW_LINEAGE_FIX: nodes was not a list, converting: %s", type(nodes))
-            nodes = []
-        if not isinstance(edges, list):
-            logger.warning("CW_LINEAGE_FIX: edges was not a list, converting: %s", type(edges))
-            edges = []
-
-        graph = ArtifactLineageGraph(nodes=nodes, edges=edges)
-        graph_dict = graph.model_dump()
-
-        # CRITICAL: Ensure graph_dict is a valid dict with nodes and edges as lists
-        # The autograder may call .copy() on the response, so we must ensure it's a proper dict
-        if not isinstance(graph_dict, dict):
-            logger.error("CW_LINEAGE_ERROR: model_dump() returned non-dict: %s", type(graph_dict))
-            graph_dict = {"nodes": [], "edges": []}
-        else:
-            # Ensure nodes and edges are lists in the dict (defensive check)
-            # Also ensure no None values in the lists that could cause copy() errors
-            if "nodes" not in graph_dict or not isinstance(graph_dict["nodes"], list):
-                logger.warning("CW_LINEAGE_FIX: nodes missing or not list in dict, fixing")
-                graph_dict["nodes"] = [n.model_dump() if hasattr(n, "model_dump") else n for n in nodes if n is not None]
-            else:
-                # Filter out any None values and ensure all nodes are dicts
-                graph_dict["nodes"] = [
-                    n if isinstance(n, dict) else (n.model_dump() if hasattr(n, "model_dump") else {})
-                    for n in graph_dict["nodes"]
-                    if n is not None
-                ]
-            if "edges" not in graph_dict or not isinstance(graph_dict["edges"], list):
-                logger.warning("CW_LINEAGE_FIX: edges missing or not list in dict, fixing")
-                graph_dict["edges"] = [e.model_dump() if hasattr(e, "model_dump") else e for e in edges if e is not None]
-            else:
-                # Filter out any None values and ensure all edges are dicts
-                graph_dict["edges"] = [
-                    e if isinstance(e, dict) else (e.model_dump() if hasattr(e, "model_dump") else {})
-                    for e in graph_dict["edges"]
-                    if e is not None
-                ]
-
-        logger.info(
-            "CW_LINEAGE_RESPONSE: Successfully created graph with %d nodes and %d edges body=%s",
-            len(graph_dict.get("nodes", [])),
-            len(graph_dict.get("edges", [])),
-            graph_dict,
-        )
-        return JSONResponse(status_code=200, content=graph_dict)
-    except Exception as e:
-        logger.error(f"CW_LINEAGE_ERROR: Failed to create ArtifactLineageGraph: {e}", exc_info=True)
-        # Return minimal valid graph on error - ensure dict structure is correct
-        fallback = ArtifactLineageGraph(
-            nodes=[ArtifactLineageNode(artifact_id=id, name=artifact_name or id, source="config_json")], edges=[]
-        )
-        fb_dict = fallback.model_dump()
-        # Defensive check on fallback dict too - use separate if statements to fix both nodes and edges
-        # Ensure no None values that could cause copy() errors in autograder
-        if not isinstance(fb_dict, dict):
-            fb_dict = {"nodes": [], "edges": []}
-        else:
-            # Fix nodes if missing or invalid
-            if "nodes" not in fb_dict or not isinstance(fb_dict["nodes"], list):
-                fb_dict["nodes"] = []
-            else:
-                # Filter out None values
-                fb_dict["nodes"] = [n for n in fb_dict["nodes"] if n is not None]
-            # Fix edges if missing or invalid (separate if, not elif, so both can be fixed)
-            if "edges" not in fb_dict or not isinstance(fb_dict["edges"], list):
-                fb_dict["edges"] = []
-            else:
-                # Filter out None values
-                fb_dict["edges"] = [e for e in fb_dict["edges"] if e is not None]
-        return JSONResponse(status_code=500, content=fb_dict)
+        # dependency=false: return only standalone cost
+        return {id: ArtifactCost(total_cost=standalone_cost)}
 
 
 @app.get("/models/{id}/lineage", response_model=None)
