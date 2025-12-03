@@ -5029,8 +5029,8 @@ async def artifact_cost(
         result[id] = ArtifactCost(total_cost=total_cost, standalone_cost=standalone_cost)
         return result
     else:
-        # dependency=false: return only standalone cost
-        return {id: ArtifactCost(total_cost=standalone_cost)}
+        # dependency=false: Per Q&A, return both standalone_cost and total_cost (where standalone_cost=total_cost)
+        return {id: ArtifactCost(total_cost=standalone_cost, standalone_cost=standalone_cost)}
 
 
 @app.get("/models/{id}/lineage", response_model=None)
