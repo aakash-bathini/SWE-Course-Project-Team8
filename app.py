@@ -5019,10 +5019,13 @@ async def artifact_cost(
                 dependency_costs[id] = standalone_cost
 
         # Build result with all dependencies
+        # Per OpenAPI spec: when dependency=true, all artifacts must have both standalone_cost and total_cost
         result: Dict[str, ArtifactCost] = {}
         for dep_id, dep_cost in dependency_costs.items():
-            result[dep_id] = ArtifactCost(total_cost=dep_cost)
-        # Main artifact also gets standalone_cost
+            # For dependencies, standalone_cost equals total_cost (they don't have their own dependencies)
+            # dep_cost is the standalone cost calculated for each dependency
+            result[dep_id] = ArtifactCost(total_cost=dep_cost, standalone_cost=dep_cost)
+        # Main artifact gets both total_cost (sum of all dependencies) and standalone_cost (just itself)
         result[id] = ArtifactCost(total_cost=total_cost, standalone_cost=standalone_cost)
         return result
     else:
