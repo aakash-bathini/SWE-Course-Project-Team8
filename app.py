@@ -3286,29 +3286,29 @@ async def artifact_by_regex(
             if not name_only:
                 # For partial matches, always check README even if name matches
                 # Per Q&A: "Extra Chars Name Regex Test" should find matches from README
-            data_block = art_data.get("data", {})
-            if isinstance(data_block, dict):
-                hf_list = data_block.get("hf_data", [])
-                if isinstance(hf_list, list) and hf_list:
-                    first = hf_list[0]
-                    if isinstance(first, dict):
-                        readme_text = str(first.get("readme_text", "") or "")
+                data_block = art_data.get("data", {})
+                if isinstance(data_block, dict):
+                    hf_list = data_block.get("hf_data", [])
+                    if isinstance(hf_list, list) and hf_list:
+                        first = hf_list[0]
+                        if isinstance(first, dict):
+                            readme_text = str(first.get("readme_text", "") or "")
                             logger.info(
                                 f"DEBUG_REGEX:   S3 artifact {artifact_id}: README text length={len(readme_text)}, "
                                 f"preview={readme_text[:100] if readme_text else 'EMPTY'}..."
                             )
                 else:
                     logger.info(f"DEBUG_REGEX:   S3 artifact {artifact_id}: No 'data' block found")
-            if readme_text:
-                if len(readme_text) > 10000:
-                    readme_text = readme_text[:10000]
+                if readme_text:
+                    if len(readme_text) > 10000:
+                        readme_text = readme_text[:10000]
                         logger.info(f"DEBUG_REGEX:   S3 artifact {artifact_id}: README truncated to 10000 chars")
                     try:
                         readme_matches = _safe_text_search(
-                    pattern,
-                    readme_text,
-                    raw_pattern=raw_pattern,
-                    context="S3 README snippet",
+                            pattern,
+                            readme_text,
+                            raw_pattern=raw_pattern,
+                            context="S3 README snippet",
                         )
                         logger.info(
                             f"DEBUG_REGEX:   S3 artifact {artifact_id}: README search result={readme_matches}"
