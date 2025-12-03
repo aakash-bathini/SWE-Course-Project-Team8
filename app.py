@@ -5656,7 +5656,7 @@ async def model_artifact_rate(
                     # Use pipeline tag if available (e.g., "text-classification", "question-answering")
                     category = pipeline_tag.replace("-", "_")  # Normalize to underscore format
                 else:
-            category = "classification"  # Default for HF models
+                    category = "classification"  # Default for HF models
             else:
                 category = "classification"  # Default for HF models
         elif metrics_url and "github.com" in metrics_url.lower():
