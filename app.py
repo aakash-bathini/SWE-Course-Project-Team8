@@ -4198,10 +4198,10 @@ async def artifact_update(
                 else:
                     # Synchronous mode: calculate metrics immediately
                     metrics_result = await calculate_phase2_metrics(model_data)
-                if isinstance(metrics_result, tuple):
-                    metrics, _ = metrics_result
-                else:
-                    metrics = metrics_result  # type: ignore[assignment]
+                    if isinstance(metrics_result, tuple):
+                        metrics, _ = metrics_result
+                    else:
+                        metrics = metrics_result  # type: ignore[assignment]
 
                     # Calculate net_score to check threshold
                     net_score = 0.0
@@ -4210,17 +4210,17 @@ async def artifact_update(
                         # Ensure net_score is in [0, 1] range
                         net_score = max(0.0, min(1.0, net_score))
 
-                # Filter out latency metrics and check threshold
-                non_latency_metrics = {
-                    k: v
-                    for k, v in metrics.items()
-                    if (not k.endswith("_latency") and k != "net_score_latency")
-                }
-                metrics_to_check = {
-                    k: float(v)
-                    for k, v in non_latency_metrics.items()
-                    if isinstance(v, (int, float)) and float(v) >= 0.0
-                }
+                    # Filter out latency metrics and check threshold
+                    non_latency_metrics = {
+                        k: v
+                        for k, v in metrics.items()
+                        if (not k.endswith("_latency") and k != "net_score_latency")
+                    }
+                    metrics_to_check = {
+                        k: float(v)
+                        for k, v in non_latency_metrics.items()
+                        if isinstance(v, (int, float)) and float(v) >= 0.0
+                    }
 
                     # Per Q&A: Fail update if net_score < 0.5 OR any metric < 0.5, keep older version
                     failing_metrics = [k for k, v in metrics_to_check.items() if v < 0.5]
@@ -4232,13 +4232,13 @@ async def artifact_update(
                         if failing_metrics:
                             error_details.append(f"failing metrics: {', '.join(failing_metrics)}")
                         raise HTTPException(
-                        status_code=424,
-                        detail=(
-                            "Updated model does not meet 0.5 threshold requirement. "
+                            status_code=424,
+                            detail=(
+                                "Updated model does not meet 0.5 threshold requirement. "
                                 f"{', '.join(error_details)}. "
-                            "Update rejected, older version retained."
-                        ),
-                    )
+                                "Update rejected, older version retained."
+                            ),
+                        )
 
                 # Update artifact with new metadata (rating passed)
                 updated_artifact_entry = {
