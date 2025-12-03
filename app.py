@@ -3157,11 +3157,11 @@ async def artifact_by_regex(
             if readme_text:
                 try:
                     readme_matches = _safe_text_search(
-                    pattern,
-                    readme_text,
-                    raw_pattern=raw_pattern,
-                    context="in-memory README snippet",
-                )
+                        pattern,
+                        readme_text,
+                        raw_pattern=raw_pattern,
+                        context="in-memory README snippet",
+                    )
                     logger.info(
                         f"DEBUG_REGEX:   in-memory artifact {artifact_id}: README search result={readme_matches}"
                     )
@@ -4992,26 +4992,26 @@ async def artifact_cost(
         if artifact_type == ArtifactType.MODEL:
             try:
                 # Get artifact data to check for linked_datasets and linked_code_repos
-                artifact_data: Optional[Dict[str, Any]] = None
+                dep_artifact_data: Optional[Dict[str, Any]] = None
                 if USE_S3 and s3_storage:
-                    artifact_data = s3_storage.get_artifact_metadata(id)
+                    dep_artifact_data = s3_storage.get_artifact_metadata(id)
                 elif USE_SQLITE:
                     with next(get_db()) as _db:  # type: ignore[misc]
                         art_row = db_crud.get_artifact(_db, id)
                         if art_row:
                             # Convert SQLite row to dict format
-                            artifact_data = {
+                            dep_artifact_data = {
                                 "metadata": {"id": art_row.id, "name": art_row.name, "type": art_row.type},
                                 "data": {"url": str(art_row.url)},
                             }
                 elif id in artifacts_db:
-                    artifact_data = artifacts_db[id]
+                    dep_artifact_data = artifacts_db[id]
 
                 # Extract linked relationships (from LLM analysis during ingestion)
                 linked_datasets = []
                 linked_code_repos = []
-                if artifact_data:
-                    data_block = artifact_data.get("data", {})
+                if dep_artifact_data:
+                    data_block = dep_artifact_data.get("data", {})
                     linked_datasets = data_block.get("linked_datasets", [])
                     linked_code_repos = data_block.get("linked_code_repos", [])
 
@@ -5051,9 +5051,9 @@ async def artifact_cost(
                                 ).all()
                                 for art in arts:
                                     if art.name == name_or_url:
-                                        return art.id
+                                        return str(art.id)
                                     if str(art.url) == name_or_url or str(art.url) in name_or_url or name_or_url in str(art.url):
-                                        return art.id
+                                        return str(art.id)
                         except Exception:
                             pass
                     return None
@@ -6118,7 +6118,7 @@ async def model_artifact_rate(
             logger.warning(
                 f"DEBUG_RATE: Missing metrics in response for id={id}: {missing_metrics}. "
                 f"Will default to 0.0 for missing metrics."
-        )
+            )
         logger.info(
             "CW_RATE_METRICS_SUMMARY: id=%s net=%.3f ramp=%.3f bus=%.3f perf=%.3f lic=%.3f "
             "ds_code=%.3f ds_quality=%.3f code_q=%.3f repro=%.3f reviewedness=%.3f tree=%.3f "
