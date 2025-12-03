@@ -1,0 +1,31 @@
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - cd frontend
+        - echo "Node version:"
+        - node --version
+        - echo "NPM version:"
+        - npm --version
+        - echo "Cleaning up to free memory..."
+        - rm -rf node_modules/.cache 2>/dev/null || true
+        - echo "Installing dependencies..."
+        - npm ci --legacy-peer-deps --prefer-offline --no-audit --no-fund
+    build:
+      commands:
+        - echo "Building frontend with optimized memory settings..."
+        - export NODE_OPTIONS="--max-old-space-size=5120"
+        - export DISABLE_ESLINT_PLUGIN=true
+        - export CI=false
+        - export GENERATE_SOURCEMAP=false
+        - npm run build
+  artifacts:
+    baseDirectory: frontend/build
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - frontend/node_modules/**/*
+      - frontend/.npm/**/*
+
