@@ -177,6 +177,8 @@ REQUIREMENTS_VERIFICATION.md
 Phase 2 Instructions.pdf
 Project_2_Delivery_rubric.pdf
 
-# Lighthouse CI reports - ALLOWED: Evidence needed for rubric (ADA compliance)
-# Commented out to allow Lighthouse test evidence to be visible
-# .lighthouseci/
+# Lighthouse CI reports - INTENTIONALLY TRACKED for rubric evidence
+# These files are committed to provide evidence of ADA compliance testing (required for rubric points)
+# The rubric requires: "Provided evidence that they assessed their interface for ADA compliance"
+# Therefore, we intentionally track .lighthouseci/ directory and its contents
+# DO NOT ignore: .lighthouseci/
