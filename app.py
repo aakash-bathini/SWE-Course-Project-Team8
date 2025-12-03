@@ -6274,7 +6274,7 @@ async def model_artifact_rate(
                     "size_score": {"raspberry_pi": 0.0, "jetson_nano": 0.0, "desktop_pc": 0.0, "aws_server": 0.0},
                     "size_score_latency": 0.0,
                 }
-        rating_cache[id] = minimal_rating
+                rating_cache[id] = minimal_rating
                 logger.warning(f"DEBUG_RATE: Returning minimal rating due to critical error: {e}")
                 return minimal_rating
     logger.info("CW_RATE_LOCK: released id=%s thread=%s (exit)", id, threading.current_thread().name)
