@@ -5083,7 +5083,7 @@ async def artifact_cost(
                                 "hf_data": [dep_hf_data] if dep_hf_data else [],
                                 "gh_data": [],
                             }
-                    dep_required_bytes = 0
+                            dep_required_bytes = 0
                             if create_eval_context_from_model_data is not None and size_metric is not None:
                                 try:
                                     dep_ctx = create_eval_context_from_model_data(dep_model_data)
