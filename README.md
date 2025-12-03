@@ -1390,11 +1390,34 @@ All CRUD operations, new metrics, upload/download functionality, and testing are
 - **Edge Cases & Integration (6):** Multi-user support, permission enforcement, reset safety, header fallback, password hashing consistency
 
 #### Security Implementation
-- Bcrypt password hashing with 72-byte UTF-8 truncation
-- SHA256 fallback with random salts (for test environments where bcrypt backend fails)
-- HS256 JWT algorithm with environment secret key
-- Call count and expiration timestamp validation
-- Complete token claims: sub, permissions, exp, iat, call_count, max_calls
+- **Password Security**: Bcrypt password hashing with 72-byte UTF-8 truncation. Passwords are never stored in plaintext.
+- **SHA256 Fallback**: Random salts for test environments where bcrypt backend fails
+- **JWT Tokens**: HS256 algorithm with environment secret key
+- **Token Expiration**: Tokens expire after 10 hours OR 1000 API interactions (whichever comes first). Multiple active tokens allowed per user.
+- **Call Count Tracking**: Each token tracks API call count, automatically invalidated after 1000 calls
+- **Expiration Validation**: Both timestamp (10 hours) and call count (1000) are enforced
+- **Complete Token Claims**: sub (username), permissions, exp (expiration), iat (issued at), call_count, max_calls
+
+#### User Permissions Enforcement
+- **Upload Permission**: Required for `POST /models/upload`, `POST /artifact/{type}`, `POST /models/ingest`
+- **Search Permission**: Required for `GET /models`, `POST /artifacts`, `POST /artifact/byRegEx`, `GET /artifact/byName/{name}`
+- **Download Permission**: Required for `GET /models/{id}/download`, `GET /artifact/{type}/{id}/download`
+- **Admin Permission**: Required for `POST /register`, `DELETE /user/{username}`, `PUT /user/{username}/permissions`, `DELETE /reset`
+
+#### User Account Management
+- **Regular Users**: Can delete their own accounts via `DELETE /user/{username}` (where username matches their own)
+- **Admins**: Can delete any user account, create users, and manage permissions
+- **Default Admin Protection**: Default admin user cannot be deleted
+
+#### Audit Trail & Historical Information
+- **Audit Logging**: All artifact operations (upload, delete, update) are logged with:
+  - User who performed the action (username and admin status)
+  - Timestamp of the action
+  - Action type (e.g., "upload", "delete", "update")
+  - Artifact ID and metadata
+- **Audit Endpoint**: `GET /artifact/{artifact_type}/{id}/audit` returns complete history of changes for an artifact
+- **Storage**: Audit entries stored in SQLite `audits` table or in-memory `audit_log` list
+- **Historical Tracking**: System maintains complete record of what changed, when, and by whom for all artifacts
 
 #### Code Quality
 - ✅ **Zero Deprecation Warnings** - Modern Python 3.12+ compatible code
