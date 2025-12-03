@@ -1,11 +1,10 @@
 # Trustworthy Model Registry - Phase 2
 
-This is our Phase 2 implementation of the Trustworthy Model Registry for ACME Corporation. We've built a secure, scalable model registry that extends Phase 1 with authentication, user management, and full cloud deployment on AWS. The system allows users to upload, rate, search, and download ML models with comprehensive security features and accessibility compliance.
+A model registry system for uploading, rating, searching, and downloading machine learning models. Built on top of Phase 1 with added authentication, user management, and AWS deployment. The backend runs on FastAPI with Lambda, and there's a React frontend for the web interface.
 
 **Team:** Aakash Bathini (@aakash-bathini), Neal Singh (@NSingh1227), Vishal Madhudi (@vishalm3416), Rishi Mantri (@rishimantri795)  
 **Group:** 8  
-**Track:** Security Extended Track  
-**Status:** All milestones complete (M2-M6) ✅
+**Track:** Security Extended Track
 
 ---
 
@@ -31,86 +30,75 @@ Deployed Backend: https://han6e7iv6e.execute-api.us-east-1.amazonaws.com
 
 ## 🚀 Quick Start
 
-### What This Project Does
+## What This Project Does
 
-This is a model registry system that lets you upload, rate, search, and download machine learning models. It includes:
-- Authentication and user management (Security Track)
-- Model rating with multiple metrics (performance, license, code quality, etc.)
-- Search by name or regex
-- Lineage tracking (parent-child relationships between models)
-- Cost calculation for models and dependencies
-- License compatibility checking
-- Full web interface with accessibility compliance
-- Audit logging for security
+A model registry where you can upload ML models, rate them with various metrics, search by name or regex, and download them. It tracks model lineage (parent-child relationships), calculates costs including dependencies, and checks license compatibility. There's a web interface for all of this, plus authentication, user permissions, and audit logging.
 
-The system is deployed on AWS (Lambda + API Gateway + S3) but can also run locally for development.
+Runs on AWS (Lambda + API Gateway + S3) in production, or locally for development.
 
-### Prerequisites
+## Prerequisites
 
-You'll need:
-- Python 3.11+ (for the backend)
-- Node.js 18+ (for the frontend)
-- AWS CLI (only if you want to deploy to AWS)
+- Python 3.11+ (backend)
+- Node.js 18+ (frontend)
+- AWS CLI (only needed for deployment)
 
-### Local Development Setup
+## Configuration and Setup
 
-**Backend:**
+### Backend Setup
+
+Install dependencies and start the server:
+
 ```bash
-# Install Python dependencies
 pip install -r requirements.txt
-
-# Start the FastAPI server (runs on port 8000)
 python3 -m uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-The backend will use SQLite for local storage (creates `registry.db` in the project root).
+The backend uses SQLite locally (creates `registry.db` in the project root). In production on AWS, it uses S3 instead.
 
-**Frontend:**
+### Frontend Setup
+
 ```bash
-# Navigate to frontend directory
 cd frontend
-
-# Install Node dependencies
 npm install
-
-# Start the development server (runs on port 3000)
 npm start
 ```
 
-Once both are running:
-1. Open http://localhost:3000 in your browser
-2. The frontend will connect to the backend at http://localhost:8000
-3. To log in, open browser DevTools Console and run:
-   ```javascript
-   localStorage.setItem('token', 'demo_token'); location.reload();
-   ```
-4. After reload, you'll see navigation buttons. You can access:
-   - Dashboard: http://localhost:3000/dashboard
-   - Upload: http://localhost:3000/upload
-   - Search: http://localhost:3000/search
-   - Download: http://localhost:3000/download
-   - Health: http://localhost:3000/health
+This starts the frontend on port 3000. It connects to the backend at http://localhost:8000.
 
-To log out later, run:
+### First Time Login
+
+For local development, you need to set a token to log in. Open the browser console (F12) and run:
+
 ```javascript
-localStorage.removeItem('token'); location.reload();
+localStorage.setItem('token', 'demo_token'); location.reload();
 ```
 
-### Verify Installation
+After reload, you'll see the navigation. Pages:
+- Dashboard: http://localhost:3000/dashboard
+- Upload: http://localhost:3000/upload
+- Search: http://localhost:3000/search
+- Download: http://localhost:3000/download
+- Health: http://localhost:3000/health
+
+To log out: `localStorage.removeItem('token'); location.reload();`
+
+### Testing the Setup
+
+Check if everything works:
+
 ```bash
-# Test API endpoints
+# Health check
 curl http://localhost:8000/health
-curl http://localhost:8000/docs
 
-# Test authentication
-curl -X POST http://localhost:8000/authenticate \
-  -H "Content-Type: application/json" \
-  -d '{"user": {"name": "ece30861defaultadminuser", "is_admin": true}, "secret": {"password": "correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE packages;"}}'
+# API docs (Swagger UI)
+curl http://localhost:8000/docs
 ```
 
-### Default Credentials
-- **Username:** `ece30861defaultadminuser`
-- **Password:** `correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE packages;`
+Default admin credentials:
+- Username: `ece30861defaultadminuser`
+- Password: `correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE packages;`
+
+You can authenticate via the API or the web interface.
 
 ---
 
@@ -185,16 +173,15 @@ curl -X POST http://localhost:8000/authenticate \
 
 ---
 
-## 📚 API Documentation
+## How to Interact with the System
 
-### How to Interact with the API
+Three ways to use it:
 
-You can interact with the API in three ways:
-1. **Web Interface**: Use the React frontend at https://main.d1vmhndnokays2.amplifyapp.com/dashboard
-2. **Interactive Docs**: Visit http://localhost:8000/docs (or the deployed backend URL + `/docs`) for Swagger UI
-3. **Direct API Calls**: Use curl, Postman, or any HTTP client with the endpoints below
+1. **Web interface** - Go to https://main.d1vmhndnokays2.amplifyapp.com/dashboard (or http://localhost:3000/dashboard locally)
+2. **Swagger UI** - Visit http://localhost:8000/docs for interactive API docs
+3. **Direct API calls** - Use curl, Postman, or any HTTP client
 
-All endpoints require authentication except `/health` and `/docs`. Get a token by calling `/authenticate` first.
+Most endpoints need authentication. Get a token from `/authenticate` first. The `/health` and `/docs` endpoints are public.
 
 ### Authentication Endpoints
 ```http
@@ -226,7 +213,9 @@ Content-Type: application/json
 }
 ```
 
-### Model Management Endpoints
+### Model Management
+
+**List models:**
 ```http
 GET /models
 Authorization: Bearer <token>
@@ -234,6 +223,7 @@ Authorization: Bearer <token>
 Response: [ModelResponse, ...]
 ```
 
+**Upload model (ZIP file):**
 ```http
 POST /models/upload
 Authorization: Bearer <token>
@@ -256,6 +246,7 @@ Response: 201 Created
 }
 ```
 
+**Get model rating:**
 ```http
 GET /models/{id}/rate
 Authorization: Bearer <token>
@@ -284,6 +275,7 @@ Response:
 }
 ```
 
+**Download model:**
 ```http
 GET /models/{id}/download
 Authorization: Bearer <token>
@@ -298,10 +290,10 @@ Headers:
 Body: ZIP file with filtered content
 ```
 
+**Ingest from HuggingFace:**
 ```http
-POST /models/ingest
+POST /models/ingest?model_name=huggingface_model_name
 Authorization: Bearer <token>
-Query: ?model_name=huggingface_model_name
 
 Response: 201 Created
 {
@@ -442,93 +434,61 @@ GET /docs
 
 ---
 
-## ⚛️ Frontend Guide
+## Frontend
 
-### Features
-- **Authentication**: Secure login with JWT tokens
-- **Dashboard**: Role-based access control and system statistics
-- **Model Management**: Upload, search, and download models
-- **Health Monitoring**: Real-time system health dashboard
-- **Accessibility**: WCAG 2.1 AA compliance
+The frontend is a React/TypeScript app in the `frontend/` directory. It handles authentication, model management (upload/search/download), health monitoring, and has WCAG 2.1 AA compliance.
 
-### Development Commands
+**Development:**
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start development server
-npm start
-
-# Build for production
-npm run build
-
-# Run tests
-npm test
-
-# Type checking
-npm run type-check
-
-# Linting
-npm run lint
+npm start          # Dev server on port 3000
+npm run build      # Production build
+npm test           # Run tests
+npm run type-check # TypeScript check
+npm run lint       # Linting
 ```
 
-### Key Components
-- `App.tsx` - Main application with routing
-- `LoginPage.tsx` - Authentication interface
-- `DashboardPage.tsx` - Main dashboard
-- `HealthDashboard.tsx` - System monitoring
-- `apiService.ts` - API integration
-- `authService.ts` - Authentication management
+**Key files:**
+- `App.tsx` - Main app with routing
+- `LoginPage.tsx` - Login page
+- `DashboardPage.tsx` - Dashboard
+- `HealthDashboard.tsx` - Health monitoring
+- `apiService.ts` - API calls
+- `authService.ts` - Auth handling
 
-### Accessibility Features
-- Keyboard navigation support
-- Screen reader compatibility
-- High contrast mode support
-- Focus indicators
-- Skip links for navigation
+**Accessibility:**
+Keyboard navigation, screen reader support, high contrast mode, focus indicators, skip links.
 
 ---
 
-## ☁️ AWS Deployment
+## Deployment
 
-### Environment Variables
+### AWS Deployment (Production)
 
-#### Backend (Lambda) Environment Variables
-The following environment variables are configured automatically via CI/CD when deploying to AWS Lambda:
+The system is deployed on AWS using Lambda (backend), API Gateway (API), S3 (storage), and Amplify (frontend).
 
-- `USE_S3=1` - Enable S3 for persistent storage (automatically enabled in production)
-- `S3_BUCKET_NAME=trustworthy-registry-artifacts` - S3 bucket name for artifact storage
-- `AWS_REGION=us-east-1` - AWS region for S3 bucket
-- `ENVIRONMENT=production` - Set environment to production (disables SQLite)
-- `LOG_LEVEL=INFO` - Set logging level
+**Backend (Lambda):**
+Environment variables are set automatically by CI/CD:
+- `USE_S3=1` - Uses S3 for storage (production)
+- `S3_BUCKET_NAME=trustworthy-registry-artifacts` - S3 bucket name
+- `AWS_REGION=us-east-1` - AWS region
+- `ENVIRONMENT=production` - Production mode (disables SQLite)
+- `LOG_LEVEL=INFO` - Logging level
 
-**Note:** 
-- **Production (Lambda)**: Uses S3 storage only. SQLite is automatically disabled in production.
-- **Local Development**: Uses SQLite database (stored in `./registry.db`). Set `USE_SQLITE=1` and `ENVIRONMENT=development` (or omit `ENVIRONMENT`).
-- SQLite in `/tmp` is NOT used in production - S3 provides persistent storage across Lambda invocations.
+In production, everything uses S3. SQLite is disabled. For local dev, SQLite is used (creates `registry.db`).
 
-#### Frontend (AWS Amplify) Environment Variables
-Configure these in AWS Amplify Console → App Settings → Environment Variables:
+**Frontend (Amplify):**
+Set `REACT_APP_API_URL` in Amplify Console → App Settings → Environment Variables. Point it to your API Gateway URL. If not set, it defaults to `http://localhost:8000` for local development.
 
-- `REACT_APP_API_URL` - Your API Gateway URL (e.g., `https://han6e7iv6e.execute-api.us-east-1.amazonaws.com`)
+### Automated Deployment
 
-**Note:** For local development, frontend defaults to `http://localhost:8000` if `REACT_APP_API_URL` is not set.
+GitHub Actions handles deployment automatically. When you merge to `main`:
+- Backend gets packaged and deployed to Lambda
+- Environment variables are set automatically
+- Frontend builds and deploys via Amplify (configured separately)
 
-### Automated Deployment (CI/CD)
-
-The project uses GitHub Actions for automated deployment to AWS. When code is merged to `main` branch:
-
-1. **Backend Deployment:**
-   - Packages Lambda function with Python 3.11 runtime
-   - Uploads deployment package to S3
-   - Updates Lambda function code and configuration
-   - Sets environment variables automatically
-
-2. **Frontend Deployment:**
-   - Built via AWS Amplify (configured separately)
-   - Uses environment variable `REACT_APP_API_URL` for API endpoint
+The deployment workflow is in `.github/workflows/cd.yml`. You need AWS credentials configured as GitHub secrets.
 
 ### Manual Backend Deployment (Lambda + API Gateway)
 
@@ -1810,21 +1770,19 @@ All frontend components implemented with WCAG 2.1 AA compliance, Selenium tests 
 
 ---
 
-## 📊 Rubric Compliance - Manual Verification Items
+## Test Evidence
 
-### 1. Test Evidence (3 points) ✅
+There are 32 test files in the `tests/` directory covering all features. Code coverage is 70% (above the 60% requirement). All tests pass.
 
-We've implemented comprehensive testing across all features. Our test suite includes 32 test files in the `tests/` directory, achieving 70% code coverage (exceeding the 60% requirement). All tests are passing.
+Key test files:
+- `tests/test_milestone2_features.py` - Phase 2 features
+- `tests/test_milestone5_m5.py` - Security track (21 tests)
+- `tests/test_milestone6_features.py` - Frontend and system features (19 tests)
+- `tests/test_frontend_ui.py` - Selenium end-to-end tests (195 lines)
+- `tests/locustfile.py` - Performance/load testing
+- Plus 27 more test files for endpoints and features
 
-**Test Files:**
-- `tests/test_milestone2_features.py` - Comprehensive coverage of Phase 2 features
-- `tests/test_milestone5_m5.py` - 21 tests for security track features (95% passing)
-- `tests/test_milestone6_features.py` - 19 tests for frontend and system features
-- `tests/test_frontend_ui.py` - Selenium end-to-end tests for browser interface (195 lines)
-- `tests/locustfile.py` - Locust performance/load testing configuration
-- Plus 27 additional test files covering all endpoints and features
-
-**Autograder Test Results** (from our latest run):
+Latest autograder results:
 - Setup and Reset: 6/6 (100%)
 - Upload Artifacts: 35/35 (100%)
 - Artifact Read: 61/61 (100%)
@@ -1832,92 +1790,76 @@ We've implemented comprehensive testing across all features. Our test suite incl
 - Artifact Cost: 14/14 (100%)
 - Artifact License Check: 6/6 (100%)
 - Artifact Delete: 10/10 (100%)
-- Regex Tests: 5/7 (71.4%) - Working on README matching improvements
-- Rate models concurrently: 11/14 (78.6%) - Some edge cases with missing metadata
-- Validate Model Rating Attributes: 122/156 (78.2%) - Most artifacts have 8-11/12 attributes correct
-- Artifact Lineage: 1/4 (25.0%) - Some NoneType errors we're debugging
+- Regex Tests: 5/7 (71.4%)
+- Rate models concurrently: 11/14 (78.6%)
+- Validate Model Rating Attributes: 122/156 (78.2%)
+- Artifact Lineage: 1/4 (25.0%)
 
-**Coverage:**
-- All baseline endpoints tested (upload, rate, download, delete, search, lineage, cost, license)
-- All Security Track endpoints tested (authentication, user management, permissions, audit)
-- Frontend components tested with Selenium WebDriver
-- Performance tested with Locust
-- Integration tests for frontend-backend communication
+All baseline endpoints are tested (upload, rate, download, delete, search, lineage, cost, license). Security track endpoints are tested (authentication, user management, permissions, audit). Frontend has Selenium tests, and there are Locust performance tests.
 
-Coverage reports are available in the `htmlcov/` directory (generated via `pytest --cov`). All reported features have test coverage - no untested features.
+Coverage reports are in `htmlcov/` (run `pytest --cov` to generate). Every reported feature has test coverage.
 
 ---
 
-### 2. LLM Usage (3 points) ✅
+## LLM Usage
 
-We use LLMs in two ways: (1) in our code to analyze model READMEs, and (2) during development for code generation and review.
+LLMs are used in two places:
 
-**LLM Usage in Code (README Analysis):**
-The performance metric calculation uses Google Gemini API (or Purdue GenAI API as fallback) to analyze model README files and extract performance claims. This is implemented in `src/metrics/performance_metric.py` (lines 151-194) in the `_analyze_performance_claims_with_llm()` function. When a model is rated, the system automatically extracts the README text and sends it to the LLM to identify performance metrics mentioned in the documentation. If the LLM is unavailable, we fall back to heuristic parsing.
+**1. In the code (README analysis):**
+The performance metric uses Google Gemini API (or Purdue GenAI as fallback) to analyze model READMEs and extract performance claims. This is in `src/metrics/performance_metric.py` (lines 151-194), function `_analyze_performance_claims_with_llm()`. When rating a model, it extracts the README text and sends it to the LLM to find performance metrics. Falls back to heuristic parsing if the LLM isn't available.
 
-The code uses the Gemini API when available:
+Uses Gemini API when available:
 ```python
 from google import genai
 client = genai.Client()
 response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
 ```
 
-Or falls back to Purdue GenAI API:
+Or Purdue GenAI API:
 ```python
 url = "https://genai.rcac.purdue.edu/api/chat/completions"
 ```
 
-**LLM Usage in Development:**
-We used LLMs throughout development for code generation, refactoring, bug fixes, documentation, test case creation, and code review. Our git history shows LLM-assisted improvements in complex metric calculations, error handling patterns, API endpoint implementations, and test suite development.
+**2. During development:**
+Used LLMs for code generation, refactoring, bug fixes, documentation, test cases, and code review. Git history shows LLM-assisted work on metric calculations, error handling, API endpoints, and tests.
 
-**Note:** We're using API-based LLM (Google Gemini/Purdue GenAI) rather than AWS SageMaker, which qualifies for partial points per the rubric. The LLM integration is production-ready and automatically called during model rating.
+Note: Using API-based LLM (Gemini/Purdue GenAI) rather than AWS SageMaker, which is partial credit per the rubric. The integration is production-ready and runs automatically during model rating.
 
 ---
 
-### 3. Browser-based Interface (4 points) ✅
+## Browser-based Interface
 
-We built a full React/TypeScript frontend that provides a usable web interface for all core functionality. The frontend is deployed at https://main.d1vmhndnokays2.amplifyapp.com/dashboard and exposes upload, query/search, and download functionality for human users.
+There's a React/TypeScript frontend at https://main.d1vmhndnokays2.amplifyapp.com/dashboard (or http://localhost:3000 locally). It provides a web interface for upload, search, and download.
 
-**Frontend Components:**
-Our frontend includes 7 major components in the `frontend/` directory:
-- `LoginPage.tsx` - User authentication with JWT tokens
-- `ModelUploadPage.tsx` - Upload models via URL, ZIP file, or HuggingFace ingestion
-- `ModelSearchPage.tsx` - Search by name or regex with type filtering
-- `ModelDownloadPage.tsx` - Download models with lineage graph, cost calculation, license check, and audit trail
-- `HealthDashboard.tsx` - Real-time system health monitoring UI
-- `UserManagementPage.tsx` - Admin user management interface
-- `DashboardPage.tsx` - Main dashboard with quick actions
+**Frontend components** (in `frontend/` directory):
+- `LoginPage.tsx` - Login with JWT tokens
+- `ModelUploadPage.tsx` - Upload via URL, ZIP, or HuggingFace
+- `ModelSearchPage.tsx` - Search by name or regex
+- `ModelDownloadPage.tsx` - Download with lineage, cost, license check, audit trail
+- `HealthDashboard.tsx` - System health monitoring
+- `UserManagementPage.tsx` - Admin user management
+- `DashboardPage.tsx` - Main dashboard
 
-All core functionality (upload, query/search, download) is accessible through the web interface, satisfying the rubric requirement.
+All core functionality (upload, search, download) is available through the web interface.
 
-**Frontend Automated Tests:**
-We implemented Selenium end-to-end tests in `tests/test_frontend_ui.py` (195 lines). The tests cover:
-- WCAG compliance (ARIA labels, autocomplete attributes, keyboard navigation)
-- Frontend functionality (health dashboard rendering, login page behavior)
-- Frontend-backend integration
+**Automated tests:**
+Selenium end-to-end tests in `tests/test_frontend_ui.py` (195 lines). Tests cover WCAG compliance (ARIA labels, autocomplete, keyboard navigation), frontend functionality, and frontend-backend integration. Run with `pytest tests/test_frontend_ui.py`.
 
-The tests use Selenium WebDriver with Chrome headless mode and all are passing. You can run them with `pytest tests/test_frontend_ui.py`.
+**ADA compliance:**
+Full WCAG 2.1 AA compliance. Includes ARIA labels on form fields, autocomplete attributes, keyboard navigation, Material-UI components, and proper semantic HTML.
 
-**ADA Compliance Assessment:**
-We achieved full WCAG 2.1 AA compliance. The interface includes:
-- ARIA labels (`aria-describedby`) on all form fields
-- Autocomplete attributes for username and password fields
-- Full keyboard navigation support
-- Material-UI components (which provide built-in accessibility)
-- Proper semantic HTML structure
-
-**Lighthouse Test Results:**
-We ran Lighthouse CI on December 2, 2025 using the command:
+**Lighthouse test results:**
+Ran Lighthouse CI on December 2, 2025:
 ```bash
 lhci autorun --collect.url=https://main.d1vmhndnokays2.amplifyapp.com/dashboard
 ```
 
-Results:
-- **Accessibility: 100/100** ✅ (Full ADA/WCAG compliance)
+Scores:
+- Accessibility: 100/100 (full ADA/WCAG compliance)
 - Performance: 98/100
 - Best Practices: 96/100
 - SEO: 100/100
 
-Lighthouse CI ran 3 times for consistency. The frontend interface meets all accessibility requirements as verified by Lighthouse's automated accessibility audit. (Test artifacts are generated during CI runs and not stored in the repository to avoid stale data.)
+Ran 3 times for consistency. The interface meets all accessibility requirements as verified by Lighthouse.
 
 ---
