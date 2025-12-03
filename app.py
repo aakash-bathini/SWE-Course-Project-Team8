@@ -1263,7 +1263,7 @@ async def models_upload(
                 "artifact": artifact_entry["metadata"],
                 "action": "UPLOAD",
             }
-)
+        )
 
         # Trigger metrics calculation
         try:
@@ -1378,7 +1378,7 @@ async def models_download(
                     "artifact": artifact_metadata,
                     "action": f"DOWNLOAD_{aspect.upper()}",
                 }
-    )
+            )
             if USE_SQLITE:
                 with next(get_db()) as _db:  # type: ignore[misc]
                     art = db_crud.get_artifact(_db, id)
@@ -1689,7 +1689,8 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
                             ),
                             "is_admin": bool(getattr(row, "is_admin", False)),
                         }
-                users_db[request.user.name] = user_data
+                        if user_data:
+                            users_db[request.user.name] = user_data
             except Exception:
                 user_data = None
         if not user_data:
@@ -1998,7 +1999,7 @@ async def models_ingest(
             error_details = []
             if net_score < 0.5:
                 error_details.append(f"net_score={net_score:.3f}")
-            if failing_metrics:
+        if failing_metrics:
                 error_details.append(f"failing metrics: {', '.join(failing_metrics)}")
             raise HTTPException(
                 status_code=424,
@@ -2158,7 +2159,7 @@ async def models_ingest(
                 "artifact": artifact_entry["metadata"],
                 "action": "INGEST",
             }
-)
+        )
 
         if USE_SQLITE:
             with next(get_db()) as _db:  # type: ignore[misc]
@@ -3156,11 +3157,11 @@ async def artifact_by_regex(
             if readme_text:
                 try:
                     readme_matches = _safe_text_search(
-                        pattern,
-                        readme_text,
-                        raw_pattern=raw_pattern,
-                        context="in-memory README snippet",
-                    )
+                    pattern,
+                    readme_text,
+                    raw_pattern=raw_pattern,
+                    context="in-memory README snippet",
+                )
                     logger.info(
                         f"DEBUG_REGEX:   in-memory artifact {artifact_id}: README search result={readme_matches}"
                     )
@@ -3285,29 +3286,29 @@ async def artifact_by_regex(
             if not name_only:
                 # For partial matches, always check README even if name matches
                 # Per Q&A: "Extra Chars Name Regex Test" should find matches from README
-                data_block = art_data.get("data", {})
-                if isinstance(data_block, dict):
-                    hf_list = data_block.get("hf_data", [])
-                    if isinstance(hf_list, list) and hf_list:
-                        first = hf_list[0]
-                        if isinstance(first, dict):
-                            readme_text = str(first.get("readme_text", "") or "")
+            data_block = art_data.get("data", {})
+            if isinstance(data_block, dict):
+                hf_list = data_block.get("hf_data", [])
+                if isinstance(hf_list, list) and hf_list:
+                    first = hf_list[0]
+                    if isinstance(first, dict):
+                        readme_text = str(first.get("readme_text", "") or "")
                             logger.info(
                                 f"DEBUG_REGEX:   S3 artifact {artifact_id}: README text length={len(readme_text)}, "
                                 f"preview={readme_text[:100] if readme_text else 'EMPTY'}..."
                             )
                 else:
                     logger.info(f"DEBUG_REGEX:   S3 artifact {artifact_id}: No 'data' block found")
-                if readme_text:
-                    if len(readme_text) > 10000:
-                        readme_text = readme_text[:10000]
+            if readme_text:
+                if len(readme_text) > 10000:
+                    readme_text = readme_text[:10000]
                         logger.info(f"DEBUG_REGEX:   S3 artifact {artifact_id}: README truncated to 10000 chars")
                     try:
                         readme_matches = _safe_text_search(
-                            pattern,
-                            readme_text,
-                            raw_pattern=raw_pattern,
-                            context="S3 README snippet",
+                    pattern,
+                    readme_text,
+                    raw_pattern=raw_pattern,
+                    context="S3 README snippet",
                         )
                         logger.info(
                             f"DEBUG_REGEX:   S3 artifact {artifact_id}: README search result={readme_matches}"
@@ -4179,7 +4180,7 @@ async def artifact_update(
                             "artifact": artifact.metadata.model_dump(),
                             "action": "UPDATE",
                         }
-            )
+                    )
                     if USE_SQLITE:
                         with next(get_db()) as _db:  # type: ignore[misc]
                             db_art = db_crud.get_artifact(_db, id)
@@ -4196,11 +4197,11 @@ async def artifact_update(
                     return {"message": "Artifact update accepted. Rating deferred."}
                 else:
                     # Synchronous mode: calculate metrics immediately
-                    metrics_result = await calculate_phase2_metrics(model_data)
-                    if isinstance(metrics_result, tuple):
-                        metrics, _ = metrics_result
-                    else:
-                        metrics = metrics_result  # type: ignore[assignment]
+                metrics_result = await calculate_phase2_metrics(model_data)
+                if isinstance(metrics_result, tuple):
+                    metrics, _ = metrics_result
+                else:
+                    metrics = metrics_result  # type: ignore[assignment]
 
                     # Calculate net_score to check threshold
                     net_score = 0.0
@@ -4209,46 +4210,46 @@ async def artifact_update(
                         # Ensure net_score is in [0, 1] range
                         net_score = max(0.0, min(1.0, net_score))
 
-                    # Filter out latency metrics and check threshold
-                    non_latency_metrics = {
-                        k: v
-                        for k, v in metrics.items()
-                        if (not k.endswith("_latency") and k != "net_score_latency")
-                    }
-                    metrics_to_check = {
-                        k: float(v)
-                        for k, v in non_latency_metrics.items()
-                        if isinstance(v, (int, float)) and float(v) >= 0.0
-                    }
+                # Filter out latency metrics and check threshold
+                non_latency_metrics = {
+                    k: v
+                    for k, v in metrics.items()
+                    if (not k.endswith("_latency") and k != "net_score_latency")
+                }
+                metrics_to_check = {
+                    k: float(v)
+                    for k, v in non_latency_metrics.items()
+                    if isinstance(v, (int, float)) and float(v) >= 0.0
+                }
 
                     # Per Q&A: Fail update if net_score < 0.5 OR any metric < 0.5, keep older version
-                    failing_metrics = [k for k, v in metrics_to_check.items() if v < 0.5]
+                failing_metrics = [k for k, v in metrics_to_check.items() if v < 0.5]
                     if net_score < 0.5 or failing_metrics:
                         error_details = []
                         if net_score < 0.5:
                             error_details.append(f"net_score={net_score:.3f}")
-                        if failing_metrics:
+                if failing_metrics:
                             error_details.append(f"failing metrics: {', '.join(failing_metrics)}")
-                        raise HTTPException(
-                            status_code=424,
-                            detail=(
-                                "Updated model does not meet 0.5 threshold requirement. "
+                    raise HTTPException(
+                        status_code=424,
+                        detail=(
+                            "Updated model does not meet 0.5 threshold requirement. "
                                 f"{', '.join(error_details)}. "
-                                "Update rejected, older version retained."
-                            ),
-                        )
+                            "Update rejected, older version retained."
+                        ),
+                    )
 
-                    # Update artifact with new metadata (rating passed)
-                    updated_artifact_entry = {
-                        "metadata": artifact.metadata.model_dump(),
-                        "data": {
-                            **artifact.data.model_dump(),
-                            "hf_data": [hf_data],
-                            "gh_data": gh_data,
-                        },
-                        "updated_at": datetime.now().isoformat(),
-                        "updated_by": user["username"],
-                    }
+                # Update artifact with new metadata (rating passed)
+                updated_artifact_entry = {
+                    "metadata": artifact.metadata.model_dump(),
+                    "data": {
+                        **artifact.data.model_dump(),
+                        "hf_data": [hf_data],
+                        "gh_data": gh_data,
+                    },
+                    "updated_at": datetime.now().isoformat(),
+                    "updated_by": user["username"],
+                }
 
             except HTTPException:
                 raise
@@ -4401,7 +4402,7 @@ async def artifact_delete(
                 "artifact": artifact_metadata,
                 "action": "DELETE",
             }
-)
+        )
 
     return {"message": "Artifact is deleted."}
 
@@ -4782,7 +4783,7 @@ async def _build_lineage_graph_internal(
                         "hf_data": pdata.get("data", {}).get("hf_data", []),
                         "gh_data": pdata.get("data", {}).get("gh_data", []),
                     }
-        )
+                )
                 gp_list = _extract_parent_models(pdata_ctx)
                 for gp in gp_list[:5]:
                     gp_url = (gp or "").strip()
@@ -4896,7 +4897,7 @@ async def artifact_cost(
             try:
                 import json
                 hf_list = json.loads(hf_list)
-            except Exception:
+    except Exception:
                 hf_list = []
         if isinstance(hf_list, list) and hf_list:
             first = hf_list[0]
@@ -4990,7 +4991,7 @@ async def artifact_cost(
         if artifact_type == ArtifactType.MODEL:
             try:
                 # Get artifact data to check for linked_datasets and linked_code_repos
-                artifact_data = None
+                artifact_data: Optional[Dict[str, Any]] = None
                 if USE_S3 and s3_storage:
                     artifact_data = s3_storage.get_artifact_metadata(id)
                 elif USE_SQLITE:
@@ -5017,7 +5018,7 @@ async def artifact_cost(
                 def find_artifact_id_by_name_or_url(name_or_url: str, artifact_type_filter: str) -> Optional[str]:
                     """Find artifact ID in registry by name or URL match"""
                     # Check in-memory
-                    for aid, adata in artifacts_db.items():
+        for aid, adata in artifacts_db.items():
                         meta = adata.get("metadata", {})
                         if meta.get("type") != artifact_type_filter:
                             continue
@@ -5043,7 +5044,10 @@ async def artifact_cost(
                     if USE_SQLITE:
                         try:
                             with next(get_db()) as _db:  # type: ignore[misc]
-                                arts = db_crud.list_artifacts(_db, type_filter=artifact_type_filter)
+                                from src.db import models as db_models
+                                arts = _db.query(db_models.Artifact).filter(
+                                    db_models.Artifact.type == artifact_type_filter
+                                ).all()
                                 for art in arts:
                                     if art.name == name_or_url:
                                         return art.id
@@ -5281,7 +5285,7 @@ async def artifact_license_check(
                 "hf_data": [],
                 "gh_data": [gh_data] if gh_data else [],
             }
-)
+        )
         from src.metrics.license_check import metric as license_metric  # local import to avoid cycles
         import src.config_parsers_nlp.spdx as spdx  # to classify model license when available
 
@@ -5345,7 +5349,7 @@ async def model_artifact_rate(
     Per Q&A: Handles concurrent requests gracefully. If Lambda throttling occurs
     (concurrency limits), returns a valid response with default values instead of 500.
     """
-# Validate path parameter format per OpenAPI ArtifactID pattern
+    # Validate path parameter format per OpenAPI ArtifactID pattern
     _validate_artifact_id_or_400(id)
     # Enforce authentication/authorization consistent with other read endpoints
     if not check_permission(user, "search"):
@@ -5465,7 +5469,7 @@ async def model_artifact_rate(
         else:
             logger.info("DEBUG_RATE: PENDING status but no async event found, computing synchronously")
 
-    # Check if rating is already cached (for concurrent requests)
+        # Check if rating is already cached (for concurrent requests)
     if id in rating_cache:
         logger.info(f"DEBUG_RATE: Returning cached rating for id={id}")
         return rating_cache[id]
@@ -5651,7 +5655,7 @@ async def model_artifact_rate(
                     # Use pipeline tag if available (e.g., "text-classification", "question-answering")
                     category = pipeline_tag.replace("-", "_")  # Normalize to underscore format
                 else:
-                    category = "classification"  # Default for HF models
+            category = "classification"  # Default for HF models
             else:
                 category = "classification"  # Default for HF models
         elif metrics_url and "github.com" in metrics_url.lower():
@@ -5991,7 +5995,7 @@ async def model_artifact_rate(
                         for k, v in size_scores_result.items()
                         if isinstance(v, (int, float))
                     }
-            # Ensure all required fields are present (per OpenAPI spec)
+                    # Ensure all required fields are present (per OpenAPI spec)
                     required_fields = ["raspberry_pi", "jetson_nano", "desktop_pc", "aws_server"]
                     for field in required_fields:
                         if field not in size_scores:
@@ -6113,7 +6117,7 @@ async def model_artifact_rate(
             logger.warning(
                 f"DEBUG_RATE: Missing metrics in response for id={id}: {missing_metrics}. "
                 f"Will default to 0.0 for missing metrics."
-            )
+        )
         logger.info(
             "CW_RATE_METRICS_SUMMARY: id=%s net=%.3f ramp=%.3f bus=%.3f perf=%.3f lic=%.3f "
             "ds_code=%.3f ds_quality=%.3f code_q=%.3f repro=%.3f reviewedness=%.3f tree=%.3f "
@@ -6777,7 +6781,7 @@ async def get_download_history(
                 "js_stdout": h.js_stdout[:100] if h.js_stdout else None,  # Truncate for response
                 "js_stderr": h.js_stderr[:100] if h.js_stderr else None,  # Truncate for response
             }
-    for h in history
+            for h in history
         ]
 
         return {
@@ -6847,7 +6851,7 @@ async def get_package_confusion_audit(
                     "downloaded_at": h.downloaded_at.isoformat() if h.downloaded_at else None,
                     "downloader_username": h.downloader_username,
                 }
-        for h in history
+                for h in history
             ]
 
             # Fetch search history for this model's artifact
