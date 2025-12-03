@@ -1999,7 +1999,7 @@ async def models_ingest(
             error_details = []
             if net_score < 0.5:
                 error_details.append(f"net_score={net_score:.3f}")
-        if failing_metrics:
+            if failing_metrics:
                 error_details.append(f"failing metrics: {', '.join(failing_metrics)}")
             raise HTTPException(
                 status_code=424,
