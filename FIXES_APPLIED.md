@@ -1,6 +1,91 @@
 # Autograder Fixes Applied - Complete History
 
-## Latest Autograder Run: November 28, 2025 (Pre-December 2 Fixes)
+## Latest Autograder Run: December 3, 2025 (Post-December 3 Fixes)
+**Total Score: 286/322 (88.8%)** ⬆️ **+10 points improvement from previous run!**
+
+### Test Group Results
+
+#### ✅ Passing Test Groups (100%)
+- **Setup and Reset Test Group**: 6/6 (100%)
+- **Upload Artifacts Test Group**: 35/35 (100%)
+- **Artifact Read Test Group**: 61/61 (100%)
+- **Artifact Download URL Test Group**: 5/5 (100%)
+- **Artifact Cost Test Group**: 14/14 (100%)
+- **Artifact License Check Test Group**: 6/6 (100%)
+- **Artifact Delete Test Group**: 10/10 (100%)
+- **Frontend UI Compliance Tests**: 4/4 (100%) - **NEW!** ✅
+
+#### ⚠️ Partial Success Test Groups
+- **Regex Tests Group**: 5/7 (71.4%) - 1 partial success, 3 hidden tests
+  - ✅ Exact Match Name Regex Test: Passed
+  - ⚠️ Extra Chars Name Regex Test: Partial (1/2) - "only found artifact matching with name but not README"
+  - ✅ Random String Regex Test: Passed
+  - **Status**: README search added for SQLite artifacts, but still partial success
+
+- **Rate models concurrently Test Group**: 11/14 (78.6%) - 3 failures (Artifacts 21, 26, 28), 1 hidden test
+  - **Status**: Improved from 10/14, but still 3 failures
+  - **Analysis**: May be related to missing metadata or timeout issues
+
+- **Validate Model Rating Attributes Test Group**: 128/156 (82.1%) - **IMPROVED!** (was 122/156 = 78.2%)
+  - **Improvement**: +6 points (+3.9 percentage points)
+  - Most artifacts have 8-11/12 attributes correct (partial successes)
+  - **Status**: Continued improvement, but some metrics still need adjustment
+
+#### ❌ Failing Test Groups
+- **Artifact Lineage Test Group**: 1/4 (25.0%) - Still failing
+  - **Error**: `'NoneType' object has no attribute 'copy'`
+  - **Failed Tests**:
+    - Basic Type Check Artifact Lineage Test failed
+    - Check for all nodes present failed (dependency on Basic Type Check)
+    - Check for all relationships failed (dependency on nodes check)
+  - **Status**: None check added for graph before model_dump(), but error persists
+
+### Key Improvements from Previous Run
+- ✅ **Overall Score**: 276/318 (86.8%) → 286/322 (88.8%) - **+10 points improvement**
+- ✅ **Rating Attributes**: 122/156 (78.2%) → 128/156 (82.1%) - **+6 points improvement**
+- ✅ **Frontend UI Compliance**: 4/4 (100%) - **NEW TEST GROUP PASSING!**
+- ⚠️ **Rate Tests**: 10/14 → 11/14 - **+1 improvement** (Artifact 29 now passing, but 21, 26, 28 still failing)
+- ❌ **Lineage**: Still failing with NoneType error
+
+### Recent Fixes Applied (December 3, 2025)
+
+#### Issue 69: Lineage NoneType Error - Graph None Check
+**Problem**: Autograder was getting `'NoneType' object has no attribute 'copy'` errors when graph was None.
+
+**Fix Applied** (app.py, lines 4935-4945):
+- Added None check for graph before calling `model_dump()`
+- Returns empty graph structure if graph is None
+- Prevents NoneType.copy() errors
+
+**Result**: ✅ Defensive check added, but error may persist if graph construction fails
+
+#### Issue 70: Regex README Search for SQLite Artifacts
+**Problem**: SQLite artifacts were not checking README text for regex matches, causing "Extra Chars Name Regex Test" to fail.
+
+**Fix Applied** (app.py, lines 3485-3625):
+- Added README extraction for SQLite artifacts from in-memory or S3 storage
+- Added README search for both exact and partial matches
+- Ensures README is checked even when name matches
+
+**Result**: ✅ README search now works for SQLite artifacts, but test still partial (1/2)
+
+#### Issue 71: Flake8 W293 Whitespace Errors
+**Problem**: Blank lines contained trailing whitespace, causing flake8 W293 errors.
+
+**Fix Applied** (app.py):
+- Removed trailing whitespace from blank lines (lines 3486, 3498, 3512, 3517, 3539, 3560, 3593, 3614)
+
+**Result**: ✅ All flake8 checks now pass
+
+### Remaining Issues
+1. **Lineage NoneType Error**: Graph may still be None in some edge cases - needs further investigation
+2. **Regex README Test**: Still partial (1/2) - README matching may not work for all artifacts
+3. **Rate Tests**: 3 artifacts still failing (21, 26, 28) - may need metadata or timeout fixes
+4. **Rating Attributes**: Some metrics still need adjustment (performance_claims, dataset_quality, code_quality, bus_factor, dataset_and_code_score)
+
+---
+
+## Previous Autograder Run: November 28, 2025 (Pre-December 2 Fixes)
 **Total Score: 276/318 (86.8%)** ⬆️ **+49 points improvement from previous run!**
 
 ---
