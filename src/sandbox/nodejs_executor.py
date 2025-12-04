@@ -16,6 +16,39 @@ NODEJS_BIN = "node"
 JS_EXECUTION_TIMEOUT = 30  # seconds
 
 
+def _analyze_js_code_for_dangerous_patterns(program_code: str) -> tuple[bool, str]:
+    """
+    Analyze JavaScript code for dangerous patterns that could lead to privilege escalation.
+    Security: Elevation of Privilege mitigation - detect dangerous operations before execution.
+
+    Returns:
+        (is_safe, reason) - True if safe, False if dangerous patterns detected
+    """
+    dangerous_patterns = [
+        (r"\beval\s*\(", "eval() function call"),
+        (r'require\s*\(\s*[\'"]fs[\'"]', 'require("fs") - file system access'),
+        (r'require\s*\(\s*[\'"]child_process[\'"]', 'require("child_process") - process execution'),
+        (r'require\s*\(\s*[\'"]os[\'"]', 'require("os") - operating system access'),
+        (r'require\s*\(\s*[\'"]net[\'"]', 'require("net") - network access'),
+        (r'require\s*\(\s*[\'"]http[\'"]', 'require("http") - HTTP client'),
+        (r'require\s*\(\s*[\'"]https[\'"]', 'require("https") - HTTPS client'),
+        (r"\.exec\s*\(", ".exec() method call"),
+        (r"\.spawn\s*\(", ".spawn() method call"),
+        (r"Function\s*\(", "Function() constructor"),
+        (r"new\s+Function", "new Function() constructor"),
+    ]
+
+    import re
+
+    code_lower = program_code.lower()
+
+    for pattern, description in dangerous_patterns:
+        if re.search(pattern, code_lower, re.IGNORECASE):
+            return False, f"Dangerous pattern detected: {description}"
+
+    return True, "Code analysis passed"
+
+
 def execute_js_program(
     program_code: str,
     model_name: str,
@@ -25,6 +58,7 @@ def execute_js_program(
 ) -> Dict[str, Any]:
     """
     Execute JavaScript program in Node.js v24 sandbox with monitoring.
+    Security: Elevation of Privilege mitigation - code analysis and sandbox isolation.
 
     Args:
         program_code: JavaScript code to execute
@@ -43,8 +77,14 @@ def execute_js_program(
         }
 
     Raises:
-        RuntimeError: If Node.js execution fails or times out
+        RuntimeError: If Node.js execution fails or times out, or if dangerous patterns detected
     """
+    # Security: Analyze code for dangerous patterns before execution
+    is_safe, reason = _analyze_js_code_for_dangerous_patterns(program_code)
+    if not is_safe:
+        logger.warning(f"JS program rejected due to dangerous pattern: {reason}")
+        raise RuntimeError(f"JavaScript code rejected: {reason}")
+
     try:
         # Create wrapper script that reads CLI arguments from process.argv
         # process.argv[0] = node, process.argv[1] = script file

@@ -94,7 +94,34 @@ async def log_requests(request: Request, call_next):
         sys.stdout.flush()
 
     response = await call_next(request)
+
+    # Security: Add HSTS header for HTTPS enforcement (Information Disclosure mitigation)
+    # HSTS (HTTP Strict Transport Security) prevents downgrade attacks
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
     return response
+
+
+# Error sanitization middleware (Information Disclosure mitigation)
+# Note: FastAPI handles HTTPException automatically, so we only catch unexpected exceptions
+@app.exception_handler(Exception)
+async def sanitize_errors(request: Request, exc: Exception):
+    """Sanitize error responses to prevent information disclosure"""
+    # FastAPI already handles HTTPException properly, so we only handle unexpected errors
+    if isinstance(exc, HTTPException):
+        # Let FastAPI handle HTTPExceptions normally (they're already sanitized)
+        raise exc
+
+    # Log detailed error server-side for debugging
+    logger.error(f"Unexpected error in {request.url.path}: {type(exc).__name__}: {str(exc)}", exc_info=True)
+
+    # For unexpected errors, return generic 500
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An internal server error occurred."},
+        headers={"Strict-Transport-Security": "max-age=31536000; includeSubDomains"},
+    )
+
 
 # CORS middleware for frontend integration
 # Allow all origins for health endpoint (autograder compatibility)
@@ -803,6 +830,13 @@ class HealthComponentCollection(BaseModel):
 # Server-side token call count tracking (Milestone 3 requirement: 1000 calls or 10 hours)
 token_call_counts: Dict[str, int] = {}  # token_hash -> call_count
 
+# Rate limiting for authentication endpoint (Spoofing mitigation - brute-force protection)
+# Track failed login attempts per IP address
+auth_rate_limit: Dict[str, Dict[str, Any]] = {}  # ip -> {"attempts": int, "lockout_until": float}
+AUTH_RATE_LIMIT_MAX_ATTEMPTS = 5  # Maximum failed attempts per window
+AUTH_RATE_LIMIT_WINDOW_SECONDS = 900  # 15 minutes window
+AUTH_RATE_LIMIT_LOCKOUT_SECONDS = 3600  # 1 hour lockout after max attempts
+
 
 def generate_download_url(
     artifact_type: str, artifact_id: str, request: Optional[Request] = None
@@ -1187,6 +1221,14 @@ async def models_upload(
 
         # Read file content
         content = await file.read()
+        
+        # Security: File size limit validation (Tampering mitigation - 100MB limit)
+        MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB in bytes
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File size exceeds maximum allowed size of 100MB. Received: {len(content) / (1024 * 1024):.2f}MB",
+            )
 
         # Save ZIP file
         file_info = file_storage.save_uploaded_file(artifact_id, content, file.filename)
@@ -1543,6 +1585,12 @@ async def update_user_permissions(
     if not check_permission(user, "admin"):
         raise HTTPException(status_code=401, detail="You do not have permission to edit users.")
 
+    # Security: Prevent users from modifying their own permissions (Elevation of Privilege mitigation)
+    if username == user["username"]:
+        raise HTTPException(
+            status_code=400, detail="Users cannot modify their own permissions. Another admin must make changes."
+        )
+
     if username == DEFAULT_ADMIN["username"]:
         raise HTTPException(status_code=400, detail="Cannot edit default admin user.")
 
@@ -1648,8 +1696,31 @@ async def list_users(user: Dict[str, Any] = Depends(verify_token)) -> List[Dict[
 
 # Authentication endpoint
 @app.put("/authenticate", response_model=str)
-async def create_auth_token(request: AuthenticationRequest) -> str:
+async def create_auth_token(request: AuthenticationRequest, http_request: Request) -> str:
     """Create an access token (Milestone 3 - with proper validation)"""
+    # Security: Rate limiting for brute-force protection (Spoofing mitigation)
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    current_time = time.time()
+    
+    # Clean up old entries (older than lockout period)
+    expired_ips = [
+        ip for ip, data in auth_rate_limit.items()
+        if current_time > data.get("lockout_until", 0) + AUTH_RATE_LIMIT_LOCKOUT_SECONDS
+    ]
+    for ip in expired_ips:
+        auth_rate_limit.pop(ip, None)
+    
+    # Check if IP is locked out
+    if client_ip in auth_rate_limit:
+        lockout_until = auth_rate_limit[client_ip].get("lockout_until", 0)
+        if current_time < lockout_until:
+            remaining = int(lockout_until - current_time)
+            logger.warning(f"Authentication blocked: IP {client_ip} is locked out for {remaining} more seconds")
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many failed login attempts. Please try again in {remaining} seconds.",
+            )
+    
     logger.info(f"Authenticate endpoint called for user: {request.user.name}")
 
     # CRITICAL: Ensure default admin exists on EVERY request (Lambda cold start protection)
@@ -1694,6 +1765,8 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
                 user_data = None
         if not user_data:
             logger.warning(f"User not found: {request.user.name}")
+            # Security: Track failed authentication attempts (brute-force protection)
+            _track_failed_auth(client_ip, current_time)
             raise HTTPException(status_code=401, detail="The user or password is invalid.")
 
     # Use bcrypt for password verification (Milestone 3 requirement)
@@ -1702,6 +1775,8 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
         # Password is hashed, use bcrypt verification
         if not jwt_auth.verify_password(request.secret.password, stored_password):
             logger.warning(f"Password verification failed for user: {request.user.name}")
+            # Security: Track failed authentication attempts (brute-force protection)
+            _track_failed_auth(client_ip, current_time)
             raise HTTPException(status_code=401, detail="The user or password is invalid.")
     else:
         # Plain text password (for default admin during migration)
@@ -1713,8 +1788,15 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
                 f"Plain text password mismatch for user: {request.user.name}. "
                 f"Expected length: {len(stored_password)}, Got length: {len(request.secret.password)}"
             )
+            # Security: Track failed authentication attempts (brute-force protection)
+            _track_failed_auth(client_ip, current_time)
             raise HTTPException(status_code=401, detail="The user or password is invalid.")
 
+    # Security: Reset failed attempts on successful authentication
+    if client_ip in auth_rate_limit:
+        auth_rate_limit[client_ip]["attempts"] = 0
+        auth_rate_limit[client_ip]["lockout_until"] = 0
+    
     # Issue JWT containing subject and permissions
     payload = {
         "sub": user_data["username"],
@@ -1724,6 +1806,30 @@ async def create_auth_token(request: AuthenticationRequest) -> str:
 
     # Spec: AuthenticationToken is a string; we include 'bearer ' prefix to ease client use
     return f"bearer {jwt_token}"
+
+
+def _track_failed_auth(client_ip: str, current_time: float) -> None:
+    """Track failed authentication attempts for rate limiting"""
+    if client_ip not in auth_rate_limit:
+        auth_rate_limit[client_ip] = {"attempts": 0, "first_attempt": current_time, "lockout_until": 0}
+    
+    data = auth_rate_limit[client_ip]
+    first_attempt = data.get("first_attempt", current_time)
+    
+    # Reset window if enough time has passed
+    if current_time - first_attempt > AUTH_RATE_LIMIT_WINDOW_SECONDS:
+        data["attempts"] = 1
+        data["first_attempt"] = current_time
+    else:
+        data["attempts"] = data.get("attempts", 0) + 1
+    
+    # Lockout if max attempts reached
+    if data["attempts"] >= AUTH_RATE_LIMIT_MAX_ATTEMPTS:
+        data["lockout_until"] = current_time + AUTH_RATE_LIMIT_LOCKOUT_SECONDS
+        logger.warning(
+            f"IP {client_ip} locked out after {data['attempts']} failed attempts. "
+            f"Lockout until {data['lockout_until']}"
+        )
 
 
 # Registry reset endpoint
@@ -3158,11 +3264,11 @@ async def artifact_by_regex(
             if readme_text:
                 try:
                     readme_matches = _safe_text_search(
-                        pattern,
-                        readme_text,
-                        raw_pattern=raw_pattern,
-                        context="in-memory README snippet",
-                    )
+                    pattern,
+                    readme_text,
+                    raw_pattern=raw_pattern,
+                    context="in-memory README snippet",
+                )
                     logger.info(
                         f"DEBUG_REGEX:   in-memory artifact {artifact_id}: README search result={readme_matches}"
                     )
@@ -3305,10 +3411,10 @@ async def artifact_by_regex(
                     logger.info(f"DEBUG_REGEX:   S3 artifact {artifact_id}: README truncated to 10000 chars")
                 try:
                     readme_matches = _safe_text_search(
-                        pattern,
-                        readme_text,
-                        raw_pattern=raw_pattern,
-                        context="S3 README snippet",
+                    pattern,
+                    readme_text,
+                    raw_pattern=raw_pattern,
+                    context="S3 README snippet",
                     )
                     logger.info(
                         f"DEBUG_REGEX:   S3 artifact {artifact_id}: README search result={readme_matches}"
@@ -6136,7 +6242,7 @@ async def model_artifact_rate(
             logger.warning(
                 f"DEBUG_RATE: Missing metrics in response for id={id}: {missing_metrics}. "
                 f"Will default to 0.0 for missing metrics."
-            )
+        )
         logger.info(
             "CW_RATE_METRICS_SUMMARY: id=%s net=%.3f ramp=%.3f bus=%.3f perf=%.3f lic=%.3f "
             "ds_code=%.3f ds_quality=%.3f code_q=%.3f repro=%.3f reviewedness=%.3f tree=%.3f "
