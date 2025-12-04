@@ -48,6 +48,8 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
   const [auditDialog, setAuditDialog] = useState<{ open: boolean; artifact?: ArtifactMetadata }>({ open: false });
   const [auditEntries, setAuditEntries] = useState<ArtifactAuditEntry[]>([]);
   const [ratingDialog, setRatingDialog] = useState<{ open: boolean; rating?: ModelRating; artifactName?: string }>({ open: false });
+  const [lineageDialog, setLineageDialog] = useState<{ open: boolean; lineage?: any; artifactName?: string }>({ open: false });
+  const [costDialog, setCostDialog] = useState<{ open: boolean; cost?: Record<string, any>; artifactName?: string; withDeps?: boolean }>({ open: false });
   const [downloadAnchorEl, setDownloadAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedArtifactForDownload, setSelectedArtifactForDownload] = useState<ArtifactMetadata | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -211,7 +213,7 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
                         try {
                           setBusyId(m.id);
                           const lineage = await apiService.getModelLineage(m.id);
-                            setInfo(`Lineage: ${lineage?.nodes?.length || 0} nodes, ${lineage?.edges?.length || 0} edges`);
+                          setLineageDialog({ open: true, lineage, artifactName: m.name });
                           setError('');
                         } catch (e: any) {
                             setError(e?.response?.data?.detail || e?.message || 'Failed to fetch lineage');
@@ -224,7 +226,7 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
                     try {
                       setBusyId(m.id);
                       const cost = await apiService.getArtifactCost(m.type, m.id, false);
-                      setInfo(`Cost (MB) for ${m.name}: ${cost[m.id]?.total_cost}`);
+                      setCostDialog({ open: true, cost, artifactName: m.name, withDeps: false });
                       setError('');
                     } catch (e: any) {
                         setError(e?.response?.data?.detail || e?.message || 'Failed to fetch cost');
@@ -234,11 +236,7 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
                     try {
                       setBusyId(m.id);
                       const cost = await apiService.getArtifactCost(m.type, m.id, true);
-                      const costEntries = Object.entries(cost);
-                      const costInfo = costEntries.map(([id, c]) => 
-                        `${id}: ${c.total_cost}MB${c.standalone_cost !== undefined ? ` (standalone: ${c.standalone_cost}MB)` : ''}`
-                      ).join(', ');
-                      setInfo(`Cost with dependencies for ${m.name}: ${costInfo}`);
+                      setCostDialog({ open: true, cost, artifactName: m.name, withDeps: true });
                       setError('');
                     } catch (e: any) {
                         setError(e?.response?.data?.detail || e?.message || 'Failed to fetch cost with dependencies');
@@ -441,6 +439,99 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAuditDialog({ open: false })}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Lineage Graph Dialog */}
+      <Dialog open={lineageDialog.open} onClose={() => setLineageDialog({ open: false })} fullWidth maxWidth="lg">
+        <DialogTitle>
+          Lineage Graph: {lineageDialog.artifactName}
+        </DialogTitle>
+        <DialogContent>
+          {lineageDialog.lineage ? (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                {lineageDialog.lineage.nodes?.length || 0} nodes, {lineageDialog.lineage.edges?.length || 0} edges
+              </Typography>
+              {lineageDialog.lineage.nodes && lineageDialog.lineage.nodes.length > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Nodes:
+                  </Typography>
+                  <List dense>
+                    {lineageDialog.lineage.nodes.map((node: any, idx: number) => (
+                      <ListItem key={idx}>
+                        <ListItemText
+                          primary={node.name || node.artifact_id}
+                          secondary={`ID: ${node.artifact_id} | Source: ${node.source || 'unknown'}`}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                </Box>
+              )}
+              {lineageDialog.lineage.edges && lineageDialog.lineage.edges.length > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Relationships:
+                  </Typography>
+                  <List dense>
+                    {lineageDialog.lineage.edges.map((edge: any, idx: number) => (
+                      <ListItem key={idx}>
+                        <ListItemText
+                          primary={edge.relationship || 'base_model'}
+                          secondary={`${edge.from_node_artifact_id} → ${edge.to_node_artifact_id}`}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                </Box>
+              )}
+              {(!lineageDialog.lineage.nodes || lineageDialog.lineage.nodes.length === 0) && 
+               (!lineageDialog.lineage.edges || lineageDialog.lineage.edges.length === 0) && (
+                <Alert severity="info">No lineage information available.</Alert>
+              )}
+            </Box>
+          ) : (
+            <Alert severity="info">No lineage data available</Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLineageDialog({ open: false })}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Cost Dialog */}
+      <Dialog open={costDialog.open} onClose={() => setCostDialog({ open: false })} fullWidth maxWidth="md">
+        <DialogTitle>
+          Cost Information: {costDialog.artifactName}
+          {costDialog.withDeps && ' (with dependencies)'}
+        </DialogTitle>
+        <DialogContent>
+          {costDialog.cost ? (
+            <Box sx={{ mt: 2 }}>
+              {Object.entries(costDialog.cost).map(([id, costData]: [string, any]) => (
+                <Box key={id} sx={{ mb: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                  <Typography variant="subtitle1" gutterBottom>
+                    {id === costDialog.artifactName?.split('-')[0] ? costDialog.artifactName : id}
+                  </Typography>
+                  <Typography variant="body1">
+                    <strong>Total Cost:</strong> {costData.total_cost?.toFixed(2) || '0.00'} MB
+                  </Typography>
+                  {costData.standalone_cost !== undefined && (
+                    <Typography variant="body2" color="text.secondary">
+                      Standalone Cost: {costData.standalone_cost.toFixed(2)} MB
+                    </Typography>
+                  )}
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            <Alert severity="info">No cost data available</Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCostDialog({ open: false })}>Close</Button>
         </DialogActions>
       </Dialog>
     </Container>

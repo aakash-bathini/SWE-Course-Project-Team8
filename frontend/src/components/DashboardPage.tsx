@@ -137,6 +137,15 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
       });
     }
 
+    // Health dashboard available to all authenticated users
+    actions.push({
+      title: 'Health Dashboard',
+      description: 'Monitor system health and components',
+      icon: <Dashboard />,
+      href: '/health',
+      color: 'info',
+    });
+
     return actions;
   };
 
