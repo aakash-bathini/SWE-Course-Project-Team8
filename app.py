@@ -3483,7 +3483,7 @@ async def artifact_by_regex(
                 if artifact_id_str in seen_ids:
                     continue  # Skip duplicates
                 art_name = str(a.name).strip() if a.name else ""
-                
+
                 # Try to get full artifact data (with README) from in-memory or S3
                 # This ensures README search works for SQLite artifacts that also exist elsewhere
                 readme_text = ""
@@ -3495,7 +3495,7 @@ async def artifact_by_regex(
                         artifact_data_full = s3_storage.get_artifact_metadata(artifact_id_str)
                     except Exception:
                         pass
-                
+
                 # Extract README text if full data is available
                 if artifact_data_full:
                     data_block = artifact_data_full.get("data", {})
@@ -3509,12 +3509,12 @@ async def artifact_by_regex(
                                     f"DEBUG_REGEX:   SQLite artifact {artifact_id_str}: README text length={len(readme_text)}, "
                                     f"preview={readme_text[:100] if readme_text else 'EMPTY'}..."
                                 )
-                
+
                 # Truncate README if too long
                 if isinstance(readme_text, str) and len(readme_text) > 10000:
                     readme_text = readme_text[:10000]
                     logger.info(f"DEBUG_REGEX:   SQLite artifact {artifact_id_str}: README truncated to 10000 chars")
-                
+
                 # For exact matches, verify case-sensitive match using safe timeout wrapper
                 if name_only:
                     logger.info(
@@ -3536,7 +3536,7 @@ async def artifact_by_regex(
                         except Exception as match_err:
                             logger.warning(f"DEBUG_REGEX:   Regex match failed for SQLite artifact {artifact_id_str}: {match_err}")
                             name_matches = False
-                    
+
                     # Check README for exact matches (required for "Extra Chars Name Regex Test")
                     readme_matches_exact = False
                     if readme_text:
@@ -3557,7 +3557,7 @@ async def artifact_by_regex(
                                 f"DEBUG_REGEX:   SQLite artifact {artifact_id_str}: README check failed in exact path: {readme_err}"
                             )
                             readme_matches_exact = False
-                    
+
                     if name_matches or readme_matches_exact:
                         match_source = "exact metadata name" if name_matches else "README"
                         if name_matches and readme_matches_exact:
@@ -3590,7 +3590,7 @@ async def artifact_by_regex(
                         except Exception as match_err:
                             logger.warning(f"DEBUG_REGEX:   Regex match failed for SQLite artifact {artifact_id_str}: {match_err}")
                             name_matches = False
-                    
+
                     # Check README for partial matches
                     readme_matches = False
                     if readme_text:
@@ -3611,7 +3611,7 @@ async def artifact_by_regex(
                                 f"DEBUG_REGEX:   SQLite artifact {artifact_id_str}: README search failed: {readme_err}"
                             )
                             readme_matches = False
-                    
+
                     if name_matches or readme_matches:
                         match_sources = []
                         if name_matches:
