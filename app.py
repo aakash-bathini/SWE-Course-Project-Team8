@@ -5622,7 +5622,7 @@ async def model_artifact_rate(
             artifact_name: Optional[str] = None
             artifact_found = False
             hf_data: Optional[Dict[str, Any]] = None  # Initialize hf_data for category determination
-    
+
             # Check in-memory first (same-request artifacts, Lambda cold start protection)
             logger.info(
                 f"DEBUG_RATE: MATCHING PROCESS - Checking in-memory, artifacts_db count={len(artifacts_db)}, "
@@ -5658,7 +5658,7 @@ async def model_artifact_rate(
                 logger.info("DEBUG_RATE:   ✗ NOT FOUND in-memory")
                 artifact_found = False
             sys.stdout.flush()
-    
+
             # Check S3 if not found in-memory
             if not artifact_found and USE_S3 and s3_storage:
                 logger.info(f"DEBUG_RATE: MATCHING PROCESS - Checking S3 for id={id}")
@@ -5709,7 +5709,7 @@ async def model_artifact_rate(
                     )
                     logger.error(f"DEBUG_RATE:   S3 error: {e}")
                 sys.stdout.flush()
-    
+
             # Check SQLite if not found in in-memory or S3
             if not artifact_found and USE_SQLITE:
                 logger.info(f"DEBUG_RATE: MATCHING PROCESS - Checking SQLite for id={id}")
@@ -5743,7 +5743,7 @@ async def model_artifact_rate(
                 except Exception as e:
                     logger.error(f"DEBUG_RATE:   SQLite error: {e}")
                 sys.stdout.flush()
-    
+
             # If not found in any storage layer, return 404
             if not artifact_found:
                 logger.warning(
@@ -5769,7 +5769,7 @@ async def model_artifact_rate(
                 metrics_url,
             )
             sys.stdout.flush()
-    
+
             # Determine category from model data (default to "unknown" if cannot determine)
             # Per OpenAPI spec, category should be a valid string (not empty)
             category = "unknown"
@@ -5789,18 +5789,18 @@ async def model_artifact_rate(
                 category = "code"
             elif metrics_url and "dataset" in metrics_url.lower():
                 category = "dataset"
-    
+
             # Ensure category is never empty (autograder requirement)
             if not category or not isinstance(category, str):
                 category = "unknown"
-    
+
             size_scores: Dict[str, float] = {
                 "raspberry_pi": 1.0,
                 "jetson_nano": 1.0,
                 "desktop_pc": 1.0,
                 "aws_server": 1.0,
             }
-    
+
             metrics: Dict[str, float] = {}
             metric_latencies: Dict[str, float] = {}
             size_latency: float = 0.0
@@ -5833,7 +5833,7 @@ async def model_artifact_rate(
                     sys.stdout.flush()
                     # hf_data already defined at function scope (line 5364), reuse it
                     gh_profile: Optional[Dict[str, Any]] = None
-    
+
                     # For ingested models, try to get hf_data and gh_data from stored artifact data
                     # Priority: S3 > in-memory (for same-request artifacts) > SQLite
                     if USE_S3 and s3_storage:
@@ -5879,7 +5879,7 @@ async def model_artifact_rate(
                                         gh_profile = parsed
                                 except Exception:
                                     pass
-    
+
                     # Fallback to in-memory for same-request artifacts (Lambda cold start protection)
                     if not hf_data or not gh_profile:
                         if id in artifacts_db:
@@ -5927,9 +5927,9 @@ async def model_artifact_rate(
                                                 gh_profile = parsed
                                         except Exception:
                                             pass
-    
+
                     # SQLite doesn't store hf_data or gh_data for HF models, so skip SQLite lookup.
-    
+
                     # NEW: If we still have no HF metadata but we know the canonical HF URL,
                     # fall back to scraping once so that metrics align with the autograder's
                     # expectations for known benchmark models.
@@ -5973,7 +5973,7 @@ async def model_artifact_rate(
                                 scrape_err,
                             )
                             hf_data = None
-    
+
                     # DIAGNOSTIC: Warn if README is missing (major cause of 0 scores)
                     if hf_data and not hf_data.get("readme_text"):
                         logger.warning(
@@ -5981,7 +5981,7 @@ async def model_artifact_rate(
                             f"This will cause many metrics to return 0. HF data keys: {list(hf_data.keys())[:15]}"
                         )
                         sys.stdout.flush()
-    
+
                     # If no GitHub profile was stored, but HF metadata includes GitHub links,
                     # attempt a single GitHub scrape so that reviewedness / bus_factor /
                     # license metrics match the professor's reference implementation.
@@ -6049,7 +6049,7 @@ async def model_artifact_rate(
                                     gh_err,
                                 )
                                 gh_profile = None
-    
+
                     logger.info(
                         "DEBUG_RATE: Preparing model_data - metrics_url='%s', hf_data=%s, gh_data=%s",
                         metrics_url,
@@ -6057,7 +6057,7 @@ async def model_artifact_rate(
                         "present" if gh_profile else "missing",
                     )
                     sys.stdout.flush()
-    
+
                     # DIAGNOSTIC: Summary of data available for metrics calculation
                     if hf_data:
                         logger.info(
@@ -6079,14 +6079,14 @@ async def model_artifact_rate(
                     else:
                         logger.warning("DEBUG_RATE: ⚠️ NO HF DATA AVAILABLE for metrics calculation!")
                     sys.stdout.flush()
-    
+
                     logger.info(
                         "CW_RATE_DEBUG: no_hf_data id=%s metrics_url=%s source_url=%s",
                         id,
                         metrics_url,
                         source_url,
                     )
-    
+
                     model_data = {
                         "url": metrics_url,
                         "hf_data": [hf_data] if hf_data else [],
@@ -6155,7 +6155,7 @@ async def model_artifact_rate(
                 if 'size_latency' not in locals():
                     size_latency = 0.0
                 sys.stdout.flush()
-    
+
             logger.info(f"DEBUG_RATE: Computing net_score - metrics available: {bool(metrics)}, "
                         f"calculate_phase2_net_score available: {calculate_phase2_net_score is not None}")
             sys.stdout.flush()
@@ -6168,7 +6168,7 @@ async def model_artifact_rate(
             net_score = max(0.0, min(1.0, net_score))
             logger.info(f"DEBUG_RATE: Computed net_score={net_score}, latency={net_score_latency}")
             sys.stdout.flush()
-    
+
             # If rating completed, update status to READY (for both PENDING and initial READY status)
             # This ensures subsequent calls know metrics have been computed
             try:
@@ -6188,13 +6188,13 @@ async def model_artifact_rate(
                     f"DEBUG_RATE: Error updating status: {e}"
                 )
             sys.stdout.flush()
-    
+
             logger.info(
                 f"DEBUG_RATE: Preparing ModelRating response - id={id}, name='{artifact_name}', "
                 f"net_score={net_score}, metrics_count={len(metrics)}"
             )
             sys.stdout.flush()
-    
+
             def get_m(name: str) -> float:
                 """Get metric value, ensuring it's in valid range [0, 1] or -1 for reviewedness"""
                 v = metrics.get(name)
@@ -6206,25 +6206,25 @@ async def model_artifact_rate(
                     # Tree score should not stay negative in the response; clamp to 0+
                     if name == "tree_score":
                         return max(0.0, min(1.0, result))
-    
+
                     # For others, ensure in [0, 1] range (autograder expects valid ranges)
                     return max(0.0, min(1.0, result))
                 except Exception as e:
                     logger.warning(f"DEBUG_RATE: Error converting metric '{name}': {e}")
                     return 0.0
-    
+
             def get_latency(name: str) -> float:
                 """Get latency for a metric, defaulting to 0.0 if not found, ensuring non-negative"""
                 latency = float(metric_latencies.get(name, 0.0))
                 # Ensure latency is non-negative (should always be, but clamp to be safe)
                 return max(0.0, latency)
-    
+
             # Validate that artifact_name is not None/empty before creating ModelRating
             if not artifact_name:
                 logger.error(f"DEBUG_RATE: ✗ CRITICAL ERROR - artifact_name is empty/None for id={id}")
                 sys.stdout.flush()
                 raise HTTPException(status_code=500, detail="Artifact name is missing.")
-    
+
             logger.info(
                 "DEBUG_RATE: BUILDING_RESPONSE - Constructing ModelRating with "
                 "spec-compliant fields (WITH _latency fields)"
@@ -6265,7 +6265,7 @@ async def model_artifact_rate(
                 sorted(metrics.keys()),
                 missing_metrics,
             )
-    
+
             try:
                 rating = ModelRating(
                     name=artifact_name,
@@ -6312,16 +6312,16 @@ async def model_artifact_rate(
                 logger.info(f"DEBUG_RATE: RESPONSE_FIELD_COUNT: {len(rating_json)} fields total")
                 logger.info("DEBUG_RATE: ===== FUNCTION END - Returning 200 with ModelRating (as dict) =====")
                 sys.stdout.flush()
-    
+
                 # Cache the rating result for concurrent requests
                 rating_cache[id] = rating_json
-    
+
                 logger.info(
                     "CW_RATE_LOCK: releasing id=%s thread=%s (success)",
                     id,
                     threading.current_thread().name,
                 )
-    
+
                 return rating_json
             except Exception as e:
                 logger.error(
