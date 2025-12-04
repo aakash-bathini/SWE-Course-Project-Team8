@@ -1221,7 +1221,7 @@ async def models_upload(
 
         # Read file content
         content = await file.read()
-        
+
         # Security: File size limit validation (Tampering mitigation - 100MB limit)
         MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB in bytes
         if len(content) > MAX_FILE_SIZE:
@@ -1701,7 +1701,7 @@ async def create_auth_token(request: AuthenticationRequest, http_request: Reques
     # Security: Rate limiting for brute-force protection (Spoofing mitigation)
     client_ip = http_request.client.host if http_request.client else "unknown"
     current_time = time.time()
-    
+
     # Clean up old entries (older than lockout period)
     expired_ips = [
         ip for ip, data in auth_rate_limit.items()
@@ -1709,7 +1709,7 @@ async def create_auth_token(request: AuthenticationRequest, http_request: Reques
     ]
     for ip in expired_ips:
         auth_rate_limit.pop(ip, None)
-    
+
     # Check if IP is locked out
     if client_ip in auth_rate_limit:
         lockout_until = auth_rate_limit[client_ip].get("lockout_until", 0)
@@ -1720,7 +1720,7 @@ async def create_auth_token(request: AuthenticationRequest, http_request: Reques
                 status_code=429,
                 detail=f"Too many failed login attempts. Please try again in {remaining} seconds.",
             )
-    
+
     logger.info(f"Authenticate endpoint called for user: {request.user.name}")
 
     # CRITICAL: Ensure default admin exists on EVERY request (Lambda cold start protection)
@@ -1796,7 +1796,7 @@ async def create_auth_token(request: AuthenticationRequest, http_request: Reques
     if client_ip in auth_rate_limit:
         auth_rate_limit[client_ip]["attempts"] = 0
         auth_rate_limit[client_ip]["lockout_until"] = 0
-    
+
     # Issue JWT containing subject and permissions
     payload = {
         "sub": user_data["username"],
@@ -1812,17 +1812,17 @@ def _track_failed_auth(client_ip: str, current_time: float) -> None:
     """Track failed authentication attempts for rate limiting"""
     if client_ip not in auth_rate_limit:
         auth_rate_limit[client_ip] = {"attempts": 0, "first_attempt": current_time, "lockout_until": 0}
-    
+
     data = auth_rate_limit[client_ip]
     first_attempt = data.get("first_attempt", current_time)
-    
+
     # Reset window if enough time has passed
     if current_time - first_attempt > AUTH_RATE_LIMIT_WINDOW_SECONDS:
         data["attempts"] = 1
         data["first_attempt"] = current_time
     else:
         data["attempts"] = data.get("attempts", 0) + 1
-    
+
     # Lockout if max attempts reached
     if data["attempts"] >= AUTH_RATE_LIMIT_MAX_ATTEMPTS:
         data["lockout_until"] = current_time + AUTH_RATE_LIMIT_LOCKOUT_SECONDS
@@ -3264,11 +3264,11 @@ async def artifact_by_regex(
             if readme_text:
                 try:
                     readme_matches = _safe_text_search(
-                    pattern,
-                    readme_text,
-                    raw_pattern=raw_pattern,
-                    context="in-memory README snippet",
-                )
+                        pattern,
+                        readme_text,
+                        raw_pattern=raw_pattern,
+                        context="in-memory README snippet",
+                    )
                     logger.info(
                         f"DEBUG_REGEX:   in-memory artifact {artifact_id}: README search result={readme_matches}"
                     )
@@ -3411,10 +3411,10 @@ async def artifact_by_regex(
                     logger.info(f"DEBUG_REGEX:   S3 artifact {artifact_id}: README truncated to 10000 chars")
                 try:
                     readme_matches = _safe_text_search(
-                    pattern,
-                    readme_text,
-                    raw_pattern=raw_pattern,
-                    context="S3 README snippet",
+                        pattern,
+                        readme_text,
+                        raw_pattern=raw_pattern,
+                        context="S3 README snippet",
                     )
                     logger.info(
                         f"DEBUG_REGEX:   S3 artifact {artifact_id}: README search result={readme_matches}"
@@ -6242,7 +6242,7 @@ async def model_artifact_rate(
             logger.warning(
                 f"DEBUG_RATE: Missing metrics in response for id={id}: {missing_metrics}. "
                 f"Will default to 0.0 for missing metrics."
-        )
+            )
         logger.info(
             "CW_RATE_METRICS_SUMMARY: id=%s net=%.3f ramp=%.3f bus=%.3f perf=%.3f lic=%.3f "
             "ds_code=%.3f ds_quality=%.3f code_q=%.3f repro=%.3f reviewedness=%.3f tree=%.3f "

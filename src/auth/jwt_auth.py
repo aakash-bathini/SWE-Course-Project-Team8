@@ -110,14 +110,18 @@ class JWTAuth:
             # Validate issuer (iss) and audience (aud) claims if present
             expected_iss = os.getenv("JWT_ISSUER", "ece461-model-registry")
             expected_aud = os.getenv("JWT_AUDIENCE", "ece461-model-registry")
-            
+
             # Decode token - pass audience to jwt.decode() to handle aud claim validation
             # If aud is in token, jwt.decode() will validate it automatically
             payload = jwt.decode(
                 token,
                 self.secret_key,
                 algorithms=[self.algorithm],
-                options={"verify_signature": True, "verify_exp": True, "verify_aud": False},  # Disable auto aud validation, we'll check manually
+                options={
+                    "verify_signature": True,
+                    "verify_exp": True,
+                    "verify_aud": False,
+                },  # Disable auto aud validation, we'll check manually
                 audience=expected_aud if expected_aud else None,  # Only validate if expected_aud is set
             )
 
