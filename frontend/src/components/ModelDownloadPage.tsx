@@ -230,6 +230,36 @@ const ModelDownloadPage: React.FC<ModelDownloadPageProps> = ({ user }) => {
                         setError(e?.response?.data?.detail || e?.message || 'Failed to fetch cost');
                     } finally { setBusyId(null); }
                   }}>Cost</Button>
+                  <Button size="small" disabled={!!busyId} onClick={async () => {
+                    try {
+                      setBusyId(m.id);
+                      const cost = await apiService.getArtifactCost(m.type, m.id, true);
+                      const costEntries = Object.entries(cost);
+                      const costInfo = costEntries.map(([id, c]) => 
+                        `${id}: ${c.total_cost}MB${c.standalone_cost !== undefined ? ` (standalone: ${c.standalone_cost}MB)` : ''}`
+                      ).join(', ');
+                      setInfo(`Cost with dependencies for ${m.name}: ${costInfo}`);
+                      setError('');
+                    } catch (e: any) {
+                        setError(e?.response?.data?.detail || e?.message || 'Failed to fetch cost with dependencies');
+                    } finally { setBusyId(null); }
+                  }}>Cost (w/ deps)</Button>
+                  {user.permissions.includes('upload') && (
+                    <>
+                      <Button size="small" color="error" disabled={!!busyId} onClick={async () => {
+                        if (!window.confirm(`Delete artifact ${m.name} (${m.id})? This cannot be undone.`)) return;
+                        try {
+                          setBusyId(m.id);
+                          await apiService.deleteArtifact(m.type, m.id);
+                          setInfo(`Deleted ${m.name}`);
+                          setError('');
+                          await fetchList();
+                        } catch (e: any) {
+                          setError(e?.response?.data?.detail || e?.message || 'Failed to delete artifact');
+                        } finally { setBusyId(null); }
+                      }}>Delete</Button>
+                    </>
+                  )}
                 </Stack>
                 }
               >
