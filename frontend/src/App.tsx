@@ -20,6 +20,7 @@ import {
   Download,
   Dashboard,
   Security,
+  HealthAndSafety,
 } from '@mui/icons-material';
 
 // Import components
@@ -198,6 +199,15 @@ const App: React.FC = () => {
                 sx={{ mr: 2 }}
               >
                 Sensitive Models
+              </Button>
+              
+              <Button
+                color="inherit"
+                startIcon={<HealthAndSafety />}
+                href="/health"
+                sx={{ mr: 2 }}
+              >
+                Health
               </Button>
               
               <IconButton
