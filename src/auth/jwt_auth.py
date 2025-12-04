@@ -84,10 +84,16 @@ class JWTAuth:
         else:
             expire = datetime.now(UTC) + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
 
+        # Security: Include issuer and audience claims for validation
+        expected_iss = os.getenv("JWT_ISSUER", "ece461-model-registry")
+        expected_aud = os.getenv("JWT_AUDIENCE", "ece461-model-registry")
+
         to_encode.update(
             {
                 "exp": expire,
                 "iat": datetime.now(UTC),
+                "iss": expected_iss,  # Issuer claim
+                "aud": expected_aud,  # Audience claim
                 "call_count": 0,
                 "max_calls": ACCESS_TOKEN_EXPIRE_CALLS,
             }
@@ -100,13 +106,50 @@ class JWTAuth:
     def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Verify and decode a JWT token"""
         try:
-            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+            # Security: JWT claim validation (Elevation of Privilege mitigation)
+            # Validate issuer (iss) and audience (aud) claims if present
+            expected_iss = os.getenv("JWT_ISSUER", "ece461-model-registry")
+            expected_aud = os.getenv("JWT_AUDIENCE", "ece461-model-registry")
+
+            # Decode token - pass audience to jwt.decode() to handle aud claim validation
+            # If aud is in token, jwt.decode() will validate it automatically
+            payload = jwt.decode(
+                token,
+                self.secret_key,
+                algorithms=[self.algorithm],
+                options={
+                    "verify_signature": True,
+                    "verify_exp": True,
+                    "verify_aud": False,
+                },  # Disable auto aud validation, we'll check manually
+                audience=expected_aud if expected_aud else None,  # Only validate if expected_aud is set
+            )
 
             # Check expiration
             exp = payload.get("exp")
             if exp and datetime.now(UTC) > datetime.fromtimestamp(exp, tz=UTC):
                 logger.warning("Token expired")
                 return None
+
+            # Security: Validate issuer claim (iss) if present
+            # Only validate if both token has iss and we have an expected value
+            iss = payload.get("iss")
+            if iss and expected_iss and iss != expected_iss:
+                logger.warning(f"Token issuer mismatch: expected {expected_iss}, got {iss}")
+                return None
+
+            # Security: Validate audience claim (aud) if present
+            # Only validate if both token has aud and we have an expected value
+            aud = payload.get("aud")
+            if aud and expected_aud:
+                # aud can be a string or list
+                if isinstance(aud, list):
+                    if expected_aud not in aud:
+                        logger.warning(f"Token audience mismatch: expected {expected_aud}, got {aud}")
+                        return None
+                elif aud != expected_aud:
+                    logger.warning(f"Token audience mismatch: expected {expected_aud}, got {aud}")
+                    return None
 
             # Check call count
             call_count = payload.get("call_count", 0)

@@ -853,6 +853,48 @@ git push origin feature/new-feature
 ```
 
 ### Security Practices
+
+#### Phase 2.10 Security Enhancements (December 2025)
+
+All "Should Fix" items from Phase 2.6 Security Analysis have been fully implemented:
+
+1. **Self-Permission Modification Prevention** (Elevation of Privilege Mitigation)
+   - Users cannot modify their own permissions
+   - Requires another admin to make permission changes
+   - Prevents privilege escalation through self-modification
+
+2. **Rate Limiting on Authentication** (Spoofing Mitigation - Brute-Force Protection)
+   - IP-based rate limiting: 5 attempts per 15 minutes per IP
+   - 1-hour lockout after 5 failed attempts
+   - Prevents brute-force attacks on `/authenticate` endpoint
+
+3. **Error Sanitization** (Information Disclosure Mitigation)
+   - Global exception handler sanitizes error messages
+   - Detailed errors logged server-side only
+   - Generic error messages returned to clients
+   - Prevents leakage of sensitive system information
+
+4. **File Size Limit** (Tampering Mitigation)
+   - 100MB maximum file size for uploads
+   - Validates before processing
+   - Prevents resource exhaustion from malicious uploads
+
+5. **HSTS Headers** (Information Disclosure Mitigation)
+   - `Strict-Transport-Security` header on all responses
+   - Enforces HTTPS for all client connections
+   - Prevents HTTPS downgrade attacks
+
+6. **JavaScript Code Analysis** (Elevation of Privilege Mitigation)
+   - Analyzes JavaScript code before execution in sandbox
+   - Detects dangerous patterns: `eval()`, `require('fs')`, `require('child_process')`, etc.
+   - Prevents privilege escalation through malicious JavaScript
+
+7. **JWT Claim Validation** (Elevation of Privilege Mitigation)
+   - Validates `iss` (issuer) and `aud` (audience) claims
+   - Tokens automatically include claims on creation
+   - Prevents token forgery and ensures authenticity
+
+### Security Practices (Baseline)
 - All PRs require code review
 - Security-sensitive code requires 2+ reviewers
 - Input validation on all endpoints
@@ -1340,6 +1382,17 @@ For questions or issues:
 - **Edge Cases & Integration (6):** Multi-user support, permission enforcement, reset safety, header fallback, password hashing consistency
 
 #### Security Implementation
+
+**Phase 2.10 Security Enhancements:**
+- ✅ Self-permission modification prevention
+- ✅ Rate limiting on authentication endpoint
+- ✅ Error sanitization middleware
+- ✅ 100MB file size limit validation
+- ✅ HSTS headers for all responses
+- ✅ JavaScript code analysis for dangerous patterns
+- ✅ JWT claim validation (iss, aud)
+
+**Security Track Features:**
 - **Password Security**: Bcrypt password hashing with 72-byte UTF-8 truncation. Passwords are never stored in plaintext.
 - **SHA256 Fallback**: Random salts for test environments where bcrypt backend fails
 - **JWT Tokens**: HS256 algorithm with environment secret key
