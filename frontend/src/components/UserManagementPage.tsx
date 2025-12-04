@@ -59,6 +59,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ user, onNotific
   const availablePermissions = ['upload', 'search', 'download', 'admin'];
 
   const isAdmin = user.permissions.includes('admin');
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
   const loadUsers = async () => {
     try {
@@ -220,13 +221,22 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ user, onNotific
       <Box sx={{ mt: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h4">User Management</Typography>
-          <Button
-            variant="contained"
-            startIcon={<PersonAddIcon />}
-            onClick={() => setRegisterDialogOpen(true)}
-          >
-            Register New User
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="contained"
+              startIcon={<PersonAddIcon />}
+              onClick={() => setRegisterDialogOpen(true)}
+            >
+              Register New User
+            </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={() => setResetDialogOpen(true)}
+            >
+              Reset Registry
+            </Button>
+          </Box>
         </Box>
 
         <Paper>
@@ -394,10 +404,42 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ user, onNotific
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Reset Registry Dialog */}
+        <Dialog open={resetDialogOpen} onClose={() => setResetDialogOpen(false)}>
+          <DialogTitle>Reset Registry</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Are you sure you want to reset the entire registry? This will delete all artifacts, models, datasets, and code repositories. This action cannot be undone.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setResetDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={async () => {
+                try {
+                  setLoading(true);
+                  await apiService.resetRegistry();
+                  onNotification('Registry reset successfully', 'success');
+                  setResetDialogOpen(false);
+                } catch (error: any) {
+                  onNotification(error.response?.data?.detail || 'Failed to reset registry', 'error');
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              color="error"
+              variant="contained"
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Reset Registry'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </Container>
   );
 };
-
+  
 export default UserManagementPage;
 

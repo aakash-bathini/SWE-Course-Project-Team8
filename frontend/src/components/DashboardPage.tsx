@@ -45,6 +45,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
   const [stats, setStats] = useState<SystemStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [tracks, setTracks] = useState<string[]>([]);
 
   useEffect(() => {
     fetchSystemStats();
@@ -59,6 +60,13 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
           lastHourActivity: data.last_hour_activity,
         });
       setError('');
+      // Fetch tracks
+      try {
+        const tracksData = await apiService.getTracks();
+        setTracks(Array.isArray(tracksData) ? tracksData : tracksData.tracks || []);
+      } catch (tracksErr) {
+        console.warn('Failed to fetch tracks:', tracksErr);
+      }
     } catch (err) {
       console.error('Failed to fetch system statistics:', err);
       setError('Error connecting to the system');
@@ -281,6 +289,25 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
               </CardContent>
             </Card>
           </Box>
+
+          {/* Tracks */}
+          {tracks.length > 0 && (
+            <Box sx={{ width: '100%', mt: 3 }}>
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <Security sx={{ mr: 1 }} />
+                    <Typography variant="h6">Implemented Tracks</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {tracks.map((track) => (
+                      <Chip key={track} label={track} color="primary" />
+                    ))}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Box>
+          )}
         </Box>
       </Box>
     </Container>
