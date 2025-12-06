@@ -54,6 +54,8 @@ class SageMakerLLMService:
                 f"SageMaker LLM service initialized: region={region}, "
                 f"endpoint={self.endpoint_name or 'N/A'}, model_id={self.model_id}"
             )
+            if not self.endpoint_name:
+                logger.warning("SageMaker endpoint name is empty - invocations will fail")
         except (BotoCoreError, ClientError) as e:
             logger.warning(f"SageMaker Runtime client initialization failed: {e}")
             self.is_available = False
@@ -182,14 +184,16 @@ class SageMakerLLMService:
             }
 
             if not self.endpoint_name:
-                logger.warning("SageMaker endpoint not configured, cannot invoke model")
+                logger.warning("SageMaker endpoint not configured, cannot invoke chat model")
                 return None
 
+            logger.info(f"Invoking SageMaker chat endpoint: {self.endpoint_name}")
             response = self.sagemaker_runtime.invoke_endpoint(
                 EndpointName=self.endpoint_name,
                 ContentType="application/json",
                 Body=json.dumps(payload),
             )
+            logger.info("SageMaker chat endpoint invocation successful")
 
             response_body = json.loads(response["Body"].read().decode("utf-8"))
 
@@ -234,7 +238,7 @@ def get_sagemaker_service() -> Optional[SageMakerLLMService]:
     # Only initialize if endpoint is configured
     endpoint_name = os.getenv("SAGEMAKER_ENDPOINT_NAME", "")
     if not endpoint_name:
-        logger.debug("SAGEMAKER_ENDPOINT_NAME not set, SageMaker service unavailable")
+        logger.warning("SAGEMAKER_ENDPOINT_NAME not set, SageMaker service unavailable")
         return None
 
     region = os.getenv("AWS_REGION", DEFAULT_AWS_REGION)

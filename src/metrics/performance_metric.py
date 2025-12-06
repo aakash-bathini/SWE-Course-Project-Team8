@@ -156,8 +156,11 @@ async def metric(ctx: EvalContext) -> float:
 
             sagemaker_service = get_sagemaker_service()
             if sagemaker_service:
+                logging.info("SageMaker service available, attempting invocation")
                 system_prompt = "You are a very needed engineer analyzing README files for performance claims."
                 logging.info("Performance metric attempt %d with AWS SageMaker", attempt)
+            else:
+                logging.warning("SageMaker service not available (get_sagemaker_service returned None)")
                 raw = sagemaker_service.invoke_chat_model(
                     system_prompt=system_prompt,
                     user_prompt=prompt,

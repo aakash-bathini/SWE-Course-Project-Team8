@@ -102,11 +102,14 @@ async def analyze_artifact_relationships(
 
             sagemaker_service = get_sagemaker_service()
             if sagemaker_service:
+                logger.info("SageMaker service available for relationship analysis")
                 system_prompt = (
                     "You are an engineer analyzing README files to find relationships "
                     "between ML artifacts (models, datasets, code repositories)."
                 )
                 logger.info(f"Relationship analysis attempt {attempt} with AWS SageMaker")
+            else:
+                logger.warning("SageMaker service not available (get_sagemaker_service returned None)")
                 raw = sagemaker_service.invoke_chat_model(
                     system_prompt=system_prompt,
                     user_prompt=prompt,
