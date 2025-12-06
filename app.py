@@ -5044,7 +5044,7 @@ async def artifact_lineage(
     # The autograder may call .copy() on the response, so we must ensure it's a proper dict
     if graph is None:
         logger.error("CW_LINEAGE_ERROR: graph is None from _build_lineage_graph_internal")
-        graph_dict = {"nodes": [], "edges": []}
+        graph_dict: Dict[str, List[Any]] = {"nodes": [], "edges": []}
     else:
         # Convert graph to dict and ensure no None values
         # CRITICAL: Use model_dump(mode='python') to ensure plain Python dicts, not Pydantic models
@@ -5052,7 +5052,7 @@ async def artifact_lineage(
             graph_dict = graph.model_dump(mode='python')
         except Exception as dump_err:
             logger.error("CW_LINEAGE_ERROR: model_dump() failed: %s", dump_err)
-            graph_dict: Dict[str, List[Any]] = {"nodes": [], "edges": []}
+            graph_dict = {"nodes": [], "edges": []}
 
     # CRITICAL: Ensure graph_dict is a valid dict with nodes and edges as lists
     # The autograder may call .copy() on the response, so we must ensure it's a proper dict
