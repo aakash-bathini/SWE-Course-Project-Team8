@@ -214,7 +214,12 @@ class SageMakerLLMService:
                         generated = generated.replace(formatted_prompt, "", 1).strip()
                     return generated
                 # GPT-2 format: [{"generated_text": "..."}]
-                if isinstance(response_body.get("outputs"), list) and len(response_body["outputs"]) > 0:
+                if (
+                    isinstance(response_body, dict)
+                    and "outputs" in response_body
+                    and isinstance(response_body["outputs"], list)
+                    and len(response_body["outputs"]) > 0
+                ):
                     if (
                         isinstance(response_body["outputs"][0], dict)
                         and "generated_text" in response_body["outputs"][0]
