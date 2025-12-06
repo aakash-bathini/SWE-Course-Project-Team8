@@ -206,7 +206,7 @@ async def metric(ctx: EvalContext) -> float:
 
             # clean + parse
             if raw is not None:
-                cleaned = re.sub(r"^```json\s*|\s*```$", raw.strip(), flags=re.DOTALL)
+                cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.DOTALL)
             else:
                 cleaned = ""
             analysis_json = json.loads(cleaned)

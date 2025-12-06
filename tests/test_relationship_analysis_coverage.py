@@ -215,9 +215,7 @@ class TestHeuristicRelationshipExtraction:
     def test_heuristic_extraction_removes_duplicates(self):
         """Test heuristic extraction removes duplicate entries"""
         readme_text = (
-            "Repo: https://github.com/user/repo. "
-            "Also see https://github.com/user/repo. "
-            "Dataset: SQuAD and squad"
+            "Repo: https://github.com/user/repo. " "Also see https://github.com/user/repo. " "Dataset: SQuAD and squad"
         )
         result = _heuristic_relationship_extraction(readme_text)
 

@@ -117,7 +117,9 @@ class TestSageMakerLLMService:
             mock_client.return_value = mock_runtime
 
             mock_response = {
-                "Body": Mock(read=Mock(return_value=json.dumps({"outputs": [{"generated_text": "String response"}]}).encode()))
+                "Body": Mock(
+                    read=Mock(return_value=json.dumps({"outputs": [{"generated_text": "String response"}]}).encode())
+                )
             }
             mock_runtime.invoke_endpoint.return_value = mock_response
 
