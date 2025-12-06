@@ -168,9 +168,10 @@ class SageMakerLLMService:
             return None
 
         try:
-            # Format messages as Llama 3 Instruct token-based string
+            # Format messages as Llama 3.1 Instruct token-based string (official format)
             # The endpoint expects a string in "inputs", not a messages array
-            # Llama 3 Instruct format: <|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{user_prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n
+            # Official format per AWS docs:
+            # <|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{user}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n
             formatted_prompt = (
                 f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|>"
                 f"<|start_header_id|>user<|end_header_id|>\n\n{user_prompt}<|eot_id|>"
@@ -191,10 +192,16 @@ class SageMakerLLMService:
                 return None
 
             logger.info(f"Invoking SageMaker chat endpoint: {self.endpoint_name}")
+            # Log payload for debugging (truncate if too long)
+            payload_str = json.dumps(payload)
+            if len(payload_str) > 500:
+                logger.debug(f"SageMaker payload (truncated): {payload_str[:500]}...")
+            else:
+                logger.debug(f"SageMaker payload: {payload_str}")
             response = self.sagemaker_runtime.invoke_endpoint(
                 EndpointName=self.endpoint_name,
                 ContentType="application/json",
-                Body=json.dumps(payload),
+                Body=payload_str,
             )
             logger.info("SageMaker chat endpoint invocation successful")
 
@@ -205,7 +212,7 @@ class SageMakerLLMService:
                 # Standard format: {"generated_text": "..."}
                 if "generated_text" in response_body:
                     generated = response_body["generated_text"]
-                    # Remove the input prompt from the response (Llama includes it)
+                    # Remove the input prompt from the response if it's included
                     if isinstance(generated, str) and formatted_prompt in generated:
                         generated = generated.replace(formatted_prompt, "", 1).strip()
                     return generated
