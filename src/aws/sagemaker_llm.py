@@ -208,7 +208,7 @@ class SageMakerLLMService:
                 # Standard format: {"generated_text": "..."}
                 if "generated_text" in response_body:
                     generated = response_body["generated_text"]
-                    # Remove the input prompt from the response (Llama includes it)
+                    # Remove the input prompt from the response if it's included
                     if isinstance(generated, str) and formatted_prompt in generated:
                         generated = generated.replace(formatted_prompt, "", 1).strip()
                     return generated
