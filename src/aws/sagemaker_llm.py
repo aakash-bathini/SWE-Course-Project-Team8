@@ -168,17 +168,16 @@ class SageMakerLLMService:
             return None
 
         try:
-            # Format prompt as a single string (Llama 3 instruct format)
-            # Combine system and user prompts into one string
-            # Format: "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{user_prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
-            formatted_prompt = (
-                f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|>"
-                f"<|start_header_id|>user<|end_header_id|>\n\n{user_prompt}<|eot_id|>"
-                f"<|start_header_id|>assistant<|end_header_id|>\n\n"
-            )
+            # Try Messages API format first (if endpoint supports it)
+            # This is the preferred format for Llama 3.1 8B Instruct on SageMaker JumpStart
+            # Falls back to simple string format if Messages API not enabled
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
 
             payload = {
-                "inputs": formatted_prompt,
+                "messages": messages,
                 "parameters": {
                     "max_new_tokens": max_tokens,
                     "temperature": temperature,

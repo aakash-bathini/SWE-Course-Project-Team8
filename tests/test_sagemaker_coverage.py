@@ -289,14 +289,14 @@ class TestSageMakerLLMService:
             call_args = mock_runtime.invoke_endpoint.call_args
             assert call_args[1]["EndpointName"] == "test-endpoint"
             body = json.loads(call_args[1]["Body"])
-            assert "inputs" in body
-            # After fix: inputs is now a string (Llama 3 token-based format), not a list of dicts
-            assert isinstance(body["inputs"], str)
-            assert "system prompt" in body["inputs"]
-            assert "user prompt" in body["inputs"]
-            assert "<|begin_of_text|>" in body["inputs"]
-            assert "<|start_header_id|>system<|end_header_id|>" in body["inputs"]
-            assert "<|start_header_id|>user<|end_header_id|>" in body["inputs"]
+            # Check for Messages API format (preferred for Llama 3.1 8B Instruct)
+            assert "messages" in body
+            assert isinstance(body["messages"], list)
+            assert len(body["messages"]) == 2
+            assert body["messages"][0]["role"] == "system"
+            assert body["messages"][0]["content"] == "system prompt"
+            assert body["messages"][1]["role"] == "user"
+            assert body["messages"][1]["content"] == "user prompt"
 
     def test_invoke_chat_model_success_outputs_list(self):
         """Test chat model with outputs list format"""
