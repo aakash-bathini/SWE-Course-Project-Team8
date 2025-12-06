@@ -5052,7 +5052,7 @@ async def artifact_lineage(
             graph_dict = graph.model_dump(mode='python')
         except Exception as dump_err:
             logger.error("CW_LINEAGE_ERROR: model_dump() failed: %s", dump_err)
-            graph_dict = {"nodes": [], "edges": []}
+            graph_dict: Dict[str, List[Any]] = {"nodes": [], "edges": []}
 
     # CRITICAL: Ensure graph_dict is a valid dict with nodes and edges as lists
     # The autograder may call .copy() on the response, so we must ensure it's a proper dict
