@@ -168,14 +168,17 @@ class SageMakerLLMService:
             return None
 
         try:
-            # Format as chat messages (Llama 3 format)
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ]
+            # Format prompt as a single string (Llama 3 instruct format)
+            # Combine system and user prompts into one string
+            # Format: "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{user_prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
+            formatted_prompt = (
+                f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|>"
+                f"<|start_header_id|>user<|end_header_id|>\n\n{user_prompt}<|eot_id|>"
+                f"<|start_header_id|>assistant<|end_header_id|>\n\n"
+            )
 
             payload = {
-                "inputs": messages,
+                "inputs": formatted_prompt,
                 "parameters": {
                     "max_new_tokens": max_tokens,
                     "temperature": temperature,
