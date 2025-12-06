@@ -220,11 +220,9 @@ class SageMakerLLMService:
                     and isinstance(response_body["outputs"], list)
                     and len(response_body["outputs"]) > 0
                 ):
-                    if (
-                        isinstance(response_body["outputs"][0], dict)
-                        and "generated_text" in response_body["outputs"][0]
-                    ):
-                        generated = response_body["outputs"][0]["generated_text"]
+                    output_item = response_body["outputs"][0]
+                    if isinstance(output_item, dict) and "generated_text" in output_item:
+                        generated = output_item["generated_text"]
                         if isinstance(generated, str) and formatted_prompt in generated:
                             generated = generated.replace(formatted_prompt, "", 1).strip()
                         return generated
