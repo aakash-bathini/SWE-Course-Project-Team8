@@ -168,11 +168,15 @@ class SageMakerLLMService:
             return None
 
         try:
-            # Format messages as a simple prompt string
+            # Format messages as Llama 3.1 Instruct token-based string (official format)
             # The endpoint expects a string in "inputs", not a messages array
-            # Try simple format first (system + user combined)
-            # If this fails, we can try the Llama 3 Instruct token format
-            formatted_prompt = f"{system_prompt}\n\nUser: {user_prompt}\n\nAssistant:"
+            # Official format per AWS docs:
+            # <|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{user}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n
+            formatted_prompt = (
+                f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|>"
+                f"<|start_header_id|>user<|end_header_id|>\n\n{user_prompt}<|eot_id|>"
+                f"<|start_header_id|>assistant<|end_header_id|>\n\n"
+            )
 
             payload = {
                 "inputs": formatted_prompt,
