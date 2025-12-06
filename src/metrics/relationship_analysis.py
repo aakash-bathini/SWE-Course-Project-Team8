@@ -108,8 +108,6 @@ async def analyze_artifact_relationships(
                     "between ML artifacts (models, datasets, code repositories)."
                 )
                 logger.info(f"Relationship analysis attempt {attempt} with AWS SageMaker")
-            else:
-                logger.warning("SageMaker service not available (get_sagemaker_service returned None)")
                 raw = sagemaker_service.invoke_chat_model(
                     system_prompt=system_prompt,
                     user_prompt=prompt,
@@ -122,6 +120,8 @@ async def analyze_artifact_relationships(
                     analysis_json = json.loads(cleaned)
                     logger.info(f"Relationship analysis JSON parse succeeded on attempt {attempt} with SageMaker")
                     break  # Success, stop retrying
+            else:
+                logger.warning("SageMaker service not available (get_sagemaker_service returned None)")
 
             # FALLBACK 2: Try Gemini API
             if api_key:
