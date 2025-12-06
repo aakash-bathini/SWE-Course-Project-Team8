@@ -168,16 +168,17 @@ class SageMakerLLMService:
             return None
 
         try:
-            # Try Messages API format first (if endpoint supports it)
-            # This is the preferred format for Llama 3.1 8B Instruct on SageMaker JumpStart
-            # Falls back to simple string format if Messages API not enabled
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ]
+            # Format messages as Llama 3 Instruct token-based string
+            # The endpoint expects a string in "inputs", not a messages array
+            # Llama 3 Instruct format: <|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{user_prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n
+            formatted_prompt = (
+                f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|>"
+                f"<|start_header_id|>user<|end_header_id|>\n\n{user_prompt}<|eot_id|>"
+                f"<|start_header_id|>assistant<|end_header_id|>\n\n"
+            )
 
             payload = {
-                "messages": messages,
+                "inputs": formatted_prompt,
                 "parameters": {
                     "max_new_tokens": max_tokens,
                     "temperature": temperature,
@@ -199,33 +200,38 @@ class SageMakerLLMService:
 
             response_body = json.loads(response["Body"].read().decode("utf-8"))
 
-            # Extract generated text (Messages API format)
+            # Extract generated text (standard format for Llama 3 on SageMaker JumpStart)
             if isinstance(response_body, dict):
-                # Messages API response format: {"outputs": [{"message": {"role": "assistant", "content": "..."}}]}
+                # Standard format: {"generated_text": "..."}
+                if "generated_text" in response_body:
+                    generated = response_body["generated_text"]
+                    # Remove the input prompt from the response (Llama includes it)
+                    if isinstance(generated, str) and formatted_prompt in generated:
+                        generated = generated.replace(formatted_prompt, "", 1).strip()
+                    return generated
+                # Alternative format: {"outputs": ["..."]}
                 if "outputs" in response_body and isinstance(response_body["outputs"], list):
                     if len(response_body["outputs"]) > 0:
                         output = response_body["outputs"][0]
-                        # Check for Messages API response format
-                        if isinstance(output, dict) and "message" in output:
-                            message = output["message"]
-                            if isinstance(message, dict) and "content" in message:
-                                return message["content"]
-                        # Fallback: check for generated_text
                         if isinstance(output, dict) and "generated_text" in output:
-                            return output["generated_text"]
+                            generated = output["generated_text"]
+                            if isinstance(generated, str) and formatted_prompt in generated:
+                                generated = generated.replace(formatted_prompt, "", 1).strip()
+                            return generated
                         return str(output)
-                # Direct generated_text in response
-                if "generated_text" in response_body:
-                    return response_body["generated_text"]
             elif isinstance(response_body, list) and len(response_body) > 0:
                 # List format response
                 if isinstance(response_body[0], dict):
                     if "generated_text" in response_body[0]:
-                        return response_body[0]["generated_text"]
-                    if "message" in response_body[0] and "content" in response_body[0]["message"]:
-                        return response_body[0]["message"]["content"]
+                        generated = response_body[0]["generated_text"]
+                        if isinstance(generated, str) and formatted_prompt in generated:
+                            generated = generated.replace(formatted_prompt, "", 1).strip()
+                        return generated
                 return str(response_body[0])
             elif isinstance(response_body, str):
+                # Direct string response
+                if formatted_prompt in response_body:
+                    return response_body.replace(formatted_prompt, "", 1).strip()
                 return response_body
 
             logger.warning(f"Unexpected SageMaker chat response format: {response_body}")
