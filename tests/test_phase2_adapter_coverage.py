@@ -136,8 +136,9 @@ class TestCreateEvalContext:
         """Test EvalContext creation handles exceptions gracefully"""
         # Create model_data that will cause an exception in the try block
         model_data = {"url": "https://test.com/model", "hf_data": "invalid"}
-        # Patch json.loads to raise exception
-        with patch("src.metrics.phase2_adapter.json.loads", side_effect=Exception("Test error")):
+        # Patch the json import inside the function to raise exception
+        import json as json_module
+        with patch.object(json_module, "loads", side_effect=Exception("Test error")):
             context = create_eval_context_from_model_data(model_data)
             # Should return minimal EvalContext on exception
             assert context.url == "https://test.com/model"
