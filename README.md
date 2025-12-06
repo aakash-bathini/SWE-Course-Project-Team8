@@ -475,6 +475,8 @@ Environment variables are set automatically by CI/CD:
 - `AWS_REGION=us-east-1` - AWS region
 - `ENVIRONMENT=production` - Production mode (disables SQLite)
 - `LOG_LEVEL=INFO` - Logging level
+- `SAGEMAKER_ENDPOINT_NAME` - (Optional) SageMaker endpoint name for LLM inference
+- `SAGEMAKER_MODEL_ID` - (Optional) SageMaker JumpStart model ID
 
 In production, everything uses S3. SQLite is disabled. For local dev, SQLite is used (creates `registry.db`).
 
@@ -534,6 +536,28 @@ aws iam create-role \
 aws iam attach-role-policy \
   --role-name trustworthy-model-registry-lambda-role \
   --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+# Attach SageMaker invoke policy (for LLM usage)
+cat > sagemaker-policy.json << EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sagemaker:InvokeEndpoint",
+        "sagemaker-runtime:InvokeEndpoint"
+      ],
+      "Resource": "arn:aws:sagemaker:*:*:endpoint/*"
+    }
+  ]
+}
+EOF
+
+aws iam put-role-policy \
+  --role-name trustworthy-model-registry-lambda-role \
+  --policy-name SageMakerInvokePolicy \
+  --policy-document file://sagemaker-policy.json
 ```
 
 #### 3. Deploy Lambda Function
@@ -552,11 +576,12 @@ aws lambda update-function-code \
   --s3-key lambda_deployment.zip
 
 # Update Lambda configuration (timeout, memory, environment)
+# Note: Add SAGEMAKER_ENDPOINT_NAME if using SageMaker for LLM
 aws lambda update-function-configuration \
   --function-name trustworthy-model-registry \
   --timeout 60 \
   --memory-size 1024 \
-  --environment "Variables={USE_SQLITE=0,ENVIRONMENT=production,LOG_LEVEL=INFO}"
+  --environment "Variables={USE_SQLITE=0,ENVIRONMENT=production,LOG_LEVEL=INFO,SAGEMAKER_ENDPOINT_NAME=your-endpoint-name}"
 ```
 
 #### 4. Create/Update API Gateway
@@ -1833,27 +1858,143 @@ Coverage reports are in `htmlcov/` (run `pytest --cov` to generate). Every repor
 LLMs are used in three places:
 
 **1. In the code (README analysis for performance claims):**
-The performance metric uses Google Gemini API (or Purdue GenAI as fallback) to analyze model READMEs and extract performance claims. This is in `src/metrics/performance_metric.py` (lines 151-194), function `_analyze_performance_claims_with_llm()`. When rating a model, it extracts the README text and sends it to the LLM to find performance metrics. Falls back to heuristic parsing if the LLM isn't available.
+The performance metric uses **AWS SageMaker** (primary), Google Gemini API, or Purdue GenAI (fallbacks) to analyze model READMEs and extract performance claims. This is in `src/metrics/performance_metric.py`. When rating a model, it extracts the README text and sends it to the LLM to find performance metrics. Falls back to heuristic parsing if all LLM services are unavailable.
 
 **2. In the code (Relationship analysis between artifacts):**
-The relationship analysis module uses LLM to analyze READMEs and extract relationships between artifacts (models, datasets, code repositories). This is in `src/metrics/relationship_analysis.py`, function `analyze_artifact_relationships()`. When ingesting a model, it analyzes the README to find linked datasets and code repositories mentioned in the documentation. This enables auto-linking of related artifacts, as recommended by JD in the Q&A: "guide it to match the autograder tests" for auto-linking features. Falls back to heuristic regex extraction if the LLM isn't available.
+The relationship analysis module uses **AWS SageMaker** (primary), Google Gemini API, or Purdue GenAI (fallbacks) to analyze READMEs and extract relationships between artifacts (models, datasets, code repositories). This is in `src/metrics/relationship_analysis.py`, function `analyze_artifact_relationships()`. When ingesting a model, it analyzes the README to find linked datasets and code repositories mentioned in the documentation. This enables auto-linking of related artifacts, as recommended by JD in the Q&A: "guide it to match the autograder tests" for auto-linking features. Falls back to heuristic regex extraction if all LLM services are unavailable.
 
-Uses Gemini API when available:
-```python
-from google import genai
-client = genai.Client()
-response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
-```
-
-Or Purdue GenAI API:
-```python
-url = "https://genai.rcac.purdue.edu/api/chat/completions"
-```
+**LLM Service Priority (per rubric requirement):**
+1. **AWS SageMaker** (primary) - Full credit per rubric
+2. Google Gemini API (fallback)
+3. Purdue GenAI API (fallback)
 
 **3. During development:**
 Used LLMs for code generation, refactoring, bug fixes, documentation, test cases, and code review. Git history shows LLM-assisted work on metric calculations, error handling, API endpoints, and tests.
 
-Note: Using API-based LLM (Gemini/Purdue GenAI) rather than AWS SageMaker, which is partial credit per the rubric. The integration is production-ready and runs automatically during model ingestion and rating.
+### AWS SageMaker Configuration
+
+To use AWS SageMaker for LLM inference (required for full rubric credit):
+
+**1. Deploy a SageMaker JumpStart Model Endpoint:**
+
+**Note:** Default instance type is `ml.g5.xlarge` which works with standard AWS quotas. If you get a "ResourceLimitExceeded" error when using `ml.g5.2xlarge`, use `ml.g5.xlarge` instead. You can request a quota increase via AWS Service Quotas if needed.
+
+**Option A: Via AWS Console (Recommended - Easiest)**
+1. Go to AWS Console → SageMaker → JumpStart
+2. Search for "Llama 3.1 8B Instruct" or "Meta Llama 3.1 8B Instruct"
+3. Click "Deploy" on your chosen model (or use CLI if "View model" link is broken)
+4. Set endpoint name: `trustworthy-registry-llm`
+5. Choose instance type: `ml.g5.xlarge` (default, works with standard quotas) or `ml.g5.2xlarge` (if quota increased, faster) or `ml.t3.medium` (cheaper, slower)
+6. Click "Deploy" and wait 5-10 minutes for deployment
+
+**Option B: Via AWS CLI**
+```bash
+# Get account ID and create SageMaker execution role if needed
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+# Create SageMaker execution role (if doesn't exist)
+aws iam create-role \
+  --role-name SageMakerExecutionRole \
+  --assume-role-policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [{
+      "Effect": "Allow",
+      "Principal": {"Service": "sagemaker.amazonaws.com"},
+      "Action": "sts:AssumeRole"
+    }]
+  }' 2>/dev/null || echo "Role already exists"
+
+aws iam attach-role-policy \
+  --role-name SageMakerExecutionRole \
+  --policy-arn arn:aws:iam::aws:policy/AmazonSageMakerFullAccess
+
+# Deploy model (example for Llama 3)
+SAGEMAKER_ROLE_ARN=$(aws iam get-role --role-name SageMakerExecutionRole --query 'Role.Arn' --output text)
+
+aws sagemaker create-model \
+  --model-name trustworthy-registry-llm-model \
+  --execution-role-arn $SAGEMAKER_ROLE_ARN \
+  --primary-container Image=763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-pytorch-inference:2.0.0-transformers4.28.1-gpu-py310-cu118-ubuntu20.04
+
+aws sagemaker create-endpoint-config \
+  --endpoint-config-name trustworthy-registry-llm-config \
+  --production-variants VariantName=variant1,ModelName=trustworthy-registry-llm-model,InitialInstanceCount=1,InstanceType=ml.g5.xlarge
+
+aws sagemaker create-endpoint \
+  --endpoint-name trustworthy-registry-llm \
+  --endpoint-config-name trustworthy-registry-llm-config
+
+# Wait for endpoint to be in service
+aws sagemaker wait endpoint-in-service --endpoint-name trustworthy-registry-llm
+```
+
+**2. Update Lambda IAM Role with SageMaker Permissions:**
+
+```bash
+ENDPOINT_NAME="trustworthy-registry-llm"
+REGION="us-east-1"
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+# Create and attach SageMaker invoke policy
+cat > /tmp/sagemaker-policy.json << EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": [
+      "sagemaker:InvokeEndpoint",
+      "sagemaker-runtime:InvokeEndpoint"
+    ],
+    "Resource": "arn:aws:sagemaker:${REGION}:${ACCOUNT_ID}:endpoint/${ENDPOINT_NAME}"
+  }]
+}
+EOF
+
+aws iam put-role-policy \
+  --role-name trustworthy-model-registry-lambda-role \
+  --policy-name SageMakerInvokePolicy \
+  --policy-document file:///tmp/sagemaker-policy.json
+```
+
+**3. Set Lambda Environment Variables:**
+
+```bash
+# Update Lambda function with SageMaker endpoint name
+# Include all existing environment variables
+aws lambda update-function-configuration \
+  --function-name trustworthy-model-registry \
+  --environment "Variables={
+    USE_S3=1,
+    S3_BUCKET_NAME=trustworthy-registry-artifacts,
+    AWS_REGION=us-east-1,
+    ENVIRONMENT=production,
+    LOG_LEVEL=INFO,
+    SAGEMAKER_ENDPOINT_NAME=trustworthy-registry-llm,
+    SAGEMAKER_MODEL_ID=meta-textgeneration-llama-3-8b-instruct
+  }"
+```
+
+**4. Verify Setup:**
+
+```bash
+# Check endpoint status
+aws sagemaker describe-endpoint --endpoint-name trustworthy-registry-llm --query 'EndpointStatus'
+
+# Check Lambda environment variable
+aws lambda get-function-configuration \
+  --function-name trustworthy-model-registry \
+  --query 'Environment.Variables.SAGEMAKER_ENDPOINT_NAME'
+
+# Test by ingesting a model (triggers LLM analysis)
+# Check CloudWatch logs for SageMaker invocations
+aws logs tail /aws/lambda/trustworthy-model-registry --follow
+```
+
+**Code Implementation:**
+
+The SageMaker service is in `src/aws/sagemaker_llm.py`. Both `performance_metric.py` and `relationship_analysis.py` automatically use SageMaker if `SAGEMAKER_ENDPOINT_NAME` is set, falling back to API-based LLMs (Gemini/Purdue GenAI) if unavailable.
+
+**Note:** The system gracefully falls back to Gemini/Purdue GenAI APIs if SageMaker is not configured, ensuring functionality even without SageMaker setup. However, **SageMaker is required for full rubric credit**.
 
 ---
 
