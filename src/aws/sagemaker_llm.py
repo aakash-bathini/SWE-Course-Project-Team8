@@ -168,15 +168,11 @@ class SageMakerLLMService:
             return None
 
         try:
-            # Format messages as Llama 3.1 Instruct token-based string (official format)
-            # The endpoint expects a string in "inputs", not a messages array
-            # Official format per AWS docs:
-            # <|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{user}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n
-            formatted_prompt = (
-                f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|>"
-                f"<|start_header_id|>user<|end_header_id|>\n\n{user_prompt}<|eot_id|>"
-                f"<|start_header_id|>assistant<|end_header_id|>\n\n"
-            )
+            # Format messages as simple text (works for GPT-2 and most HuggingFace models)
+            # GPT-2 doesn't support chat format tokens, so use simple concatenation
+            # For Llama models, this would need the token format, but GPT-2 works with plain text
+            # Format: "{system_prompt}\n\nUser: {user_prompt}\n\nAssistant:"
+            formatted_prompt = f"{system_prompt}\n\nUser: {user_prompt}\n\nAssistant:"
 
             payload = {
                 "inputs": formatted_prompt,
@@ -184,6 +180,7 @@ class SageMakerLLMService:
                     "max_new_tokens": max_tokens,
                     "temperature": temperature,
                     "top_p": 0.9,
+                    "do_sample": True,  # Required for GPT-2
                 },
             }
 
@@ -207,12 +204,29 @@ class SageMakerLLMService:
 
             response_body = json.loads(response["Body"].read().decode("utf-8"))
 
-            # Extract generated text (standard format for Llama 3 on SageMaker JumpStart)
+            # Extract generated text (format varies by model - GPT-2 vs Llama)
             if isinstance(response_body, dict):
                 # Standard format: {"generated_text": "..."}
                 if "generated_text" in response_body:
                     generated = response_body["generated_text"]
                     # Remove the input prompt from the response if it's included
+                    if isinstance(generated, str) and formatted_prompt in generated:
+                        generated = generated.replace(formatted_prompt, "", 1).strip()
+                    return generated
+                # GPT-2 format: [{"generated_text": "..."}]
+                if isinstance(response_body.get("outputs"), list) and len(response_body["outputs"]) > 0:
+                    if (
+                        isinstance(response_body["outputs"][0], dict)
+                        and "generated_text" in response_body["outputs"][0]
+                    ):
+                        generated = response_body["outputs"][0]["generated_text"]
+                        if isinstance(generated, str) and formatted_prompt in generated:
+                            generated = generated.replace(formatted_prompt, "", 1).strip()
+                        return generated
+            elif isinstance(response_body, list) and len(response_body) > 0:
+                # List format: [{"generated_text": "..."}]
+                if isinstance(response_body[0], dict) and "generated_text" in response_body[0]:
+                    generated = response_body[0]["generated_text"]
                     if isinstance(generated, str) and formatted_prompt in generated:
                         generated = generated.replace(formatted_prompt, "", 1).strip()
                     return generated

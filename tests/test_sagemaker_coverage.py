@@ -289,22 +289,22 @@ class TestSageMakerLLMService:
             call_args = mock_runtime.invoke_endpoint.call_args
             assert call_args[1]["EndpointName"] == "test-endpoint"
             body = json.loads(call_args[1]["Body"])
-            # Check for string inputs format (required for Llama 3.1 8B Instruct on SageMaker JumpStart)
+            # Check for string inputs format (GPT-2 uses simple text format)
             assert "inputs" in body
             assert isinstance(body["inputs"], str)
-            # Verify Llama 3 Instruct format tokens are present
-            assert "<|begin_of_text|>" in body["inputs"]
-            assert "<|start_header_id|>system<|end_header_id|>" in body["inputs"]
-            assert "<|start_header_id|>user<|end_header_id|>" in body["inputs"]
-            assert "<|start_header_id|>assistant<|end_header_id|>" in body["inputs"]
-            assert "<|eot_id|>" in body["inputs"]
-            # Verify prompts are included
+            # Verify GPT-2 simple text format (not Llama tokens)
             assert "system prompt" in body["inputs"]
             assert "user prompt" in body["inputs"]
+            assert "User:" in body["inputs"]
+            assert "Assistant:" in body["inputs"]
+            # Verify no Llama tokens are present
+            assert "<|begin_of_text|>" not in body["inputs"]
+            assert "<|eot_id|>" not in body["inputs"]
             # Check parameters
             assert "parameters" in body
             assert body["parameters"]["max_new_tokens"] == 1024
             assert body["parameters"]["temperature"] == 0.1
+            assert body["parameters"]["do_sample"] is True
 
     def test_invoke_chat_model_success_outputs_list(self):
         """Test chat model with outputs list format"""
