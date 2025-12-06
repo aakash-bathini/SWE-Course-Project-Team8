@@ -140,7 +140,7 @@ jobs:
             --handler app.handler \
             --timeout 60 \
             --memory-size 1024 \
-            --environment "Variables={USE_S3=1,S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }},USE_SQLITE=0,ENVIRONMENT=production,LOG_LEVEL=INFO,GH_TOKEN=${GH_TOKEN}}"
+            --environment "Variables={USE_S3=1,S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }},USE_SQLITE=0,ENVIRONMENT=production,LOG_LEVEL=INFO,GH_TOKEN=${GH_TOKEN},SAGEMAKER_ENDPOINT_NAME=trustworthy-registry-llm,SAGEMAKER_MODEL_ID=meta-textgeneration-llama-3-8b-instruct}"
           
           # Wait for configuration update to complete
           echo "Waiting for Lambda function configuration update to complete..."
