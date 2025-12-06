@@ -54,6 +54,8 @@ class SageMakerLLMService:
                 f"SageMaker LLM service initialized: region={region}, "
                 f"endpoint={self.endpoint_name or 'N/A'}, model_id={self.model_id}"
             )
+            if not self.endpoint_name:
+                logger.warning("SageMaker endpoint name is empty - invocations will fail")
         except (BotoCoreError, ClientError) as e:
             logger.warning(f"SageMaker Runtime client initialization failed: {e}")
             self.is_available = False
@@ -166,14 +168,16 @@ class SageMakerLLMService:
             return None
 
         try:
-            # Format as chat messages (Llama 3 format)
+            # Try Messages API format first (if endpoint supports it)
+            # This is the preferred format for Llama 3.1 8B Instruct on SageMaker JumpStart
+            # Falls back to simple string format if Messages API not enabled
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ]
 
             payload = {
-                "inputs": messages,
+                "messages": messages,
                 "parameters": {
                     "max_new_tokens": max_tokens,
                     "temperature": temperature,
@@ -182,29 +186,44 @@ class SageMakerLLMService:
             }
 
             if not self.endpoint_name:
-                logger.warning("SageMaker endpoint not configured, cannot invoke model")
+                logger.warning("SageMaker endpoint not configured, cannot invoke chat model")
                 return None
 
+            logger.info(f"Invoking SageMaker chat endpoint: {self.endpoint_name}")
             response = self.sagemaker_runtime.invoke_endpoint(
                 EndpointName=self.endpoint_name,
                 ContentType="application/json",
                 Body=json.dumps(payload),
             )
+            logger.info("SageMaker chat endpoint invocation successful")
 
             response_body = json.loads(response["Body"].read().decode("utf-8"))
 
-            # Extract generated text
+            # Extract generated text (Messages API format)
             if isinstance(response_body, dict):
+                # Messages API response format: {"outputs": [{"message": {"role": "assistant", "content": "..."}}]}
+                if "outputs" in response_body and isinstance(response_body["outputs"], list):
+                    if len(response_body["outputs"]) > 0:
+                        output = response_body["outputs"][0]
+                        # Check for Messages API response format
+                        if isinstance(output, dict) and "message" in output:
+                            message = output["message"]
+                            if isinstance(message, dict) and "content" in message:
+                                return message["content"]
+                        # Fallback: check for generated_text
+                        if isinstance(output, dict) and "generated_text" in output:
+                            return output["generated_text"]
+                        return str(output)
+                # Direct generated_text in response
                 if "generated_text" in response_body:
                     return response_body["generated_text"]
-                if isinstance(response_body.get("outputs"), list) and len(response_body["outputs"]) > 0:
-                    output = response_body["outputs"][0]
-                    if isinstance(output, dict) and "generated_text" in output:
-                        return output["generated_text"]
-                    return str(output)
             elif isinstance(response_body, list) and len(response_body) > 0:
-                if isinstance(response_body[0], dict) and "generated_text" in response_body[0]:
-                    return response_body[0]["generated_text"]
+                # List format response
+                if isinstance(response_body[0], dict):
+                    if "generated_text" in response_body[0]:
+                        return response_body[0]["generated_text"]
+                    if "message" in response_body[0] and "content" in response_body[0]["message"]:
+                        return response_body[0]["message"]["content"]
                 return str(response_body[0])
             elif isinstance(response_body, str):
                 return response_body
@@ -234,7 +253,7 @@ def get_sagemaker_service() -> Optional[SageMakerLLMService]:
     # Only initialize if endpoint is configured
     endpoint_name = os.getenv("SAGEMAKER_ENDPOINT_NAME", "")
     if not endpoint_name:
-        logger.debug("SAGEMAKER_ENDPOINT_NAME not set, SageMaker service unavailable")
+        logger.warning("SAGEMAKER_ENDPOINT_NAME not set, SageMaker service unavailable")
         return None
 
     region = os.getenv("AWS_REGION", DEFAULT_AWS_REGION)

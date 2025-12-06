@@ -102,6 +102,7 @@ async def analyze_artifact_relationships(
 
             sagemaker_service = get_sagemaker_service()
             if sagemaker_service:
+                logger.info("SageMaker service available for relationship analysis")
                 system_prompt = (
                     "You are an engineer analyzing README files to find relationships "
                     "between ML artifacts (models, datasets, code repositories)."
@@ -119,6 +120,8 @@ async def analyze_artifact_relationships(
                     analysis_json = json.loads(cleaned)
                     logger.info(f"Relationship analysis JSON parse succeeded on attempt {attempt} with SageMaker")
                     break  # Success, stop retrying
+            else:
+                logger.warning("SageMaker service not available (get_sagemaker_service returned None)")
 
             # FALLBACK 2: Try Gemini API
             if api_key:

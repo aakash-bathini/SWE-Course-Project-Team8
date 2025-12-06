@@ -1,10 +1,12 @@
 # Trustworthy Model Registry - Phase 2
 
-A model registry system for uploading, rating, searching, and downloading machine learning models. Built on top of Phase 1 with added authentication, user management, and AWS deployment. The backend runs on FastAPI with Lambda, and there's a React frontend for the web interface.
+A production-ready model registry system for uploading, rating, searching, and downloading machine learning models. Built on top of Phase 1 with added authentication, user management, AWS deployment, and LLM integration via AWS SageMaker. The backend runs on FastAPI with AWS Lambda, and there's a React/TypeScript frontend for the web interface.
 
 **Team:** Aakash Bathini (@aakash-bathini), Neal Singh (@NSingh1227), Vishal Madhudi (@vishalm3416), Rishi Mantri (@rishimantri795)  
 **Group:** 8  
 **Track:** Security Extended Track
+
+**Status:** ✅ Production-ready, fully deployed on AWS
 
 ---
 
@@ -25,8 +27,12 @@ A model registry system for uploading, rating, searching, and downloading machin
 
 ---
 
-Deployed Frontend: https://main.d1vmhndnokays2.amplifyapp.com/dashboard
-Deployed Backend: https://han6e7iv6e.execute-api.us-east-1.amazonaws.com
+**Production URLs:**
+- **Frontend:** https://main.d1vmhndnokays2.amplifyapp.com/dashboard
+- **Backend API:** https://3vfheectz4.execute-api.us-east-1.amazonaws.com/prod
+- **API Gateway:** REST API with Lambda proxy integration
+- **Storage:** S3 bucket `trustworthy-registry-artifacts-47906` (us-east-1)
+- **LLM Service:** AWS SageMaker endpoint `trustworthy-registry-llm` (Llama 3.1 8B Instruct)
 
 ## 🚀 Quick Start
 
@@ -527,14 +533,14 @@ cat > trust-policy.json << EOF
 }
 EOF
 
-# Create role
+# Create role (or use existing: lambda-trustworthy-registry-role)
 aws iam create-role \
-  --role-name trustworthy-model-registry-lambda-role \
+  --role-name lambda-trustworthy-registry-role \
   --assume-role-policy-document file://trust-policy.json
 
 # Attach execution policy
 aws iam attach-role-policy \
-  --role-name trustworthy-model-registry-lambda-role \
+  --role-name lambda-trustworthy-registry-role \
   --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
 # Attach SageMaker invoke policy (for LLM usage)
@@ -555,7 +561,7 @@ cat > sagemaker-policy.json << EOF
 EOF
 
 aws iam put-role-policy \
-  --role-name trustworthy-model-registry-lambda-role \
+  --role-name lambda-trustworthy-registry-role \
   --policy-name SageMakerInvokePolicy \
   --policy-document file://sagemaker-policy.json
 ```
@@ -1950,8 +1956,11 @@ cat > /tmp/sagemaker-policy.json << EOF
 }
 EOF
 
+# Get actual Lambda role name
+LAMBDA_ROLE=$(aws lambda get-function-configuration --function-name trustworthy-model-registry --query 'Role' --output text | awk -F'/' '{print $NF}')
+
 aws iam put-role-policy \
-  --role-name trustworthy-model-registry-lambda-role \
+  --role-name $LAMBDA_ROLE \
   --policy-name SageMakerInvokePolicy \
   --policy-document file:///tmp/sagemaker-policy.json
 ```
@@ -1965,7 +1974,9 @@ aws lambda update-function-configuration \
   --function-name trustworthy-model-registry \
   --environment "Variables={
     USE_S3=1,
-    S3_BUCKET_NAME=trustworthy-registry-artifacts,
+    S3_BUCKET_NAME=trustworthy-registry-artifacts-47906,
+    USE_SQLITE=0,
+    GH_TOKEN=your_github_token_here,
     AWS_REGION=us-east-1,
     ENVIRONMENT=production,
     LOG_LEVEL=INFO,
@@ -1994,7 +2005,27 @@ aws logs tail /aws/lambda/trustworthy-model-registry --follow
 
 The SageMaker service is in `src/aws/sagemaker_llm.py`. Both `performance_metric.py` and `relationship_analysis.py` automatically use SageMaker if `SAGEMAKER_ENDPOINT_NAME` is set, falling back to API-based LLMs (Gemini/Purdue GenAI) if unavailable.
 
+**Payload Format:**
+The SageMaker integration uses Llama 3 instruct token-based format for chat prompts. The system formats prompts as:
+```
+<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{user_prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n
+```
+
+This ensures compatibility with Llama 3 models deployed via SageMaker JumpStart.
+
 **Note:** The system gracefully falls back to Gemini/Purdue GenAI APIs if SageMaker is not configured, ensuring functionality even without SageMaker setup. However, **SageMaker is required for full rubric credit**.
+
+**Verification:**
+After deployment, verify SageMaker is working by checking CloudWatch logs:
+```bash
+# Watch Lambda logs for SageMaker activity
+aws logs tail /aws/lambda/trustworthy-model-registry --follow | grep -i sagemaker
+
+# You should see logs like:
+# "Performance metric attempt X with AWS SageMaker"
+# "Invoking SageMaker chat endpoint: trustworthy-registry-llm"
+# "SageMaker chat endpoint invocation successful"
+```
 
 ---
 
@@ -2010,8 +2041,20 @@ There's a React/TypeScript frontend at https://main.d1vmhndnokays2.amplifyapp.co
 - `HealthDashboard.tsx` - System health monitoring
 - `UserManagementPage.tsx` - Admin user management
 - `DashboardPage.tsx` - Main dashboard
+- `SensitiveModelsPage.tsx` - Sensitive model management with JS program execution
 
 All core functionality (upload, search, download) is available through the web interface.
+
+**Frontend Features:**
+- ✅ Full CRUD operations for models
+- ✅ Authentication and authorization
+- ✅ Real-time search with regex support
+- ✅ Model rating visualization
+- ✅ Lineage graph visualization
+- ✅ Cost calculation display
+- ✅ License compatibility checking
+- ✅ ADA-compliant UI (tested with Lighthouse)
+- ✅ Automated frontend tests (Selenium)
 
 **Automated tests:**
 Selenium end-to-end tests in `tests/test_frontend_ui.py` (195 lines). Tests cover WCAG compliance (ARIA labels, autocomplete, keyboard navigation), frontend functionality, and frontend-backend integration. Run with `pytest tests/test_frontend_ui.py`.

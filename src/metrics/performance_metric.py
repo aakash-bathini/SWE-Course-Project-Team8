@@ -156,6 +156,7 @@ async def metric(ctx: EvalContext) -> float:
 
             sagemaker_service = get_sagemaker_service()
             if sagemaker_service:
+                logging.info("SageMaker service available, attempting invocation")
                 system_prompt = "You are a very needed engineer analyzing README files for performance claims."
                 logging.info("Performance metric attempt %d with AWS SageMaker", attempt)
                 raw = sagemaker_service.invoke_chat_model(
@@ -170,6 +171,8 @@ async def metric(ctx: EvalContext) -> float:
                     analysis_json = json.loads(cleaned)
                     logging.info("Performance metric JSON parse succeeded on attempt %d with SageMaker", attempt)
                     break  # ✅ success, stop retrying
+            else:
+                logging.warning("SageMaker service not available (get_sagemaker_service returned None)")
 
             # FALLBACK 2: Try Gemini API
             if api_key:
