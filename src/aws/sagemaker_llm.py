@@ -199,18 +199,31 @@ class SageMakerLLMService:
 
             response_body = json.loads(response["Body"].read().decode("utf-8"))
 
-            # Extract generated text
+            # Extract generated text (Messages API format)
             if isinstance(response_body, dict):
+                # Messages API response format: {"outputs": [{"message": {"role": "assistant", "content": "..."}}]}
+                if "outputs" in response_body and isinstance(response_body["outputs"], list):
+                    if len(response_body["outputs"]) > 0:
+                        output = response_body["outputs"][0]
+                        # Check for Messages API response format
+                        if isinstance(output, dict) and "message" in output:
+                            message = output["message"]
+                            if isinstance(message, dict) and "content" in message:
+                                return message["content"]
+                        # Fallback: check for generated_text
+                        if isinstance(output, dict) and "generated_text" in output:
+                            return output["generated_text"]
+                        return str(output)
+                # Direct generated_text in response
                 if "generated_text" in response_body:
                     return response_body["generated_text"]
-                if isinstance(response_body.get("outputs"), list) and len(response_body["outputs"]) > 0:
-                    output = response_body["outputs"][0]
-                    if isinstance(output, dict) and "generated_text" in output:
-                        return output["generated_text"]
-                    return str(output)
             elif isinstance(response_body, list) and len(response_body) > 0:
-                if isinstance(response_body[0], dict) and "generated_text" in response_body[0]:
-                    return response_body[0]["generated_text"]
+                # List format response
+                if isinstance(response_body[0], dict):
+                    if "generated_text" in response_body[0]:
+                        return response_body[0]["generated_text"]
+                    if "message" in response_body[0] and "content" in response_body[0]["message"]:
+                        return response_body[0]["message"]["content"]
                 return str(response_body[0])
             elif isinstance(response_body, str):
                 return response_body
