@@ -97,13 +97,38 @@ async def analyze_artifact_relationships(
     analysis_json = None
     for attempt in range(1, 4):  # up to 3 attempts
         try:
+            # PRIORITY 1: Try AWS SageMaker (per rubric requirement)
+            from src.aws.sagemaker_llm import get_sagemaker_service
+
+            sagemaker_service = get_sagemaker_service()
+            if sagemaker_service:
+                system_prompt = (
+                    "You are an engineer analyzing README files to find relationships "
+                    "between ML artifacts (models, datasets, code repositories)."
+                )
+                logger.info(f"Relationship analysis attempt {attempt} with AWS SageMaker")
+                raw = sagemaker_service.invoke_chat_model(
+                    system_prompt=system_prompt,
+                    user_prompt=prompt,
+                    max_tokens=1024,
+                    temperature=0.1,
+                )
+                if raw:
+                    # Clean and parse JSON response
+                    cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.DOTALL)
+                    analysis_json = json.loads(cleaned)
+                    logger.info(f"Relationship analysis JSON parse succeeded on attempt {attempt} with SageMaker")
+                    break  # Success, stop retrying
+
+            # FALLBACK 2: Try Gemini API
             if api_key:
                 from google import genai
 
                 client = genai.Client()
-                logger.info(f"Relationship analysis attempt {attempt} with Gemini")
+                logger.info(f"Relationship analysis attempt {attempt} with Gemini (fallback)")
                 response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
                 raw = response.text
+            # FALLBACK 3: Try Purdue GenAI API
             else:
                 url = "https://genai.rcac.purdue.edu/api/chat/completions"
                 headers = {
@@ -115,14 +140,17 @@ async def analyze_artifact_relationships(
                     "messages": [
                         {
                             "role": "system",
-                            "content": "You are an engineer analyzing README files to find relationships between ML artifacts (models, datasets, code repositories).",
+                            "content": (
+                                "You are an engineer analyzing README files to find relationships "
+                                "between ML artifacts (models, datasets, code repositories)."
+                            ),
                         },
                         {"role": "user", "content": prompt},
                     ],
                     "stream": False,
                     "max_tokens": 1024,
                 }
-                logger.info(f"Relationship analysis attempt {attempt} with Purdue GenAI")
+                logger.info(f"Relationship analysis attempt {attempt} with Purdue GenAI (fallback)")
                 purdue_response = requests.post(url, headers=headers, json=body, timeout=30)
                 purdue_data = purdue_response.json()
                 raw_content = purdue_data["choices"][0]["message"]["content"]

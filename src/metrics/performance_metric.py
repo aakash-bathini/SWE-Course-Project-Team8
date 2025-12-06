@@ -151,13 +151,35 @@ async def metric(ctx: EvalContext) -> float:
     analysis_json = None
     for attempt in range(1, 4):  # up to 3 attempts
         try:
+            # PRIORITY 1: Try AWS SageMaker (per rubric requirement)
+            from src.aws.sagemaker_llm import get_sagemaker_service
+
+            sagemaker_service = get_sagemaker_service()
+            if sagemaker_service:
+                system_prompt = "You are a very needed engineer analyzing README files for performance claims."
+                logging.info("Performance metric attempt %d with AWS SageMaker", attempt)
+                raw = sagemaker_service.invoke_chat_model(
+                    system_prompt=system_prompt,
+                    user_prompt=prompt,
+                    max_tokens=1024,
+                    temperature=0.1,
+                )
+                if raw:
+                    # clean + parse
+                    cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.DOTALL)
+                    analysis_json = json.loads(cleaned)
+                    logging.info("Performance metric JSON parse succeeded on attempt %d with SageMaker", attempt)
+                    break  # ✅ success, stop retrying
+
+            # FALLBACK 2: Try Gemini API
             if api_key:
                 from google import genai
 
                 client = genai.Client()
-                logging.info("Performance metric attempt %d with Gemini", attempt)
+                logging.info("Performance metric attempt %d with Gemini (fallback)", attempt)
                 response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
                 raw = response.text
+            # FALLBACK 3: Try Purdue GenAI API
             else:
                 url = "https://genai.rcac.purdue.edu/api/chat/completions"
                 headers = {
@@ -176,7 +198,7 @@ async def metric(ctx: EvalContext) -> float:
                     "stream": False,
                     "max_tokens": 1024,
                 }
-                logging.info("Performance metric attempt %d with Purdue GenAI", attempt)
+                logging.info("Performance metric attempt %d with Purdue GenAI (fallback)", attempt)
                 purdue_response = requests.post(url, headers=headers, json=body)
                 purdue_data = purdue_response.json()
                 raw_content = purdue_data["choices"][0]["message"]["content"]
@@ -184,7 +206,7 @@ async def metric(ctx: EvalContext) -> float:
 
             # clean + parse
             if raw is not None:
-                cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.DOTALL)
+                cleaned = re.sub(r"^```json\s*|\s*```$", raw.strip(), flags=re.DOTALL)
             else:
                 cleaned = ""
             analysis_json = json.loads(cleaned)
