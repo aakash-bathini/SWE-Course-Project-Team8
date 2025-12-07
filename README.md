@@ -1347,6 +1347,8 @@ The `download_url` field provides a direct link to download the artifact and is 
 - ✅ Resolved CUDA errors by switching from gated Llama model to open GPT-2 model
 - ✅ Deployed updated code to Lambda with correct GPT-2 format
 - ✅ Verified IAM permissions and environment variables are correctly configured
+- ✅ Optimized cost by switching from ml.g5.xlarge (GPU, $1,030/month) to ml.t2.medium (CPU, $34/month) - 97% cost reduction
+- ✅ Removed duplicate code block in response parsing for cleaner, more maintainable code
 - ✅ Endpoint successfully created and code deployed - ready for autograder
 
 #### Artifact Search Enhancements ✅
@@ -1891,7 +1893,7 @@ To use AWS SageMaker for LLM inference (required for full rubric credit):
 
 **1. Deploy a SageMaker JumpStart Model Endpoint:**
 
-**Note:** Default instance type is `ml.g5.xlarge` which works with standard AWS quotas. If you get a "ResourceLimitExceeded" error when using `ml.g5.2xlarge`, use `ml.g5.xlarge` instead. You can request a quota increase via AWS Service Quotas if needed.
+**Note:** Current instance type is `ml.t2.medium` (CPU, ~$34/month) for cost optimization. For better performance, you can use `ml.g5.xlarge` (GPU, ~$1,030/month) or `ml.g5.2xlarge` (if quota allows). The code works with any instance type.
 
 **Via AWS CLI (Recommended):**
 ```bash
@@ -1917,18 +1919,20 @@ aws iam attach-role-policy \
 # Deploy GPT-2 model
 SAGEMAKER_ROLE_ARN=$(aws iam get-role --role-name SageMakerExecutionRole --query 'Role.Arn' --output text)
 
+# Create model with GPT-2 (use CPU image for ml.t2.medium, or GPU image for ml.g5.xlarge)
 aws sagemaker create-model \
-  --model-name trustworthy-registry-llm-model \
+  --model-name trustworthy-registry-llm-gpt2 \
   --execution-role-arn $SAGEMAKER_ROLE_ARN \
-  --primary-container Image=763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-pytorch-inference:2.0.0-transformers4.28.1-gpu-py310-cu118-ubuntu20.04
+  --primary-container "Image=763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-pytorch-inference:2.0.0-transformers4.28.1-cpu-py310-ubuntu20.04,Environment={HF_MODEL_ID=gpt2}"
 
+# Create endpoint config (use ml.t2.medium for cost optimization, or ml.g5.xlarge for better performance)
 aws sagemaker create-endpoint-config \
-  --endpoint-config-name trustworthy-registry-llm-config \
-  --production-variants VariantName=variant1,ModelName=trustworthy-registry-llm-model,InitialInstanceCount=1,InstanceType=ml.g5.xlarge
+  --endpoint-config-name trustworthy-registry-llm-config-cheap \
+  --production-variants VariantName=variant1,ModelName=trustworthy-registry-llm-gpt2,InitialInstanceCount=1,InstanceType=ml.t2.medium
 
 aws sagemaker create-endpoint \
   --endpoint-name trustworthy-registry-llm \
-  --endpoint-config-name trustworthy-registry-llm-config
+  --endpoint-config-name trustworthy-registry-llm-config-cheap
 
 # Wait for endpoint to be in service
 aws sagemaker wait endpoint-in-service --endpoint-name trustworthy-registry-llm
