@@ -1,5 +1,29 @@
 # Autograder Fixes Applied - Complete History
 
+## Latest SageMaker Fixes (December 6, 2025)
+
+### Issue 72: SageMaker Code Cleanup - Duplicate Response Parsing Block
+**Problem**: Unreachable duplicate `elif isinstance(response_body, list)` block in `invoke_chat_model` method (lines 237-245) that would never execute.
+
+**Fix Applied** (src/aws/sagemaker_llm.py):
+- Removed duplicate code block for list response parsing
+- Code now correctly handles all response formats (dict, list, string) without redundancy
+- Improved code maintainability and clarity
+
+**Result**: ✅ Code cleanup complete, all tests passing, no linting errors
+
+### Issue 73: SageMaker Cost Optimization - Instance Type Change
+**Problem**: SageMaker endpoint was using `ml.g5.xlarge` GPU instance costing ~$1,030/month, which was expensive for project needs.
+
+**Fix Applied**:
+- Created new endpoint configuration with `ml.t2.medium` CPU instance (~$34/month)
+- Updated endpoint to use cheaper instance type
+- Maintained full functionality with 97% cost reduction
+
+**Result**: ✅ Cost reduced from $1,030/month to $34/month (97% savings), endpoint fully functional
+
+---
+
 ## Latest Autograder Run: December 3, 2025 (Post-December 3 Fixes)
 **Total Score: 286/322 (88.8%)** ⬆️ **+10 points improvement from previous run!**
 
