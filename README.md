@@ -1919,15 +1919,16 @@ aws iam attach-role-policy \
 # Deploy GPT-2 model
 SAGEMAKER_ROLE_ARN=$(aws iam get-role --role-name SageMakerExecutionRole --query 'Role.Arn' --output text)
 
+# Create model with GPT-2 (use CPU image for ml.t2.medium, or GPU image for ml.g5.xlarge)
 aws sagemaker create-model \
-  --model-name trustworthy-registry-llm-model \
+  --model-name trustworthy-registry-llm-gpt2 \
   --execution-role-arn $SAGEMAKER_ROLE_ARN \
-  --primary-container Image=763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-pytorch-inference:2.0.0-transformers4.28.1-gpu-py310-cu118-ubuntu20.04
+  --primary-container "Image=763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-pytorch-inference:2.0.0-transformers4.28.1-cpu-py310-ubuntu20.04,Environment={HF_MODEL_ID=gpt2}"
 
 # Create endpoint config (use ml.t2.medium for cost optimization, or ml.g5.xlarge for better performance)
 aws sagemaker create-endpoint-config \
   --endpoint-config-name trustworthy-registry-llm-config-cheap \
-  --production-variants VariantName=variant1,ModelName=trustworthy-registry-llm-model,InitialInstanceCount=1,InstanceType=ml.t2.medium
+  --production-variants VariantName=variant1,ModelName=trustworthy-registry-llm-gpt2,InitialInstanceCount=1,InstanceType=ml.t2.medium
 
 aws sagemaker create-endpoint \
   --endpoint-name trustworthy-registry-llm \
