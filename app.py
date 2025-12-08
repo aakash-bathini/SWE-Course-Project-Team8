@@ -5048,8 +5048,9 @@ async def artifact_lineage(
     else:
         # Convert graph to dict and ensure no None values
         # CRITICAL: Use model_dump(mode='python') to ensure plain Python dicts, not Pydantic models
+        # Use exclude_none=True to omit null fields (e.g., metadata) per OpenAPI spec
         try:
-            graph_dict = graph.model_dump(mode='python')
+            graph_dict = graph.model_dump(mode='python', exclude_none=True)
         except Exception as dump_err:
             logger.error("CW_LINEAGE_ERROR: model_dump() failed: %s", dump_err)
             graph_dict = {"nodes": [], "edges": []}
