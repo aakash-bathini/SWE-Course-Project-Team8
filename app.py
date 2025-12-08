@@ -4725,6 +4725,92 @@ async def artifact_audit(
     return entries
 
 
+def _find_children_in_registry(
+    model_id: str,
+    model_name: str,
+    s3_artifacts_cache: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """
+    Find all models in the registry that list the given model as their parent (base_model).
+    Returns list of artifact data dicts for children.
+    """
+    children: List[Dict[str, Any]] = []
+    model_name_lower = model_name.lower() if model_name else ""
+    model_id_lower = model_id.lower() if model_id else ""
+    
+    # Helper to check if a model is a child of our target
+    def _is_child_of(artifact_data: Dict[str, Any]) -> bool:
+        if artifact_data.get("metadata", {}).get("type") != "model":
+            return False
+        
+        # Get this artifact's hf_data to extract its parents
+        hf_data_raw = artifact_data.get("data", {}).get("hf_data", [])
+        if isinstance(hf_data_raw, str):
+            try:
+                hf_data_raw = json.loads(hf_data_raw)
+            except Exception:
+                hf_data_raw = []
+        if isinstance(hf_data_raw, dict):
+            hf_data_raw = [hf_data_raw]
+        if not isinstance(hf_data_raw, list) or not hf_data_raw:
+            return False
+        
+        # Create context and extract parents
+        try:
+            if create_eval_context_from_model_data is None:
+                return False
+            ctx = create_eval_context_from_model_data({
+                "url": artifact_data.get("data", {}).get("url", ""),
+                "hf_data": hf_data_raw,
+                "gh_data": artifact_data.get("data", {}).get("gh_data", []),
+            })
+            from src.metrics.treescore import _extract_parent_models
+            parents = _extract_parent_models(ctx)
+            
+            # Check if our model is in their parents
+            for parent_url in parents:
+                parent_url_lower = parent_url.lower()
+                # Match by name or ID
+                if model_name_lower and model_name_lower in parent_url_lower:
+                    return True
+                if model_id_lower and model_id_lower in parent_url_lower:
+                    return True
+                # Also check the artifact's stored URL
+                artifact_url = artifact_data.get("data", {}).get("url", "")
+                if artifact_url:
+                    artifact_url_lower = artifact_url.lower().rstrip("/")
+                    # Check if parent URL matches our model's URL pattern
+                    if model_name_lower:
+                        # e.g., "microsoft/resnet-50" in "https://huggingface.co/microsoft/resnet-50"
+                        if model_name_lower in parent_url_lower:
+                            return True
+        except Exception as e:
+            logger.debug(f"Error checking if artifact is child: {e}")
+            return False
+        
+        return False
+    
+    # Check S3 artifacts
+    for art_data in s3_artifacts_cache:
+        art_id = art_data.get("metadata", {}).get("id", "")
+        if art_id == model_id:  # Skip self
+            continue
+        if _is_child_of(art_data):
+            children.append(art_data)
+    
+    # Check in-memory artifacts
+    for aid, adata in artifacts_db.items():
+        if aid == model_id:  # Skip self
+            continue
+        # Skip if already found in S3
+        if any(c.get("metadata", {}).get("id") == aid for c in children):
+            continue
+        if _is_child_of(adata):
+            children.append(adata)
+    
+    return children
+
+
 async def _build_lineage_graph_internal(
     id: str, user: Dict[str, Any]
 ) -> tuple[ArtifactLineageGraph, Optional[str], int]:
@@ -5019,6 +5105,58 @@ async def _build_lineage_graph_internal(
                         added_edges.add(gp_edge_key)
         except Exception:
             pass
+
+    # NEW: Find descendants (children) - models that have this model as their base_model
+    # This ensures all queries on the same lineage chain return the same complete graph
+    logger.info("CW_LINEAGE_CHILDREN: Starting descendant search for model_id=%s, model_name=%s", id, artifact_name)
+    
+    # Use BFS to find all descendants recursively
+    models_to_check_for_children = [(id, artifact_name or id)]  # (model_id, model_name)
+    checked_for_children: set[str] = set()
+    
+    while models_to_check_for_children:
+        current_id, current_name = models_to_check_for_children.pop(0)
+        if current_id in checked_for_children:
+            continue
+        checked_for_children.add(current_id)
+        
+        # Find children of this model
+        children = _find_children_in_registry(current_id, current_name, s3_artifacts_cache)
+        logger.info("CW_LINEAGE_CHILDREN: Found %d children for %s", len(children), current_name)
+        
+        for child_data in children:
+            child_id = child_data.get("metadata", {}).get("id", "")
+            child_name = _ensure_artifact_display_name(child_data)
+            
+            if not child_id:
+                continue
+            
+            # Add child node if not already present
+            if child_id not in added_nodes:
+                nodes.append(
+                    ArtifactLineageNode(artifact_id=child_id, name=child_name, source="config_json")
+                )
+                added_nodes.add(child_id)
+                logger.info("CW_LINEAGE_CHILDREN: Added child node %s (%s)", child_id, child_name)
+            
+            # Add edge from current model to child (parent -> child)
+            edge_key = (current_id, child_id)
+            if edge_key not in added_edges:
+                edges.append(
+                    ArtifactLineageEdge(
+                        from_node_artifact_id=current_id,
+                        to_node_artifact_id=child_id,
+                        relationship="base_model"
+                    )
+                )
+                added_edges.add(edge_key)
+                logger.info("CW_LINEAGE_CHILDREN: Added edge %s -> %s", current_id, child_id)
+            
+            # Queue this child to check for its children (grandchildren)
+            if child_id not in checked_for_children:
+                models_to_check_for_children.append((child_id, child_name))
+
+    logger.info("CW_LINEAGE_COMPLETE: Final graph has %d nodes and %d edges", len(nodes), len(edges))
 
     # Ensure nodes and edges are always lists (never None)
     if not isinstance(nodes, list):
