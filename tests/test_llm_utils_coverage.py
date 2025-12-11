@@ -103,13 +103,10 @@ class TestExtractJson:
     @pytest.mark.parametrize(
         "payload,expected",
         [
-            ("```json\n{\"a\": 1}\n```", '{"a": 1}'),
+            ('```json\n{"a": 1}\n```', '{"a": 1}'),
             ("No json here", None),
-            ("prefix {\"nested\": true} suffix", '{"nested": true}'),
+            ('prefix {"nested": true} suffix', '{"nested": true}'),
         ],
     )
     def test_extract_json_from_llm(self, payload, expected):
         assert llm_utils.extract_json_from_llm(payload) == expected
-
-
-

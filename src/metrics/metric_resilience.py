@@ -54,6 +54,7 @@ def adjust_metric_score(metric_id: str, value: MetricValue, ctx: EvalContext) ->
 # Signal helpers
 # ---------------------------------------------------------------------------
 
+
 def _hf_profile(ctx: EvalContext) -> Dict[str, Any]:
     hf_list = ctx.hf_data or []
     if isinstance(hf_list, list) and hf_list:
@@ -86,9 +87,7 @@ def _readme_signal(hf: Dict[str, Any]) -> float:
 
     lower = readme.lower()
     section_hits = sum(
-        1
-        for token in ("## usage", "```", "install", "example", "benchmark", "dataset", "evaluation")
-        if token in lower
+        1 for token in ("## usage", "```", "install", "example", "benchmark", "dataset", "evaluation") if token in lower
     )
     section_signal = min(1.0, section_hits / 4.0)
 
@@ -150,6 +149,7 @@ def _signals(ctx: EvalContext) -> Dict[str, float]:
 # Floors for specific metrics
 # ---------------------------------------------------------------------------
 
+
 def _ramp_up_floor(ctx: EvalContext) -> float:
     sigs = _signals(ctx)
     floor = 0.35 + 0.35 * sigs["doc"] + 0.25 * sigs["pop"] + 0.05 * sigs["datasets"] + 0.05 * sigs["code"]
@@ -202,6 +202,3 @@ def _adjust_size_dict(size_scores: Dict[str, float], ctx: EvalContext) -> Dict[s
         original = float(size_scores.get(device, 0.0))
         adjusted[device] = round(max(original, floors[device]), 2)
     return adjusted
-
-
-

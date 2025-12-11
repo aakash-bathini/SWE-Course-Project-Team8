@@ -27,7 +27,11 @@ class TestRelationshipAnalysisLLM:
             {
                 "relationships": [
                     {"relationship_type": "dataset", "name_or_url": "SQuAD", "confidence": 0.9},
-                    {"relationship_type": "code_repo", "name_or_url": "https://github.com/test/repo", "confidence": 0.8},
+                    {
+                        "relationship_type": "code_repo",
+                        "name_or_url": "https://github.com/test/repo",
+                        "confidence": 0.8,
+                    },
                 ]
             }
         )
@@ -45,9 +49,10 @@ class TestRelationshipAnalysisLLM:
         readme_text = "This model uses SQuAD dataset and https://github.com/test/repo"
         hf_data = {}
 
-        with patch("src.metrics.relationship_analysis.cached_llm_chat", return_value="Invalid JSON response"), patch(
-            "src.metrics.relationship_analysis._heuristic_relationship_extraction"
-        ) as mock_heuristic:
+        with (
+            patch("src.metrics.relationship_analysis.cached_llm_chat", return_value="Invalid JSON response"),
+            patch("src.metrics.relationship_analysis._heuristic_relationship_extraction") as mock_heuristic,
+        ):
             mock_heuristic.return_value = {
                 "linked_datasets": ["SQuAD"],
                 "linked_code_repos": ["https://github.com/test/repo"],
@@ -65,9 +70,13 @@ class TestRelationshipAnalysisLLM:
         readme_text = "README content"
         hf_data = {}
 
-        with patch("src.metrics.relationship_analysis.cached_llm_chat", return_value=None), patch(
-            "src.metrics.relationship_analysis._heuristic_relationship_extraction", return_value={"linked_datasets": [], "linked_code_repos": [], "relationship_confidence": 0.0}
-        ) as mock_heuristic:
+        with (
+            patch("src.metrics.relationship_analysis.cached_llm_chat", return_value=None),
+            patch(
+                "src.metrics.relationship_analysis._heuristic_relationship_extraction",
+                return_value={"linked_datasets": [], "linked_code_repos": [], "relationship_confidence": 0.0},
+            ) as mock_heuristic,
+        ):
             result = await analyze_artifact_relationships(readme_text, hf_data)
 
         mock_heuristic.assert_called_once()
