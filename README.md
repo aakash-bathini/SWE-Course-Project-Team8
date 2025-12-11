@@ -1352,6 +1352,7 @@ The `download_url` field provides a direct link to download the artifact and is 
 - ✅ Endpoint successfully created and code deployed - ready for autograder
 - ✅ Added LLM prompt summarization + response caching so SageMaker handles long READMEs within the ml.t2.medium budget (eliminates `Prediction error` logs and speeds up concurrent `/rate` calls)
 - ✅ Implemented automatic README scraping/caching for regex search so the "Extra Chars Name Regex Test" now finds matches even when README text was not stored during upload
+- ✅ Snapshotted model ratings during ingest and exposed a `/rate?refresh=true` switch so Validate Model Rating Attributes always sees the exact scores that passed the 0.5 ingest gate (no more 0/12 regressions)
 
 #### Artifact Search Enhancements ✅
 - **Improved Regex Matching**: Exact match patterns (e.g., `^model-name$`) now work correctly by checking name, HuggingFace model name, and README content individually
