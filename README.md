@@ -1350,6 +1350,8 @@ The `download_url` field provides a direct link to download the artifact and is 
 - ✅ Optimized cost by switching from ml.g5.xlarge (GPU, $1,030/month) to ml.t2.medium (CPU, $34/month) - 97% cost reduction
 - ✅ Removed duplicate code block in response parsing for cleaner, more maintainable code
 - ✅ Endpoint successfully created and code deployed - ready for autograder
+- ✅ Added LLM prompt summarization + response caching so SageMaker handles long READMEs within the ml.t2.medium budget (eliminates `Prediction error` logs and speeds up concurrent `/rate` calls)
+- ✅ Implemented automatic README scraping/caching for regex search so the "Extra Chars Name Regex Test" now finds matches even when README text was not stored during upload
 
 #### Artifact Search Enhancements ✅
 - **Improved Regex Matching**: Exact match patterns (e.g., `^model-name$`) now work correctly by checking name, HuggingFace model name, and README content individually
@@ -1874,10 +1876,10 @@ Coverage reports are in `htmlcov/` (run `pytest --cov` to generate). Every repor
 LLMs are used in three places:
 
 **1. In the code (README analysis for performance claims):**
-The performance metric uses **AWS SageMaker** (primary), Google Gemini API, or Purdue GenAI (fallbacks) to analyze model READMEs and extract performance claims. This is in `src/metrics/performance_metric.py`. When rating a model, it extracts the README text and sends it to the LLM to find performance metrics. Falls back to heuristic parsing if all LLM services are unavailable.
+The performance metric uses **AWS SageMaker** (primary), Google Gemini API, or Purdue GenAI (fallbacks) to analyze model READMEs and extract performance claims. This is in `src/metrics/performance_metric.py`. Before calling SageMaker, `src/metrics/llm_utils.py` condenses READMEs to ~4k highly-relevant characters and caches responses (`cached_sagemaker_chat`) so repeated `/rate` calls do not hammer the endpoint. `src/aws/sagemaker_llm.py` enforces prompt/token limits and retries with a smaller payload if the endpoint returns `Prediction error`. Falls back to heuristic parsing if all LLM services are unavailable.
 
 **2. In the code (Relationship analysis between artifacts):**
-The relationship analysis module uses **AWS SageMaker** (primary), Google Gemini API, or Purdue GenAI (fallbacks) to analyze READMEs and extract relationships between artifacts (models, datasets, code repositories). This is in `src/metrics/relationship_analysis.py`, function `analyze_artifact_relationships()`. When ingesting a model, it analyzes the README to find linked datasets and code repositories mentioned in the documentation. This enables auto-linking of related artifacts, as recommended by JD in the Q&A: "guide it to match the autograder tests" for auto-linking features. Falls back to heuristic regex extraction if all LLM services are unavailable.
+The relationship analysis module uses **AWS SageMaker** (primary), Google Gemini API, or Purdue GenAI (fallbacks) to analyze READMEs and extract relationships between artifacts (models, datasets, code repositories). This is in `src/metrics/relationship_analysis.py`, function `analyze_artifact_relationships()`. It reuses the same summarization/cache helpers, so Lambda keeps throughput high even on ml.t2.medium. When ingesting a model, it analyzes the README to find linked datasets and code repositories mentioned in the documentation. This enables auto-linking of related artifacts, as recommended by JD in the Q&A: "guide it to match the autograder tests" for auto-linking features. Falls back to heuristic regex extraction if all LLM services are unavailable.
 
 **LLM Service Priority (per rubric requirement):**
 1. **AWS SageMaker** (primary) - Full credit per rubric (currently using GPT-2)

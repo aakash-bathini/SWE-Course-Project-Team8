@@ -10,6 +10,7 @@ import sys
 import re
 import threading
 import time
+from collections import OrderedDict
 from urllib.parse import unquote, urlparse
 
 # Configure logging first
@@ -736,6 +737,92 @@ def _safe_text_search(
         # This allows the calling function to handle the non-match gracefully
         return False
     return bool(res)
+
+
+_REGEX_README_CACHE: "OrderedDict[str, str]" = OrderedDict()
+_REGEX_README_CACHE_LOCK = threading.Lock()
+_REGEX_README_CACHE_MAX = 64
+
+
+def _cache_regex_readme_text(artifact_id: str, text: str) -> None:
+    if not artifact_id or not text:
+        return
+    with _REGEX_README_CACHE_LOCK:
+        _REGEX_README_CACHE[artifact_id] = text
+        _REGEX_README_CACHE.move_to_end(artifact_id)
+        if len(_REGEX_README_CACHE) > _REGEX_README_CACHE_MAX:
+            _REGEX_README_CACHE.popitem(last=False)
+
+
+def _get_cached_regex_readme_text(artifact_id: str) -> Optional[str]:
+    if not artifact_id:
+        return None
+    with _REGEX_README_CACHE_LOCK:
+        if artifact_id in _REGEX_README_CACHE:
+            _REGEX_README_CACHE.move_to_end(artifact_id)
+            return _REGEX_README_CACHE[artifact_id]
+    return None
+
+
+def _extract_readme_from_data_block(data_block: Dict[str, Any]) -> Optional[str]:
+    hf_entries = data_block.get("hf_data")
+    if isinstance(hf_entries, str):
+        try:
+            import json as json_module
+
+            hf_entries = json_module.loads(hf_entries)
+        except Exception:
+            hf_entries = []
+    if isinstance(hf_entries, dict):
+        hf_entries = [hf_entries]
+    if isinstance(hf_entries, list):
+        for entry in hf_entries:
+            if isinstance(entry, dict):
+                readme_text = entry.get("readme_text")
+                if isinstance(readme_text, str) and readme_text.strip():
+                    return readme_text
+    readme_direct = data_block.get("readme_text")
+    if isinstance(readme_direct, str) and readme_direct.strip():
+        return readme_direct
+    return None
+
+
+def _ensure_regex_readme_text(artifact_id: str, data_block: Optional[Dict[str, Any]]) -> Optional[str]:
+    cached = _get_cached_regex_readme_text(artifact_id)
+    if cached:
+        return cached
+
+    data_ref = data_block or {}
+    readme_text = _extract_readme_from_data_block(data_ref)
+
+    if not readme_text:
+        source_url = data_ref.get("source_url") or data_ref.get("url")
+        if (
+            source_url
+            and isinstance(source_url, str)
+            and "huggingface.co" in source_url.lower()
+            and scrape_hf_url is not None
+        ):
+            try:
+                scraped_hf_data, _ = scrape_hf_url(source_url)
+                if isinstance(scraped_hf_data, dict):
+                    readme_text = str(scraped_hf_data.get("readme_text") or "")
+                    if readme_text:
+                        hf_list = data_ref.setdefault("hf_data", [])
+                        if isinstance(hf_list, list):
+                            hf_list.insert(0, scraped_hf_data)
+            except Exception as scrape_err:
+                logger.debug(
+                    "DEBUG_REGEX: HF scrape failed for regex README fetch url=%s err=%s",
+                    source_url,
+                    scrape_err,
+                )
+                readme_text = None
+
+    if readme_text:
+        _cache_regex_readme_text(artifact_id, readme_text)
+        return readme_text
+    return None
 
 
 class ArtifactLineageNode(BaseModel):
@@ -3119,25 +3206,17 @@ async def artifact_by_regex(
             continue
         name = _ensure_artifact_display_name(artifact_data)
         logger.info(f"DEBUG_REGEX: Checking in-memory artifact id={artifact_id}, name={name}")
-        readme_text = ""
         hf_candidates = _get_hf_name_candidates(artifact_data)
 
-        # Extract README text from hf_data if available (for both exact and partial matches)
-        # CRITICAL: README must be extracted for exact matches too, as "Extra Chars Name Regex Test"
-        # requires README search even when name matches
-        data_block = artifact_data.get("data", {})
-        if isinstance(data_block, dict) and "hf_data" in data_block:
-            hf_data = data_block.get("hf_data", [])
-            if isinstance(hf_data, list) and len(hf_data) > 0:
-                first = hf_data[0]
-                if isinstance(first, dict):
-                    readme_text = str(first.get("readme_text", "") or "")
-                    logger.info(
-                        f"DEBUG_REGEX:   in-memory artifact {artifact_id}: README text length={len(readme_text)}, "
-                        f"preview={readme_text[:100] if readme_text else 'EMPTY'}..."
-                    )
+        data_block = artifact_data.get("data", {}) if isinstance(artifact_data.get("data", {}), dict) else {}
+        readme_text = _ensure_regex_readme_text(artifact_id, data_block)
+        if readme_text:
+            logger.info(
+                f"DEBUG_REGEX:   in-memory artifact {artifact_id}: README text length={len(readme_text)}, "
+                f"preview={readme_text[:100]}..."
+            )
         else:
-            logger.info(f"DEBUG_REGEX:   in-memory artifact {artifact_id}: No 'data' block or 'hf_data' found")
+            logger.info(f"DEBUG_REGEX:   in-memory artifact {artifact_id}: README text unavailable (will rely on names)")
 
         # Mitigate catastrophic backtracking by limiting searchable text length
         if isinstance(readme_text, str) and len(readme_text) > 10000:
@@ -3388,24 +3467,16 @@ async def artifact_by_regex(
                         f"in artifact {artifact_id}: {match_err}"
                     )
 
-            # Check README in stored hf_data if present; do NOT fetch/scrape in Lambda path
-            # Per Q&A: Always check README for "Extra Chars Name Regex Test" even if name matches
-            readme_text = ""
             readme_matches = False
-            # Always check README, even for exact matches, to ensure "Extra Chars Name Regex Test" finds matches
-            data_block = art_data.get("data", {})
-            if isinstance(data_block, dict):
-                hf_list = data_block.get("hf_data", [])
-                if isinstance(hf_list, list) and hf_list:
-                    first = hf_list[0]
-                    if isinstance(first, dict):
-                        readme_text = str(first.get("readme_text", "") or "")
-                        logger.info(
-                            f"DEBUG_REGEX:   S3 artifact {artifact_id}: README text length={len(readme_text)}, "
-                            f"preview={readme_text[:100] if readme_text else 'EMPTY'}..."
-                        )
+            data_block = art_data.get("data", {}) if isinstance(art_data.get("data", {}), dict) else {}
+            readme_text = _ensure_regex_readme_text(artifact_id, data_block)
+            if readme_text:
+                logger.info(
+                    f"DEBUG_REGEX:   S3 artifact {artifact_id}: README text length={len(readme_text)}, "
+                    f"preview={readme_text[:100]}..."
+                )
             else:
-                logger.info(f"DEBUG_REGEX:   S3 artifact {artifact_id}: No 'data' block found")
+                logger.info(f"DEBUG_REGEX:   S3 artifact {artifact_id}: README text unavailable")
             if readme_text:
                 if len(readme_text) > 10000:
                     readme_text = readme_text[:10000]
@@ -3484,9 +3555,7 @@ async def artifact_by_regex(
                     continue  # Skip duplicates
                 art_name = str(a.name).strip() if a.name else ""
 
-                # Try to get full artifact data (with README) from in-memory or S3
-                # This ensures README search works for SQLite artifacts that also exist elsewhere
-                readme_text = ""
+                readme_text = None
                 artifact_data_full = None
                 if artifact_id_str in artifacts_db:
                     artifact_data_full = artifacts_db[artifact_id_str]
@@ -3494,21 +3563,22 @@ async def artifact_by_regex(
                     try:
                         artifact_data_full = s3_storage.get_artifact_metadata(artifact_id_str)
                     except Exception:
-                        pass
+                        artifact_data_full = None
 
-                # Extract README text if full data is available
                 if artifact_data_full:
-                    data_block = artifact_data_full.get("data", {})
-                    if isinstance(data_block, dict) and "hf_data" in data_block:
-                        hf_data = data_block.get("hf_data", [])
-                        if isinstance(hf_data, list) and len(hf_data) > 0:
-                            first = hf_data[0]
-                            if isinstance(first, dict):
-                                readme_text = str(first.get("readme_text", "") or "")
-                                logger.info(
-                                    f"DEBUG_REGEX:   SQLite artifact {artifact_id_str}: README text length={len(readme_text)}, "
-                                    f"preview={readme_text[:100] if readme_text else 'EMPTY'}..."
-                                )
+                    data_block = artifact_data_full.get("data", {}) if isinstance(artifact_data_full.get("data", {}), dict) else {}
+                    readme_text = _ensure_regex_readme_text(artifact_id_str, data_block)
+
+                if not readme_text:
+                    fallback_url = getattr(a, "url", None)
+                    if fallback_url:
+                        readme_text = _ensure_regex_readme_text(artifact_id_str, {"url": str(fallback_url)})
+
+                if readme_text:
+                    logger.info(
+                        f"DEBUG_REGEX:   SQLite artifact {artifact_id_str}: README text length={len(readme_text)}, "
+                        f"preview={readme_text[:100]}..."
+                    )
 
                 # Truncate README if too long
                 if isinstance(readme_text, str) and len(readme_text) > 10000:

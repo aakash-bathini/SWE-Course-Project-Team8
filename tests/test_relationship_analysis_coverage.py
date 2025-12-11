@@ -168,10 +168,8 @@ class TestRelationshipAnalysisSageMaker:
 
         mock_response = {"relationships": []}
 
-        with patch("src.aws.sagemaker_llm.get_sagemaker_service") as mock_get_service:
-            mock_service = Mock()
-            mock_service.invoke_chat_model.return_value = json.dumps(mock_response)
-            mock_get_service.return_value = mock_service
+        with patch("src.metrics.relationship_analysis.cached_sagemaker_chat") as mock_cached_chat:
+            mock_cached_chat.return_value = json.dumps(mock_response)
 
             result = await analyze_artifact_relationships(readme_text, hf_data)
 

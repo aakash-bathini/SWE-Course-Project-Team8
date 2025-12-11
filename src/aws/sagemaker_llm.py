@@ -12,7 +12,7 @@ Supports:
 import json
 import os
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any
 import boto3
 from botocore.exceptions import ClientError, BotoCoreError
 
@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_SAGEMAKER_MODEL_ID = os.getenv("SAGEMAKER_MODEL_ID", "meta-textgeneration-llama-3-8b-instruct")
 DEFAULT_SAGEMAKER_ENDPOINT = os.getenv("SAGEMAKER_ENDPOINT_NAME", "")
 DEFAULT_AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+MAX_CHAT_INPUT_CHARS = int(os.getenv("SAGEMAKER_MAX_INPUT_CHARS", "4500"))
+DEFAULT_CHAT_MAX_NEW_TOKENS = int(os.getenv("SAGEMAKER_MAX_NEW_TOKENS", "384"))
 
 
 class SageMakerLLMService:
@@ -45,6 +47,7 @@ class SageMakerLLMService:
         self.model_id = model_id or DEFAULT_SAGEMAKER_MODEL_ID
         self.sagemaker_runtime = None
         self.is_available = False
+        self.enable_llm_cache = True
 
         try:
             # Initialize SageMaker Runtime client
@@ -63,7 +66,7 @@ class SageMakerLLMService:
             logger.warning(f"Failed to initialize SageMaker service: {e}")
             self.is_available = False
 
-    def invoke_jumpstart_model(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.1) -> Optional[str]:
+    def invoke_jumpstart_model(self, prompt: str, max_tokens: int = 512, temperature: float = 0.1) -> Optional[str]:
         """
         Invoke a SageMaker JumpStart foundation model.
 
@@ -148,7 +151,7 @@ class SageMakerLLMService:
         self,
         system_prompt: str,
         user_prompt: str,
-        max_tokens: int = 1024,
+        max_tokens: int = DEFAULT_CHAT_MAX_NEW_TOKENS,
         temperature: float = 0.1,
     ) -> Optional[str]:
         """
@@ -167,88 +170,116 @@ class SageMakerLLMService:
             logger.debug("SageMaker service not available")
             return None
 
-        try:
-            # Format messages as simple text (works for GPT-2 and most HuggingFace models)
-            # GPT-2 doesn't support chat format tokens, so use simple concatenation
-            # For Llama models, this would need the token format, but GPT-2 works with plain text
-            # Format: "{system_prompt}\n\nUser: {user_prompt}\n\nAssistant:"
-            formatted_prompt = f"{system_prompt}\n\nUser: {user_prompt}\n\nAssistant:"
+        if not self.endpoint_name:
+            logger.warning("SageMaker endpoint not configured, cannot invoke chat model")
+            return None
 
-            payload = {
-                "inputs": formatted_prompt,
-                "parameters": {
-                    "max_new_tokens": max_tokens,
-                    "temperature": temperature,
-                    "top_p": 0.9,
-                    "do_sample": True,  # Required for GPT-2
-                },
-            }
+        system_text = system_prompt or ""
+        user_text = user_prompt or ""
+        trimmed_user_prompt = user_text[:MAX_CHAT_INPUT_CHARS] if len(user_text) > MAX_CHAT_INPUT_CHARS else user_text
+        formatted_prompt = f"{system_text}\n\nUser: {trimmed_user_prompt}\n\nAssistant:"
 
-            if not self.endpoint_name:
-                logger.warning("SageMaker endpoint not configured, cannot invoke chat model")
+        payload: Dict[str, Any] = {
+            "inputs": formatted_prompt,
+            "parameters": {
+                "max_new_tokens": max_tokens,
+                "temperature": temperature,
+                "top_p": 0.8,
+                "do_sample": True,
+                "return_full_text": False,
+            },
+        }
+
+        current_prompt = formatted_prompt
+        retries = 2
+
+        for attempt in range(retries):
+            payload_str = json.dumps(payload)
+            logger.info(
+                "CW_SAGEMAKER_CHAT: endpoint=%s attempt=%d prompt_chars=%d tokens=%d",
+                self.endpoint_name,
+                attempt + 1,
+                len(current_prompt),
+                payload["parameters"]["max_new_tokens"],
+            )
+            try:
+                response = self.sagemaker_runtime.invoke_endpoint(
+                    EndpointName=self.endpoint_name,
+                    ContentType="application/json",
+                    Body=payload_str,
+                )
+                logger.info("SageMaker chat endpoint invocation successful")
+
+                response_body = json.loads(response["Body"].read().decode("utf-8"))
+
+                def _strip_prompt(text: str) -> str:
+                    if isinstance(text, str) and current_prompt in text:
+                        return text.replace(current_prompt, "", 1).strip()
+                    return text
+
+                if isinstance(response_body, dict):
+                    if "generated_text" in response_body:
+                        return _strip_prompt(response_body["generated_text"])
+                    if (
+                        "outputs" in response_body
+                        and isinstance(response_body["outputs"], list)
+                        and response_body["outputs"]
+                    ):
+                        first_output = response_body["outputs"][0]
+                        if isinstance(first_output, dict) and "generated_text" in first_output:
+                            return _strip_prompt(first_output["generated_text"])
+                elif isinstance(response_body, list) and response_body:
+                    first_item = response_body[0]
+                    if isinstance(first_item, dict) and "generated_text" in first_item:
+                        return _strip_prompt(first_item["generated_text"])
+                    return _strip_prompt(str(first_item))
+                elif isinstance(response_body, str):
+                    return _strip_prompt(response_body)
+
+                logger.warning(f"Unexpected SageMaker chat response format: {response_body}")
                 return None
 
-            logger.info(f"Invoking SageMaker chat endpoint: {self.endpoint_name}")
-            # Log payload for debugging (truncate if too long)
-            payload_str = json.dumps(payload)
-            if len(payload_str) > 500:
-                logger.debug(f"SageMaker payload (truncated): {payload_str[:500]}...")
-            else:
-                logger.debug(f"SageMaker payload: {payload_str}")
-            response = self.sagemaker_runtime.invoke_endpoint(
-                EndpointName=self.endpoint_name,
-                ContentType="application/json",
-                Body=payload_str,
-            )
-            logger.info("SageMaker chat endpoint invocation successful")
+            except ClientError as e:
+                error_code = e.response.get("Error", {}).get("Code", "")
+                message = e.response.get("Error", {}).get("Message", "")
+                logger.warning(
+                    "SageMaker chat invocation failed (attempt %d/%d): code=%s message=%s",
+                    attempt + 1,
+                    retries,
+                    error_code,
+                    message,
+                )
 
-            response_body = json.loads(response["Body"].read().decode("utf-8"))
+                if attempt + 1 < retries and error_code in {"ModelError", "InternalFailure"}:
+                    # Reduce max_new_tokens for retry
+                    payload["parameters"]["max_new_tokens"] = max(
+                        128, int(payload["parameters"]["max_new_tokens"] * 0.5)
+                    )
+                    # For long prompts, reduce prompt length
+                    if len(current_prompt) > 2000:
+                        new_limit = max(1500, int(len(current_prompt) * 0.75))
+                        current_prompt = current_prompt[:new_limit]
+                        payload["inputs"] = current_prompt
+                        logger.info(
+                            "CW_SAGEMAKER_CHAT_RETRY: reduced prompt to %d chars, tokens=%d",
+                            len(current_prompt),
+                            payload["parameters"]["max_new_tokens"],
+                        )
+                    else:
+                        # For short prompts, also try reducing temperature for more deterministic output
+                        payload["parameters"]["temperature"] = max(0.05, payload["parameters"]["temperature"] * 0.8)
+                        logger.info(
+                            "CW_SAGEMAKER_CHAT_RETRY: short prompt, reduced tokens to %d, adjusted temperature to %.2f",
+                            payload["parameters"]["max_new_tokens"],
+                            payload["parameters"]["temperature"],
+                        )
+                    continue
+                return None
+            except Exception as e:
+                logger.warning(f"SageMaker chat invocation exception: {e}")
+                return None
 
-            # Extract generated text (format varies by model - GPT-2 vs Llama)
-            if isinstance(response_body, dict):
-                # Standard format: {"generated_text": "..."}
-                if "generated_text" in response_body:
-                    generated = response_body["generated_text"]
-                    # Remove the input prompt from the response if it's included
-                    if isinstance(generated, str) and formatted_prompt in generated:
-                        generated = generated.replace(formatted_prompt, "", 1).strip()
-                    return generated
-                # GPT-2 format: [{"generated_text": "..."}]
-                if (
-                    isinstance(response_body, dict)
-                    and "outputs" in response_body
-                    and isinstance(response_body["outputs"], list)
-                    and len(response_body["outputs"]) > 0
-                ):
-                    output_item = response_body["outputs"][0]
-                    if isinstance(output_item, dict) and "generated_text" in output_item:
-                        generated = output_item["generated_text"]
-                        if isinstance(generated, str) and formatted_prompt in generated:
-                            generated = generated.replace(formatted_prompt, "", 1).strip()
-                        return generated
-            elif isinstance(response_body, list) and len(response_body) > 0:
-                # List format: [{"generated_text": "..."}]
-                if isinstance(response_body[0], dict) and "generated_text" in response_body[0]:
-                    generated = response_body[0]["generated_text"]
-                    if isinstance(generated, str) and formatted_prompt in generated:
-                        generated = generated.replace(formatted_prompt, "", 1).strip()
-                    return generated
-                return str(response_body[0])
-            elif isinstance(response_body, str):
-                # Direct string response
-                if formatted_prompt in response_body:
-                    return response_body.replace(formatted_prompt, "", 1).strip()
-                return response_body
-
-            logger.warning(f"Unexpected SageMaker chat response format: {response_body}")
-            return None
-
-        except ClientError as e:
-            logger.warning(f"SageMaker chat invocation failed: {e}")
-            return None
-        except Exception as e:
-            logger.warning(f"SageMaker chat invocation exception: {e}")
-            return None
+        return None
 
 
 # Global SageMaker service instance
