@@ -115,7 +115,9 @@ async def analyze_artifact_relationships(
                     "between ML artifacts (models, datasets, code repositories)."
                 )
                 logger.info(f"Relationship analysis attempt {attempt} with AWS SageMaker")
-                cache_scope = f"relationships:{(hf_data or {}).get('repo_id') or (hf_data or {}).get('model_id') or 'unknown'}"
+                cache_scope = (
+                    f"relationships:{(hf_data or {}).get('repo_id') or (hf_data or {}).get('model_id') or 'unknown'}"
+                )
                 raw = cached_sagemaker_chat(
                     system_prompt=system_prompt,
                     user_prompt=prompt,
@@ -127,9 +129,7 @@ async def analyze_artifact_relationships(
                     cleaned = extract_json_from_llm(raw)
                     if cleaned:
                         analysis_json = json.loads(cleaned)
-                        logger.info(
-                            f"Relationship analysis JSON parse succeeded on attempt {attempt} with SageMaker"
-                        )
+                        logger.info(f"Relationship analysis JSON parse succeeded on attempt {attempt} with SageMaker")
                         break  # Success, stop retrying
                     logger.debug("Relationship analysis: SageMaker response lacked JSON payload")
             else:

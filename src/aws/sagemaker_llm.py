@@ -12,7 +12,7 @@ Supports:
 import json
 import os
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any
 import boto3
 from botocore.exceptions import ClientError, BotoCoreError
 
@@ -179,7 +179,7 @@ class SageMakerLLMService:
         trimmed_user_prompt = user_text[:MAX_CHAT_INPUT_CHARS] if len(user_text) > MAX_CHAT_INPUT_CHARS else user_text
         formatted_prompt = f"{system_text}\n\nUser: {trimmed_user_prompt}\n\nAssistant:"
 
-        payload = {
+        payload: Dict[str, Any] = {
             "inputs": formatted_prompt,
             "parameters": {
                 "max_new_tokens": max_tokens,

@@ -177,9 +177,7 @@ async def metric(ctx: EvalContext) -> float:
                     cleaned = extract_json_from_llm(raw)
                     if cleaned:
                         analysis_json = json.loads(cleaned)
-                        logging.info(
-                            "Performance metric JSON parse succeeded on attempt %d with SageMaker", attempt
-                        )
+                        logging.info("Performance metric JSON parse succeeded on attempt %d with SageMaker", attempt)
                         break  # ✅ success, stop retrying
                     logging.debug("Performance metric: SageMaker returned non-JSON output, falling back")
             else:

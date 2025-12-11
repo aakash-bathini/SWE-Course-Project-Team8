@@ -85,6 +85,7 @@ def cached_sagemaker_chat(
     user_prompt: str,
     cache_scope: str,
     max_tokens: int = 384,
+    temperature: float = 0.15,
     service: Optional[SageMakerLLMService] = None,
 ) -> Optional[str]:
     """
@@ -97,7 +98,9 @@ def cached_sagemaker_chat(
         return None
 
     cache_allowed = bool(getattr(sm_service, "enable_llm_cache", False))
-    digest = hashlib.sha256(f"{cache_scope}:{system_prompt}:{user_prompt}".encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(
+        f"{cache_scope}:{system_prompt}:{user_prompt}:{max_tokens}:{temperature}".encode("utf-8")
+    ).hexdigest()
     if cache_allowed:
         cached = _cache_get(digest)
         if cached is not None:
@@ -114,7 +117,7 @@ def cached_sagemaker_chat(
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         max_tokens=max_tokens,
-        temperature=0.15,
+        temperature=temperature,
     )
     if response:
         if cache_allowed:
