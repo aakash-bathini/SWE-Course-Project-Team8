@@ -251,9 +251,11 @@ class SageMakerLLMService:
                 )
 
                 if attempt + 1 < retries and error_code in {"ModelError", "InternalFailure"}:
+                    # Reduce max_new_tokens for retry
                     payload["parameters"]["max_new_tokens"] = max(
                         128, int(payload["parameters"]["max_new_tokens"] * 0.5)
                     )
+                    # For long prompts, reduce prompt length
                     if len(current_prompt) > 2000:
                         new_limit = max(1500, int(len(current_prompt) * 0.75))
                         current_prompt = current_prompt[:new_limit]
@@ -262,6 +264,14 @@ class SageMakerLLMService:
                             "CW_SAGEMAKER_CHAT_RETRY: reduced prompt to %d chars, tokens=%d",
                             len(current_prompt),
                             payload["parameters"]["max_new_tokens"],
+                        )
+                    else:
+                        # For short prompts, also try reducing temperature for more deterministic output
+                        payload["parameters"]["temperature"] = max(0.05, payload["parameters"]["temperature"] * 0.8)
+                        logger.info(
+                            "CW_SAGEMAKER_CHAT_RETRY: short prompt, reduced tokens to %d, adjusted temperature to %.2f",
+                            payload["parameters"]["max_new_tokens"],
+                            payload["parameters"]["temperature"],
                         )
                     continue
                 return None
