@@ -5,21 +5,17 @@ Per rubric: "LLMs are used to analyze the README or to analyze the relationship 
 """
 
 import re
-import os
 import json
 import logging
-import requests
 from typing import Dict, Any, Optional
 
 from src.metrics.llm_utils import (
     reduce_readme_for_llm,
-    cached_sagemaker_chat,
+    cached_llm_chat,
     extract_json_from_llm,
 )
 
 MAX_INPUT_CHARS = 7000
-api_key = os.getenv("GEMINI_API_KEY")
-purdue_api_key = os.getenv("GEN_AI_STUDIO_API_KEY")
 
 logger = logging.getLogger(__name__)
 
@@ -102,84 +98,28 @@ async def analyze_artifact_relationships(
     """
 
     analysis_json = None
-    for attempt in range(1, 4):  # up to 3 attempts
+    cache_scope = f"relationships:{(hf_data or {}).get('repo_id') or (hf_data or {}).get('model_id') or 'unknown'}"
+    for attempt in range(1, 3):
         try:
-            # PRIORITY 1: Try AWS SageMaker (per rubric requirement)
-            from src.aws.sagemaker_llm import get_sagemaker_service
-
-            sagemaker_service = get_sagemaker_service()
-            if sagemaker_service:
-                logger.info("SageMaker service available for relationship analysis")
-                system_prompt = (
-                    "You are an engineer analyzing README files to find relationships "
-                    "between ML artifacts (models, datasets, code repositories)."
-                )
-                logger.info(f"Relationship analysis attempt {attempt} with AWS SageMaker")
-                cache_scope = (
-                    f"relationships:{(hf_data or {}).get('repo_id') or (hf_data or {}).get('model_id') or 'unknown'}"
-                )
-                raw = cached_sagemaker_chat(
-                    system_prompt=system_prompt,
-                    user_prompt=prompt,
-                    cache_scope=cache_scope,
-                    max_tokens=384,
-                    service=sagemaker_service,
-                )
-                if raw:
-                    cleaned = extract_json_from_llm(raw)
-                    if cleaned:
-                        analysis_json = json.loads(cleaned)
-                        logger.info(f"Relationship analysis JSON parse succeeded on attempt {attempt} with SageMaker")
-                        break  # Success, stop retrying
-                    logger.debug("Relationship analysis: SageMaker response lacked JSON payload")
-            else:
-                logger.warning("SageMaker service not available (get_sagemaker_service returned None)")
-
-            # FALLBACK 2: Try Gemini API
-            if api_key:
-                from google import genai
-
-                client = genai.Client()
-                logger.info(f"Relationship analysis attempt {attempt} with Gemini (fallback)")
-                response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
-                raw = response.text
-            # FALLBACK 3: Try Purdue GenAI API
-            else:
-                url = "https://genai.rcac.purdue.edu/api/chat/completions"
-                headers = {
-                    "Authorization": f"Bearer {purdue_api_key}",
-                    "Content-Type": "application/json",
-                }
-                body = {
-                    "model": "llama4:latest",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": (
-                                "You are an engineer analyzing README files to find relationships "
-                                "between ML artifacts (models, datasets, code repositories)."
-                            ),
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                    "stream": False,
-                    "max_tokens": 1024,
-                }
-                logger.info(f"Relationship analysis attempt {attempt} with Purdue GenAI (fallback)")
-                purdue_response = requests.post(url, headers=headers, json=body, timeout=30)
-                purdue_data = purdue_response.json()
-                raw_content = purdue_data["choices"][0]["message"]["content"]
-                raw = str(raw_content) if raw_content is not None else None
-
-            # Clean and parse JSON response
-            if raw is not None:
-                cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.DOTALL)
-            else:
-                cleaned = ""
+            system_prompt = (
+                "You are an engineer analyzing README files to find relationships "
+                "between ML artifacts (models, datasets, code repositories)."
+            )
+            raw = cached_llm_chat(
+                system_prompt=system_prompt,
+                user_prompt=prompt,
+                cache_scope=cache_scope,
+                max_tokens=384,
+            )
+            if not raw:
+                continue
+            cleaned = extract_json_from_llm(raw)
+            if not cleaned:
+                logger.debug("Relationship analysis: LLM response lacked JSON payload (attempt %d)", attempt)
+                continue
             analysis_json = json.loads(cleaned)
-            logger.info(f"Relationship analysis JSON parse succeeded on attempt {attempt}")
-            break  # Success, stop retrying
-
+            logger.info("Relationship analysis JSON parse succeeded on attempt %d", attempt)
+            break
         except Exception as e:
             logger.debug(f"Relationship analysis attempt {attempt} failed: {e}")
             continue  # Try again

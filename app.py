@@ -1349,6 +1349,9 @@ async def models_upload(
             "created_by": user["username"],
         }
 
+        if readme_text:
+            artifact_entry["data"]["readme_text"] = readme_text
+
         artifacts_db[artifact_id] = artifact_entry
 
         # Store in S3 if enabled - verify save success
@@ -6075,6 +6078,7 @@ async def model_artifact_rate(
             if not waited:
                 logger.warning(f"DEBUG_RATE: Async rating wait timeout for id={id}, computing synchronously")
                 # Timeout occurred - compute synchronously as fallback
+                artifact_status[id] = "READY"
             else:
                 logger.info(f"DEBUG_RATE: Async rating completed for id={id}")
                 # Check if rating was cached during async computation
@@ -6084,6 +6088,7 @@ async def model_artifact_rate(
                 # If async completed but no cache, status should be READY now - continue to compute
         else:
             logger.info("DEBUG_RATE: PENDING status but no async event found, computing synchronously")
+            artifact_status[id] = "READY"
 
         # Check if rating is already cached (for concurrent requests)
     if id in rating_cache:

@@ -7,10 +7,14 @@ Comprehensive tests for Milestone 6 features:
 - Health endpoints and dashboard
 """
 
+import os
+import sys
+from unittest.mock import patch, MagicMock
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
-import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 def _get_headers():

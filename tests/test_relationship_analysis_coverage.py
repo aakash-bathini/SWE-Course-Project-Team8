@@ -1,181 +1,125 @@
 """
 Tests for relationship_analysis.py to increase code coverage.
-Tests cover SageMaker integration, fallback scenarios, and error handling.
+Focuses on the new provider-agnostic LLM helper and heuristic fallbacks.
 """
 
 import pytest
 import json
 import sys
 import os
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.metrics.relationship_analysis import analyze_artifact_relationships, _heuristic_relationship_extraction
 
 
-class TestRelationshipAnalysisSageMaker:
-    """Test relationship analysis with SageMaker integration"""
+class TestRelationshipAnalysisLLM:
+    """Test relationship analysis with provider-agnostic LLM helper"""
 
     @pytest.mark.asyncio
-    async def test_extract_relationships_with_sagemaker_success(self):
-        """Test relationship extraction using SageMaker successfully"""
+    async def test_extract_relationships_llm_success(self):
+        """Test relationship extraction when cached_llm_chat returns valid JSON"""
         readme_text = "This model uses the SQuAD dataset and code from https://github.com/test/repo"
         hf_data = {}
 
-        mock_response = {
-            "relationships": [
-                {"relationship_type": "dataset", "name_or_url": "SQuAD", "confidence": 0.9},
-                {"relationship_type": "code_repo", "name_or_url": "https://github.com/test/repo", "confidence": 0.8},
-            ]
-        }
+        mock_response = json.dumps(
+            {
+                "relationships": [
+                    {"relationship_type": "dataset", "name_or_url": "SQuAD", "confidence": 0.9},
+                    {
+                        "relationship_type": "code_repo",
+                        "name_or_url": "https://github.com/test/repo",
+                        "confidence": 0.8,
+                    },
+                ]
+            }
+        )
 
-        with patch("src.aws.sagemaker_llm.get_sagemaker_service") as mock_get_service:
-            mock_service = Mock()
-            mock_service.invoke_chat_model.return_value = json.dumps(mock_response)
-            mock_get_service.return_value = mock_service
-
+        with patch("src.metrics.relationship_analysis.cached_llm_chat", return_value=mock_response):
             result = await analyze_artifact_relationships(readme_text, hf_data)
 
-            assert "linked_datasets" in result
-            assert "linked_code_repos" in result
-            assert "relationship_confidence" in result
-            assert "SQuAD" in result["linked_datasets"]
-            assert "https://github.com/test/repo" in result["linked_code_repos"]
-            assert result["relationship_confidence"] > 0
+        assert "SQuAD" in result["linked_datasets"]
+        assert "https://github.com/test/repo" in result["linked_code_repos"]
+        assert result["relationship_confidence"] > 0.0
 
     @pytest.mark.asyncio
-    async def test_extract_relationships_sagemaker_with_json_wrapper(self):
-        """Test relationship extraction with SageMaker response wrapped in ```json"""
-        readme_text = "Test README"
-        hf_data = {}
-
-        mock_response = '```json\n{"relationships": [{"relationship_type": "dataset", "name_or_url": "test", "confidence": 0.5}]}\n```'
-
-        with patch("src.aws.sagemaker_llm.get_sagemaker_service") as mock_get_service:
-            mock_service = Mock()
-            mock_service.invoke_chat_model.return_value = mock_response
-            mock_get_service.return_value = mock_service
-
-            result = await analyze_artifact_relationships(readme_text, hf_data)
-
-            assert "linked_datasets" in result
-            assert len(result["linked_datasets"]) > 0
-
-    @pytest.mark.asyncio
-    async def test_extract_relationships_sagemaker_failure_fallback(self):
-        """Test relationship extraction falls back when SageMaker fails"""
+    async def test_extract_relationships_llm_parse_error_fallback(self):
+        """Test relationship extraction falls back when LLM response cannot be parsed"""
         readme_text = "This model uses SQuAD dataset and https://github.com/test/repo"
         hf_data = {}
 
-        with patch("src.aws.sagemaker_llm.get_sagemaker_service") as mock_get_service:
-            mock_service = Mock()
-            mock_service.invoke_chat_model.return_value = None
-            mock_get_service.return_value = mock_service
-
-            # Mock fallback to heuristic
-            with patch("src.metrics.relationship_analysis._heuristic_relationship_extraction") as mock_heuristic:
-                mock_heuristic.return_value = {
-                    "linked_datasets": ["SQuAD"],
-                    "linked_code_repos": ["https://github.com/test/repo"],
-                    "relationship_confidence": 0.5,
-                }
-
-                result = await analyze_artifact_relationships(readme_text, hf_data)
-
-                assert "linked_datasets" in result
-                assert "linked_code_repos" in result
-
-    @pytest.mark.asyncio
-    async def test_extract_relationships_sagemaker_not_available(self):
-        """Test relationship extraction when SageMaker is not available"""
-        readme_text = "Test README"
-        hf_data = {}
-
-        with patch("src.aws.sagemaker_llm.get_sagemaker_service") as mock_get_service:
-            mock_get_service.return_value = None
-
-            # Should fall back to Gemini or Purdue
-            with patch("src.metrics.relationship_analysis.requests.post") as mock_post:
-                mock_response = Mock()
-                mock_response.json.return_value = {
-                    "choices": [{"message": {"content": json.dumps({"relationships": []})}}]
-                }
-                mock_post.return_value = mock_response
-
-                result = await analyze_artifact_relationships(readme_text, hf_data)
-
-                assert "linked_datasets" in result
-                assert "linked_code_repos" in result
-
-    @pytest.mark.asyncio
-    async def test_extract_relationships_llm_parse_error(self):
-        """Test relationship extraction when LLM response cannot be parsed"""
-        readme_text = "Test README"
-        hf_data = {}
-
-        with patch("src.aws.sagemaker_llm.get_sagemaker_service") as mock_get_service:
-            mock_service = Mock()
-            mock_service.invoke_chat_model.return_value = "Invalid JSON response"
-            mock_get_service.return_value = mock_service
-
-            # Should fall back to heuristic after parse error
-            with patch("src.metrics.relationship_analysis._heuristic_relationship_extraction") as mock_heuristic:
-                mock_heuristic.return_value = {
-                    "linked_datasets": [],
-                    "linked_code_repos": [],
-                    "relationship_confidence": 0.0,
-                }
-
-                result = await analyze_artifact_relationships(readme_text, hf_data)
-
-                assert "linked_datasets" in result
-                assert "linked_code_repos" in result
-
-    @pytest.mark.asyncio
-    async def test_extract_relationships_with_invalid_relationship_types(self):
-        """Test relationship extraction filters invalid relationship types"""
-        readme_text = "Test"
-        hf_data = {}
-
-        mock_response = {
-            "relationships": [
-                {"relationship_type": "dataset", "name_or_url": "valid", "confidence": 0.8},
-                {"relationship_type": "invalid_type", "name_or_url": "invalid", "confidence": 0.5},
-                {"relationship_type": "code_repo", "name_or_url": "", "confidence": 0.7},  # Empty name
-                {"relationship_type": "dataset", "name_or_url": None, "confidence": 0.6},  # None name
-                "not_a_dict",  # Invalid format
-            ]
-        }
-
-        with patch("src.aws.sagemaker_llm.get_sagemaker_service") as mock_get_service:
-            mock_service = Mock()
-            mock_service.invoke_chat_model.return_value = json.dumps(mock_response)
-            mock_get_service.return_value = mock_service
+        with (
+            patch("src.metrics.relationship_analysis.cached_llm_chat", return_value="Invalid JSON response"),
+            patch("src.metrics.relationship_analysis._heuristic_relationship_extraction") as mock_heuristic,
+        ):
+            mock_heuristic.return_value = {
+                "linked_datasets": ["SQuAD"],
+                "linked_code_repos": ["https://github.com/test/repo"],
+                "relationship_confidence": 0.5,
+            }
 
             result = await analyze_artifact_relationships(readme_text, hf_data)
 
-            # Should only include valid relationships
-            assert "valid" in result["linked_datasets"]
-            assert len(result["linked_datasets"]) == 1
-            assert len(result["linked_code_repos"]) == 0
+        assert result["linked_datasets"] == ["SQuAD"]
+        assert result["linked_code_repos"] == ["https://github.com/test/repo"]
+
+    @pytest.mark.asyncio
+    async def test_extract_relationships_llm_unavailable(self):
+        """Test relationship extraction when no LLM provider is configured"""
+        readme_text = "README content"
+        hf_data = {}
+
+        with (
+            patch("src.metrics.relationship_analysis.cached_llm_chat", return_value=None),
+            patch(
+                "src.metrics.relationship_analysis._heuristic_relationship_extraction",
+                return_value={"linked_datasets": [], "linked_code_repos": [], "relationship_confidence": 0.0},
+            ) as mock_heuristic,
+        ):
+            result = await analyze_artifact_relationships(readme_text, hf_data)
+
+        mock_heuristic.assert_called_once()
+        assert "linked_datasets" in result
+        assert "linked_code_repos" in result
+
+    @pytest.mark.asyncio
+    async def test_extract_relationships_filters_invalid_relationships(self):
+        """Test relationship extraction filters invalid relationship types and entries"""
+        readme_text = "Test README"
+        hf_data = {}
+
+        mock_response = json.dumps(
+            {
+                "relationships": [
+                    {"relationship_type": "dataset", "name_or_url": "valid", "confidence": 0.8},
+                    {"relationship_type": "invalid_type", "name_or_url": "invalid", "confidence": 0.5},
+                    {"relationship_type": "code_repo", "name_or_url": "", "confidence": 0.7},
+                    "not_a_dict",
+                ]
+            }
+        )
+
+        with patch("src.metrics.relationship_analysis.cached_llm_chat", return_value=mock_response):
+            result = await analyze_artifact_relationships(readme_text, hf_data)
+
+        assert result["linked_datasets"] == ["valid"]
+        assert result["linked_code_repos"] == []
 
     @pytest.mark.asyncio
     async def test_extract_relationships_empty_confidence_scores(self):
-        """Test relationship extraction with empty confidence scores"""
-        readme_text = "Test"
+        """Test relationship extraction when LLM returns empty relationship list"""
+        readme_text = "Test README"
         hf_data = {}
 
-        mock_response = {"relationships": []}
+        mock_response = json.dumps({"relationships": []})
 
-        with patch("src.metrics.relationship_analysis.cached_sagemaker_chat") as mock_cached_chat:
-            mock_cached_chat.return_value = json.dumps(mock_response)
-
+        with patch("src.metrics.relationship_analysis.cached_llm_chat", return_value=mock_response):
             result = await analyze_artifact_relationships(readme_text, hf_data)
 
-            assert result["relationship_confidence"] == 0.0
-            assert len(result["linked_datasets"]) == 0
-            assert len(result["linked_code_repos"]) == 0
+        assert result["relationship_confidence"] == 0.0
+        assert len(result["linked_datasets"]) == 0
+        assert len(result["linked_code_repos"]) == 0
 
 
 class TestHeuristicRelationshipExtraction:
