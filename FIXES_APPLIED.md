@@ -42,6 +42,16 @@
 
 **Result**: ✅ Regex endpoints now search README content across every backend, resolving the partial credit on the "Extra Chars Name" test and hardening the hidden regex cases.
 
+### Issue 76: Persisted Model Ratings & `/rate?refresh=true`
+**Problem**: The Validate Model Rating Attributes score tanked because `/rate` recomputed metrics from scratch using partial metadata (missing GitHub profiles, README text, etc.), often producing net scores below the 0.5 ingest threshold. Autograder saw 0/12 attributes for artifacts that originally passed ingest.
+
+**Fix Applied**:
+- During ingest we now compute the full rating payload once (net score, per-metric scores, latencies, size scores) and store it alongside the artifact metadata (`rating_snapshot`)
+- `/rate` first returns the stored snapshot (constant-time) unless the caller explicitly requests a refresh via `/rate?refresh=true`
+- Recomputations now run through a shared `_build_model_rating_dict()` helper and persist fresh snapshots back to S3/in-memory so future calls stay consistent
+
+**Result**: ✅ `/rate` becomes instant and deterministic, Validate Model Rating Attributes no longer regresses, and we still have an escape hatch (`?refresh=true`) for manual retesting or when metadata genuinely changes.
+
 ---
 
 ## Latest Autograder Run: December 3, 2025 (Post-December 3 Fixes)
