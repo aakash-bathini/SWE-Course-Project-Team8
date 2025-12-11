@@ -1,18 +1,14 @@
 import re
-import os
 import json
 import logging
-import requests
 from src.models.model_types import EvalContext
 from src.metrics.llm_utils import (
     reduce_readme_for_llm,
-    cached_sagemaker_chat,
+    cached_llm_chat,
     extract_json_from_llm,
 )
 
 MAX_INPUT_CHARS = 7000
-api_key = os.getenv("GEMINI_API_KEY")
-purdue_api_key = os.getenv("GEN_AI_STUDIO_API_KEY")
 
 
 async def metric(ctx: EvalContext) -> float:
@@ -155,76 +151,25 @@ async def metric(ctx: EvalContext) -> float:
     """
 
     analysis_json = None
-    for attempt in range(1, 4):  # up to 3 attempts
+    cache_scope = f"performance:{ctx.url or hf.get('model_id') or hf.get('repo_id') or 'unknown'}"
+    for attempt in range(1, 3):
         try:
-            # PRIORITY 1: Try AWS SageMaker (per rubric requirement)
-            from src.aws.sagemaker_llm import get_sagemaker_service
-
-            sagemaker_service = get_sagemaker_service()
-            if sagemaker_service:
-                logging.info("SageMaker service available, attempting invocation")
-                system_prompt = "You are a very needed engineer analyzing README files for performance claims."
-                logging.info("Performance metric attempt %d with AWS SageMaker", attempt)
-                cache_scope = f"performance:{ctx.url or hf.get('model_id') or hf.get('repo_id') or 'unknown'}"
-                raw = cached_sagemaker_chat(
-                    system_prompt=system_prompt,
-                    user_prompt=prompt,
-                    cache_scope=cache_scope,
-                    max_tokens=384,
-                    service=sagemaker_service,
-                )
-                if raw:
-                    cleaned = extract_json_from_llm(raw)
-                    if cleaned:
-                        analysis_json = json.loads(cleaned)
-                        logging.info("Performance metric JSON parse succeeded on attempt %d with SageMaker", attempt)
-                        break  # ✅ success, stop retrying
-                    logging.debug("Performance metric: SageMaker returned non-JSON output, falling back")
-            else:
-                logging.warning("SageMaker service not available (get_sagemaker_service returned None)")
-
-            # FALLBACK 2: Try Gemini API
-            if api_key:
-                from google import genai
-
-                client = genai.Client()
-                logging.info("Performance metric attempt %d with Gemini (fallback)", attempt)
-                response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
-                raw = response.text
-            # FALLBACK 3: Try Purdue GenAI API
-            else:
-                url = "https://genai.rcac.purdue.edu/api/chat/completions"
-                headers = {
-                    "Authorization": f"Bearer {purdue_api_key}",
-                    "Content-Type": "application/json",
-                }
-                body = {
-                    "model": "llama4:latest",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a very needed engineer analyzing README files for performance claims.",
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                    "stream": False,
-                    "max_tokens": 1024,
-                }
-                logging.info("Performance metric attempt %d with Purdue GenAI (fallback)", attempt)
-                purdue_response = requests.post(url, headers=headers, json=body)
-                purdue_data = purdue_response.json()
-                raw_content = purdue_data["choices"][0]["message"]["content"]
-                raw = str(raw_content) if raw_content is not None else None
-
-            # clean + parse
-            if raw is not None:
-                cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.DOTALL)
-            else:
-                cleaned = ""
+            system_prompt = "You are a very needed engineer analyzing README files for performance claims."
+            raw = cached_llm_chat(
+                system_prompt=system_prompt,
+                user_prompt=prompt,
+                cache_scope=cache_scope,
+                max_tokens=384,
+            )
+            if not raw:
+                continue
+            cleaned = extract_json_from_llm(raw)
+            if not cleaned:
+                logging.debug("Performance metric: LLM response lacked JSON payload (attempt %d)", attempt)
+                continue
             analysis_json = json.loads(cleaned)
             logging.info("Performance metric JSON parse succeeded on attempt %d", attempt)
-            break  # ✅ success, stop retrying
-
+            break
         except Exception as e:
             logging.debug("Performance metric attempt %d failed: %s", attempt, e)
             continue  # try again
