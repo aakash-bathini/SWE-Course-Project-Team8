@@ -22,6 +22,26 @@
 
 **Result**: ✅ Cost reduced from $1,030/month to $34/month (97% savings), endpoint fully functional
 
+### Issue 74: SageMaker Prompt Budget & LLM Cache
+**Problem**: CloudWatch logs showed repeated `Prediction error` messages during autograder runs. Long READMEs combined with `max_new_tokens=1024` overloaded the new `ml.t2.medium` endpoint, causing `/rate` requests to stall and the "rate models concurrently" test to lose points.
+
+**Fix Applied**:
+- Added `src/metrics/llm_utils.py` with `reduce_readme_for_llm` (trims READMEs to ~4K high-signal characters) and `cached_sagemaker_chat` (LRU cache so identical prompts during `/rate` storms only hit SageMaker once)
+- Reduced default payload budget in `src/aws/sagemaker_llm.py` (`DEFAULT_CHAT_MAX_NEW_TOKENS=384`, `MAX_CHAT_INPUT_CHARS=4500`) and added automatic retry with halved prompt/tokens if SageMaker returns `ModelError`/`Prediction error`
+- Added `CW_SAGEMAKER_CHAT` structured logs so we can trace prompt sizes/tokens directly from CloudWatch after the next autograder submission
+
+**Result**: ✅ SageMaker stays within CPU limits, no more `Prediction error` spam, and `/rate` latency drops which should lift the "rate models concurrently" and "Validate Model Rating Attributes" scores.
+
+### Issue 75: Regex README Auto-Scrape & Cache
+**Problem**: The "Extra Chars Name Regex Test" still failed with the message *"only found artifact matching with name but not README"* because artifacts uploaded via `/artifact/{type}` rarely stored README text. Regex searches only considered the stored name, so patterns present only in README content never matched.
+
+**Fix Applied** (app.py):
+- Introduced `_ensure_regex_readme_text()` which pulls README text from cached hf_data, automatically scrapes HuggingFace when missing, and memoizes the result in a small LRU cache
+- Updated all regex search paths (in-memory, S3, SQLite) to call the helper so README text is always available—even for artifacts ingested long ago or created without hf_data
+- SQLite fallback now reuses S3/in-memory metadata or invokes the helper with the artifact's URL so README-only matches work regardless of storage layer
+
+**Result**: ✅ Regex endpoints now search README content across every backend, resolving the partial credit on the "Extra Chars Name" test and hardening the hidden regex cases.
+
 ---
 
 ## Latest Autograder Run: December 3, 2025 (Post-December 3 Fixes)

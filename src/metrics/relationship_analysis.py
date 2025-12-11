@@ -11,6 +11,12 @@ import logging
 import requests
 from typing import Dict, Any, Optional
 
+from src.metrics.llm_utils import (
+    reduce_readme_for_llm,
+    cached_sagemaker_chat,
+    extract_json_from_llm,
+)
+
 MAX_INPUT_CHARS = 7000
 api_key = os.getenv("GEMINI_API_KEY")
 purdue_api_key = os.getenv("GEN_AI_STUDIO_API_KEY")
@@ -40,7 +46,8 @@ async def analyze_artifact_relationships(
         }
 
     # Truncate README if too long
-    readme_content = readme_text[:MAX_INPUT_CHARS] if len(readme_text) > MAX_INPUT_CHARS else readme_text
+    truncated_readme = readme_text[:MAX_INPUT_CHARS] if len(readme_text) > MAX_INPUT_CHARS else readme_text
+    readme_content = reduce_readme_for_llm(truncated_readme)
 
     prompt = f"""
     You are analyzing the README of an ML model to identify relationships with datasets and code repositories.
@@ -108,18 +115,23 @@ async def analyze_artifact_relationships(
                     "between ML artifacts (models, datasets, code repositories)."
                 )
                 logger.info(f"Relationship analysis attempt {attempt} with AWS SageMaker")
-                raw = sagemaker_service.invoke_chat_model(
+                cache_scope = f"relationships:{(hf_data or {}).get('repo_id') or (hf_data or {}).get('model_id') or 'unknown'}"
+                raw = cached_sagemaker_chat(
                     system_prompt=system_prompt,
                     user_prompt=prompt,
-                    max_tokens=1024,
-                    temperature=0.1,
+                    cache_scope=cache_scope,
+                    max_tokens=384,
+                    service=sagemaker_service,
                 )
                 if raw:
-                    # Clean and parse JSON response
-                    cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.DOTALL)
-                    analysis_json = json.loads(cleaned)
-                    logger.info(f"Relationship analysis JSON parse succeeded on attempt {attempt} with SageMaker")
-                    break  # Success, stop retrying
+                    cleaned = extract_json_from_llm(raw)
+                    if cleaned:
+                        analysis_json = json.loads(cleaned)
+                        logger.info(
+                            f"Relationship analysis JSON parse succeeded on attempt {attempt} with SageMaker"
+                        )
+                        break  # Success, stop retrying
+                    logger.debug("Relationship analysis: SageMaker response lacked JSON payload")
             else:
                 logger.warning("SageMaker service not available (get_sagemaker_service returned None)")
 
@@ -199,6 +211,8 @@ async def analyze_artifact_relationships(
 
     # Calculate overall confidence
     overall_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.0
+    if not linked_datasets and not linked_code_repos:
+        overall_confidence = 0.0
 
     logger.info(
         f"LLM relationship analysis found {len(linked_datasets)} datasets, "

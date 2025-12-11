@@ -4,6 +4,11 @@ import json
 import logging
 import requests
 from src.models.model_types import EvalContext
+from src.metrics.llm_utils import (
+    reduce_readme_for_llm,
+    cached_sagemaker_chat,
+    extract_json_from_llm,
+)
 
 MAX_INPUT_CHARS = 7000
 api_key = os.getenv("GEMINI_API_KEY")
@@ -98,6 +103,7 @@ async def metric(ctx: EvalContext) -> float:
         return 0.0
 
     readme_content = readme_content[:MAX_INPUT_CHARS]
+    llm_ready_readme = reduce_readme_for_llm(readme_content)
 
     prompt = f"""
     You are analyzing the README of an ML model or dataset to detect performance-related claims.
@@ -144,7 +150,7 @@ async def metric(ctx: EvalContext) -> float:
 
     README Content:
     ---
-    {readme_content}
+    {llm_ready_readme}
     ---
     """
 
@@ -159,18 +165,23 @@ async def metric(ctx: EvalContext) -> float:
                 logging.info("SageMaker service available, attempting invocation")
                 system_prompt = "You are a very needed engineer analyzing README files for performance claims."
                 logging.info("Performance metric attempt %d with AWS SageMaker", attempt)
-                raw = sagemaker_service.invoke_chat_model(
+                cache_scope = f"performance:{ctx.url or hf.get('model_id') or hf.get('repo_id') or 'unknown'}"
+                raw = cached_sagemaker_chat(
                     system_prompt=system_prompt,
                     user_prompt=prompt,
-                    max_tokens=1024,
-                    temperature=0.1,
+                    cache_scope=cache_scope,
+                    max_tokens=384,
+                    service=sagemaker_service,
                 )
                 if raw:
-                    # clean + parse
-                    cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.DOTALL)
-                    analysis_json = json.loads(cleaned)
-                    logging.info("Performance metric JSON parse succeeded on attempt %d with SageMaker", attempt)
-                    break  # ✅ success, stop retrying
+                    cleaned = extract_json_from_llm(raw)
+                    if cleaned:
+                        analysis_json = json.loads(cleaned)
+                        logging.info(
+                            "Performance metric JSON parse succeeded on attempt %d with SageMaker", attempt
+                        )
+                        break  # ✅ success, stop retrying
+                    logging.debug("Performance metric: SageMaker returned non-JSON output, falling back")
             else:
                 logging.warning("SageMaker service not available (get_sagemaker_service returned None)")
 

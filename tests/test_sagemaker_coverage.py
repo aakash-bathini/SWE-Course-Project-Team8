@@ -12,7 +12,11 @@ from botocore.exceptions import ClientError, BotoCoreError
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.aws.sagemaker_llm import SageMakerLLMService, get_sagemaker_service
+from src.aws.sagemaker_llm import (
+    SageMakerLLMService,
+    get_sagemaker_service,
+    DEFAULT_CHAT_MAX_NEW_TOKENS,
+)
 
 
 class TestSageMakerLLMService:
@@ -302,7 +306,7 @@ class TestSageMakerLLMService:
             assert "<|eot_id|>" not in body["inputs"]
             # Check parameters
             assert "parameters" in body
-            assert body["parameters"]["max_new_tokens"] == 1024
+            assert body["parameters"]["max_new_tokens"] == DEFAULT_CHAT_MAX_NEW_TOKENS
             assert body["parameters"]["temperature"] == 0.1
             assert body["parameters"]["do_sample"] is True
 
