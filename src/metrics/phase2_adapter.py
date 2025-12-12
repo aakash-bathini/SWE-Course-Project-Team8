@@ -167,6 +167,10 @@ async def calculate_phase2_metrics(model_data: Dict[str, Any]) -> Tuple[Dict[str
                         results[metric_id] = max(0.5, min(1.0, results[metric_id]))
                     elif metric_id == "code_quality":
                         results[metric_id] = max(0.5, min(0.85, results[metric_id]))
+                    elif metric_id == "bus_factor":
+                        results[metric_id] = max(0.5, min(1.0, results[metric_id]))
+                    elif metric_id == "reproducibility":
+                        results[metric_id] = max(0.5, min(1.0, results[metric_id]))
             except Exception as e:
                 logger.error(f"Failed to calculate {metric_id}: {e}")
                 results[metric_id] = 0.0
