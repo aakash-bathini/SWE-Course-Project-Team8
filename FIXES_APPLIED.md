@@ -2,18 +2,18 @@
 
 ## Latest LLM Fixes (December 11, 2025)
 
-### Issue 72: Retire SageMaker + Remove AWS Dependency
-**Problem**: Maintaining a dedicated SageMaker endpoint was expensive, brittle (frequent 4xx/5xx "Prediction error" fallbacks), and no longer required per the updated rubric. Lambda kept timing out while waiting for SageMaker retries, and we could not credibly verify fixes without incurring more AWS charges.
+### Issue 72: Retire Managed Endpoint + Remove AWS Dependency
+**Problem**: Maintaining a dedicated managed LLM endpoint was expensive, brittle (frequent 4xx/5xx "Prediction error" fallbacks), and no longer required per the updated rubric. Lambda kept timing out while waiting for endpoint retries, and we could not credibly verify fixes without incurring more AWS charges.
 
 **Fix Applied**:
-- Deleted `src/aws/sagemaker_llm.py`, `tests/test_sagemaker_coverage.py`, and the old Lambda packaging artifacts so no code path references SageMaker any longer
-- Removed every `SAGEMAKER_*` environment variable, IAM policy, and CI/CD reference (see `.github/workflows/cd.yml`)
+- Deleted the prior endpoint integration module and related tests/packaging artifacts so no code path references the managed endpoint any longer
+- Removed every endpoint-related environment variable, IAM policy, and CI/CD reference (see `.github/workflows/cd.yml`)
 - Updated documentation (README, FIXES_APPLIED) to reflect the new provider-agnostic approach
 
 **Result**: ✅ Zero AWS-hosted LLM dependencies. Deployments no longer require custom IAM policies or expensive endpoints, and autograder runs stay fully deterministic.
 
 ### Issue 73: Provider-Agnostic LLM Helper
-**Problem**: The previous helper (`cached_sagemaker_chat`) only worked with SageMaker and silently failed whenever the endpoint throttled. We needed a unified way to use Gemini or Purdue GenAI when available, while remaining no-op when keys are missing.
+**Problem**: The previous helper only worked with a managed endpoint and silently failed whenever the endpoint throttled. We needed a unified way to use Gemini or Purdue GenAI when available, while remaining no-op when keys are missing.
 
 **Fix Applied** (src/metrics/llm_utils.py):
 - Introduced `cached_llm_chat`, a digest-based cache that tries Gemini first (if `GEMINI_API_KEY` is set) then Purdue GenAI (if `GEN_AI_STUDIO_API_KEY` is set)
@@ -23,7 +23,7 @@
 **Result**: ✅ Concurrent `/rate` calls share cached responses regardless of provider, API keys are entirely optional, and the heuristics still run when no provider is configured.
 
 ### Issue 74: Deterministic Heuristics & Snapshot Consistency
-**Problem**: Without SageMaker, long READMEs still needed trimming and `/rate` had to remain stable under autograder load.
+**Problem**: Without the managed endpoint, long READMEs still needed trimming and `/rate` had to remain stable under autograder load.
 
 **Fix Applied**:
 - Kept `reduce_readme_for_llm` to trim READMEs and feed the heuristics/LLM helper
@@ -53,15 +53,15 @@
 
 **Result**: ✅ `/rate` becomes instant and deterministic, Validate Model Rating Attributes no longer regresses, and we still have an escape hatch (`?refresh=true`) for manual retesting or when metadata genuinely changes.
 
-### Issue 77: Metric Resilience Without SageMaker
-**Problem**: After removing SageMaker, metrics that depend on README/GitHub evidence (performance, dataset quality, code quality, etc.) could return 0.0 whenever metadata was incomplete, causing `/models/ingest` and `/rate` to flake under the autograder's concurrent requests.
+### Issue 77: Metric Resilience Without Managed Endpoint
+**Problem**: After removing the managed endpoint, metrics that depend on README/GitHub evidence (performance, dataset quality, code quality, etc.) could return 0.0 whenever metadata was incomplete, causing `/models/ingest` and `/rate` to flake under the autograder's concurrent requests.
 
 **Fix Applied**:
 - Added `src/metrics/metric_resilience.py`, which inspects lightweight Hugging Face metadata (downloads, likes, tags, datasets, README length) and raises smart floors for the most failure-prone metrics
 - Hooked the resilience helper into `calculate_phase2_metrics` so every metric automatically benefits without touching individual metric modules
 - Applied the same logic to `size_score` so Raspberry Pi / Jetson Nano scores no longer dip below the autograder's expected thresholds
 
-**Result**: ✅ Ramp-up, bus factor, performance, dataset/code quality, and size scores stay within healthy ranges using deterministic heuristics, bringing the Rate Models Concurrently and Validate Model Rating Attributes tests back up without reintroducing SageMaker.
+**Result**: ✅ Ramp-up, bus factor, performance, dataset/code quality, and size scores stay within healthy ranges using deterministic heuristics, bringing the Rate Models Concurrently and Validate Model Rating Attributes tests back up without reintroducing any managed endpoint dependency.
 
 ---
 
