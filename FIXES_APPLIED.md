@@ -834,7 +834,7 @@ Conditional bucket creation - no config for us-east-1, required for other region
 
 ## Testing
 - **Local Tests**: 381/381 passing (100%)
-- **Code Coverage**: 70% (exceeds 60% requirement)
+- **Code Coverage**: 61% (exceeds 60% requirement)
 - **Test Files**: All updated to match current implementation
 
 ## Linting & Formatting
@@ -921,7 +921,7 @@ Conditional bucket creation - no config for us-east-1, required for other region
 1. **Autograder Score**: Improved from 154/317 (48.6%) to 222/317 (70.0%)
 2. **Test Groups Passing**: 6/10 test groups now at 100%
 3. **OpenAPI Compliance**: 100% compliant with v3.4.6
-4. **Code Quality**: 100% test pass rate, 70% coverage, no linting errors
+4. **Code Quality**: 100% test pass rate, 61% coverage, no linting errors
 5. **AWS Integration**: Fully deployed and functional
 
 ## ✅ Critical Fixes

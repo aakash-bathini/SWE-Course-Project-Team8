@@ -1374,7 +1374,7 @@ For questions or issues:
 - **CORS Configuration**: Frontend integration ready ✅
 - **Database**: SQLite with full schema ✅
 - **CI/CD Pipeline**: 5-stage pipeline with auto-testing ✅
-- **Test Coverage**: 60%+ with comprehensive test suite ✅
+- **Test Coverage**: 60%+ with comprehensive test suite ✅ (currently 61% locally via `pytest --cov`)
 - **Documentation**: Complete API docs ✅
 
 ---
@@ -1816,7 +1816,7 @@ All frontend components implemented with WCAG 2.1 AA compliance, Selenium tests 
 
 ## Test Evidence
 
-There are 32 test files in the `tests/` directory covering all features. Code coverage is 70% (above the 60% requirement). All tests pass.
+There are 30+ test files in the `tests/` directory covering all features. Code coverage is **61%** (above the 60% requirement). All tests pass.
 
 Key test files:
 - `tests/test_milestone2_features.py` - Phase 2 features
