@@ -594,6 +594,7 @@ _DANGEROUS_REGEX_SNIPPETS: List[re.Pattern[str]] = [
     re.compile(r"\(\?:\.\*\)\+"),  # (?:.*)+
     # Greedy ambiguous repeats anchored end-to-end (common bombs)
     re.compile(r"^\((?:[^()\\]|\\.)+\)\+$"),  # ^(a+)+$-like
+    re.compile(r"^\((?:[^()\\]|\\.)+\)\+\$?$"),  # (a+)+$ (optional $)
     # Additional patterns: multiple nested quantifiers like (a+)(a+)(a+)(a+)(a+)(a+)$
     re.compile(r"\([^)]+\+\)\{3,\}"),  # Three or more (something+)
     re.compile(r"\([^)]+\+\)\+.*\([^)]+\+\)\+"),  # Multiple nested quantifier groups
@@ -3211,7 +3212,9 @@ async def artifact_by_regex(
     logger.info(f"DEBUG_REGEX: Starting ReDoS runtime test for pattern='{raw_pattern}'")
     sys.stdout.flush()  # CRITICAL: Flush before potentially long-running test
     try:
-        test_string = "a" * 100 + "b"  # String that triggers backtracking in patterns like (a+)+$
+        # Use a longer string to reliably trigger catastrophic backtracking bombs like (a+)+$
+        # while still enforcing a hard timeout via _safe_eval_with_timeout.
+        test_string = "a" * 2000 + "b"
         # For exact match patterns, use fullmatch; for others, use search
         test_func = pattern.fullmatch if name_only else pattern.search
         test_start = time.monotonic()
@@ -6144,10 +6147,6 @@ async def model_artifact_rate(
                     artifact_url,
                     source_url,
                 )
-                if stored_type != "model":
-                    logger.warning(f"DEBUG_RATE:   Artifact {id} in-memory is not a model, type={stored_type}")
-                    sys.stdout.flush()
-                    raise HTTPException(status_code=400, detail="Not a model artifact.")
                 artifact_found = True
                 logger.info("DEBUG_RATE:   Valid model found in-memory")
             else:
@@ -6188,12 +6187,8 @@ async def model_artifact_rate(
                             artifact_url,
                             source_url,
                         )
-                        if artifact_type != "model":
-                            logger.warning(f"DEBUG_RATE:   Artifact {id} in S3 is not a model, type={artifact_type}")
-                            sys.stdout.flush()
-                            raise HTTPException(status_code=400, detail="Not a model artifact.")
                         artifact_found = True
-                        logger.info("DEBUG_RATE:   Valid model found in S3")
+                        logger.info("DEBUG_RATE:   Artifact found in S3 (rating supported for any type)")
                     else:
                         logger.info(f"DEBUG_RATE:   NOT FOUND in S3 for id={id} (returned None)")
                 except HTTPException:
