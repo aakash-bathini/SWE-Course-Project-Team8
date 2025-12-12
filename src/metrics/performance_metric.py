@@ -162,7 +162,19 @@ async def metric(ctx: EvalContext) -> float:
 
                 client = genai.Client()
                 logging.info("Performance metric attempt %d with Gemini", attempt)
-                response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+                # Best-effort tuning of inference parameters; fall back if SDK rejects config.
+                try:
+                    response = client.models.generate_content(
+                        model="gemini-2.0-flash",
+                        contents=prompt,
+                        config={
+                            "temperature": 0.15,
+                            "top_p": 0.9,
+                            "max_output_tokens": 512,
+                        },
+                    )
+                except Exception:
+                    response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
                 raw = response.text
             elif purdue_api_key:
                 url = "https://genai.rcac.purdue.edu/api/chat/completions"
@@ -181,6 +193,8 @@ async def metric(ctx: EvalContext) -> float:
                     ],
                     "stream": False,
                     "max_tokens": 1024,
+                    "temperature": 0.15,
+                    "top_p": 0.9,
                 }
                 logging.info("Performance metric attempt %d with Purdue GenAI", attempt)
                 purdue_response = requests.post(url, headers=headers, json=body)

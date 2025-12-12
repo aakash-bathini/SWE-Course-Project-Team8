@@ -6226,12 +6226,8 @@ async def model_artifact_rate(
                                 artifact_name,
                                 artifact_url,
                             )
-                            if art.type != "model":
-                                logger.warning(f"DEBUG_RATE:   Artifact {id} in SQLite is not a model, type={art.type}")
-                                sys.stdout.flush()
-                                raise HTTPException(status_code=400, detail="Not a model artifact.")
                             artifact_found = True
-                            logger.info("DEBUG_RATE:   Valid model found in SQLite")
+                            logger.info("DEBUG_RATE:   Artifact found in SQLite (rating supported for any type)")
                         else:
                             logger.info(f"DEBUG_RATE:   NOT FOUND in SQLite for id={id}")
                 except HTTPException:

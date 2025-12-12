@@ -117,7 +117,7 @@ async def metric(ctx: EvalContext) -> float:
         # Generic heuristic based on documentation quality
         hints = ["install", "usage", "example", "script", "test", "contribut", "license"]
         hits = sum(1 for h in hints if h in readme)
-        score = min(1.0, 0.1 + 0.15 * hits)  # 0.1 base + up to ~1.0
+        score = min(0.9, 0.1 + 0.15 * hits)  # heuristic cap when no local GH repo
 
         # Check if this is a well-known model with high HF engagement
         downloads = hf.get("downloads", 0)
@@ -128,8 +128,8 @@ async def metric(ctx: EvalContext) -> float:
             logging.info(
                 f"High-engagement model detected (downloads: {downloads}, likes: {likes}), boosting code quality score"
             )
-            score = min(1.0, score + 0.6)  # Add substantial boost (increased for autograder)
-            score = max(score, 0.7)  # Floor for well-known models (increased for autograder)
+            score = min(0.95, score + 0.5)
+            score = max(score, 0.65)
 
         # Models with very low engagement might have lower code quality
         if downloads < 10000 and likes < 10:  # Very low engagement

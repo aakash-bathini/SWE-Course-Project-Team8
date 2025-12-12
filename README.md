@@ -1849,6 +1849,11 @@ Coverage reports are in `htmlcov/` (run `pytest --cov` to generate). Every repor
 
 LLMs are optional helpers rather than hard dependencies. Every metric has deterministic heuristics so `/rate` keeps working (and keeps scores consistent for the autograder) even when no external API credentials are configured.
 
+We intentionally tune inference parameters to improve determinism and reduce malformed outputs:
+- **temperature**: low (e.g., 0.15) to reduce randomness
+- **top_p**: conservative (e.g., 0.9) to limit sampling
+- **max_tokens** / output limits: capped per task
+
 **1. README analysis for performance claims (`src/metrics/performance_metric.py`):**  
 Uses the provider-agnostic `cached_llm_chat` helper to hit Google Gemini or Purdue GenAI **only if** API keys are present. The helper condenses each README to ~4K high-signal characters, caches responses for concurrent `/rate` calls, and then parses the JSON via `extract_json_from_llm`. When no providers are available, the metric falls back to Hugging Face metadata + README heuristics (numbers, benchmarks, tables) so every artifact still receives a stable score.
 
