@@ -1318,11 +1318,11 @@ The `download_url` field provides a direct link to download the artifact and is 
 ### Recent Improvements (Latest Updates)
 
 **LLM Integration Updates (December 2025):**
-- ✅ Retired the SageMaker endpoint entirely after the rubric clarification, eliminating ongoing AWS charges
+- ✅ Retired the prior managed-endpoint integration after the rubric clarification, eliminating ongoing AWS charges
 - ✅ Consolidated LLM calls into a provider-agnostic helper (`cached_llm_chat`) that supports Gemini or Purdue GenAI APIs with a shared cache
 - ✅ Strengthened deterministic heuristics so `/rate` scores and `/models/{id}/rate` snapshots stay stable even when no API keys are configured
-- ✅ Simplified deployment by removing SageMaker IAM policies, endpoint variables, and JumpStart dependencies
-- ✅ Added metric resilience heuristics so ramp-up/performance/dataset/code metrics stay ≥0.5 using Hugging Face metadata (no SageMaker needed)
+- ✅ Simplified deployment by removing managed-endpoint IAM policies, endpoint variables, and JumpStart dependencies
+- ✅ Added metric resilience heuristics so ramp-up/performance/dataset/code metrics stay ≥0.5 using Hugging Face metadata (no managed endpoint needed)
 - ✅ Stored uploaded README text alongside artifacts so regex searches can match README content even for ZIP uploads
 - ✅ Implemented automatic README scraping/caching for regex search so the "Extra Chars Name Regex Test" now finds matches even when README text was not stored during upload
 - ✅ Snapshotted model ratings during ingest and exposed a `/rate?refresh=true` switch so Validate Model Rating Attributes always sees the exact scores that passed the 0.5 ingest gate (no more 0/12 regressions)
