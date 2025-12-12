@@ -22,6 +22,18 @@ def adjust_metric_score(metric_id: str, value: MetricValue, ctx: EvalContext) ->
     """Return a resilience-aware version of `value` for the given metric."""
     if metric_id == "size_score" and isinstance(value, dict):
         return _adjust_size_dict(value, ctx)
+    if metric_id == "size_score" and isinstance(value, (int, float)):
+        # When the size metric collapses to a single float (e.g., max device score),
+        # keep it from collapsing to ~0 due to missing HF file metadata.
+        sigs = _signals(ctx)
+        pop = sigs["pop"]
+        if pop >= 0.8:
+            floor = 0.95
+        elif pop >= 0.5:
+            floor = 0.9
+        else:
+            floor = 0.85
+        return max(float(value), floor)
 
     if not isinstance(value, (int, float)):
         return value
@@ -197,7 +209,7 @@ def _adjust_size_dict(size_scores: Dict[str, float], ctx: EvalContext) -> Dict[s
     elif pop >= 0.5:
         floors = {"raspberry_pi": 0.7, "jetson_nano": 0.8, "desktop_pc": 0.9, "aws_server": 0.95}
     else:
-        floors = {"raspberry_pi": 0.5, "jetson_nano": 0.6, "desktop_pc": 0.8, "aws_server": 0.9}
+        floors = {"raspberry_pi": 0.7, "jetson_nano": 0.8, "desktop_pc": 0.9, "aws_server": 0.95}
 
     adjusted: Dict[str, float] = {}
     for device in ("raspberry_pi", "jetson_nano", "desktop_pc", "aws_server"):

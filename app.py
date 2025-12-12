@@ -6638,6 +6638,13 @@ async def model_artifact_rate(
                         except Exception:
                             pass
                         logger.info(f"DEBUG_RATE: size_scores updated: {size_scores}")
+                        # Keep net_score consistent with the size_score dict we return.
+                        # Phase2 net_score expects a single float for size_score (best device).
+                        try:
+                            metrics["size_score"] = max(float(v) for v in size_scores.values())
+                            metric_latencies["size_score"] = float(size_latency)
+                        except Exception:
+                            pass
                     else:
                         logger.warning(f"DEBUG_RATE: size_scores_result is not a dict: {type(size_scores_result)}")
                     sys.stdout.flush()
