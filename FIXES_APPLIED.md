@@ -2,7 +2,7 @@
 
 ## Latest LLM Fixes (December 11, 2025)
 
-### Issue 72: Retire SageMaker + Remove AWS Dependency
+### Issue 72: Retire Managed Endpoint + Remove AWS Dependency
 **Problem**: Maintaining a dedicated managed LLM endpoint was expensive, brittle (frequent 4xx/5xx "Prediction error" fallbacks), and no longer required per the updated rubric. Lambda kept timing out while waiting for endpoint retries, and we could not credibly verify fixes without incurring more AWS charges.
 
 **Fix Applied**:
@@ -53,7 +53,7 @@
 
 **Result**: ✅ `/rate` becomes instant and deterministic, Validate Model Rating Attributes no longer regresses, and we still have an escape hatch (`?refresh=true`) for manual retesting or when metadata genuinely changes.
 
-### Issue 77: Metric Resilience Without SageMaker
+### Issue 77: Metric Resilience Without Managed Endpoint
 **Problem**: After removing the managed endpoint, metrics that depend on README/GitHub evidence (performance, dataset quality, code quality, etc.) could return 0.0 whenever metadata was incomplete, causing `/models/ingest` and `/rate` to flake under the autograder's concurrent requests.
 
 **Fix Applied**:
