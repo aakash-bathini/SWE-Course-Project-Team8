@@ -6627,24 +6627,7 @@ async def model_artifact_rate(
                         for field in required_fields:
                             if field not in size_scores:
                                 size_scores[field] = 1.0  # Default to 1.0 if missing
-                        # Apply resilience floors to the size_score dict as well so the response matches
-                        # the Phase2 adapter behavior (and stays stable when HF metadata is sparse).
-                        try:
-                            from src.metrics.metric_resilience import adjust_metric_score
-
-                            adjusted_size = adjust_metric_score("size_score", size_scores, ctx)
-                            if isinstance(adjusted_size, dict):
-                                size_scores = adjusted_size
-                        except Exception:
-                            pass
                         logger.info(f"DEBUG_RATE: size_scores updated: {size_scores}")
-                        # Keep net_score consistent with the size_score dict we return.
-                        # Phase2 net_score expects a single float for size_score (best device).
-                        try:
-                            metrics["size_score"] = max(float(v) for v in size_scores.values())
-                            metric_latencies["size_score"] = float(size_latency)
-                        except Exception:
-                            pass
                     else:
                         logger.warning(f"DEBUG_RATE: size_scores_result is not a dict: {type(size_scores_result)}")
                     sys.stdout.flush()

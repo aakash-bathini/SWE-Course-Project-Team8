@@ -1,14 +1,13 @@
 import re
+import os
 import json
 import logging
+import requests
 from src.models.model_types import EvalContext
-from src.metrics.llm_utils import (
-    reduce_readme_for_llm,
-    cached_llm_chat,
-    extract_json_from_llm,
-)
 
 MAX_INPUT_CHARS = 7000
+api_key = os.getenv("GEMINI_API_KEY")
+purdue_api_key = os.getenv("GEN_AI_STUDIO_API_KEY")
 
 
 async def metric(ctx: EvalContext) -> float:
@@ -99,7 +98,6 @@ async def metric(ctx: EvalContext) -> float:
         return 0.0
 
     readme_content = readme_content[:MAX_INPUT_CHARS]
-    llm_ready_readme = reduce_readme_for_llm(readme_content)
 
     prompt = f"""
     You are analyzing the README of an ML model or dataset to detect performance-related claims.
@@ -146,30 +144,53 @@ async def metric(ctx: EvalContext) -> float:
 
     README Content:
     ---
-    {llm_ready_readme}
+    {readme_content}
     ---
     """
 
     analysis_json = None
-    cache_scope = f"performance:{ctx.url or hf.get('model_id') or hf.get('repo_id') or 'unknown'}"
-    for attempt in range(1, 3):
+    for attempt in range(1, 4):  # up to 3 attempts
         try:
-            system_prompt = "You are a very needed engineer analyzing README files for performance claims."
-            raw = cached_llm_chat(
-                system_prompt=system_prompt,
-                user_prompt=prompt,
-                cache_scope=cache_scope,
-                max_tokens=384,
-            )
-            if not raw:
-                continue
-            cleaned = extract_json_from_llm(raw)
-            if not cleaned:
-                logging.debug("Performance metric: LLM response lacked JSON payload (attempt %d)", attempt)
-                continue
+            if api_key:
+                from google import genai
+
+                client = genai.Client()
+                logging.info("Performance metric attempt %d with Gemini", attempt)
+                response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+                raw = response.text
+            else:
+                url = "https://genai.rcac.purdue.edu/api/chat/completions"
+                headers = {
+                    "Authorization": f"Bearer {purdue_api_key}",
+                    "Content-Type": "application/json",
+                }
+                body = {
+                    "model": "llama4:latest",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are a very needed engineer analyzing README files for performance claims.",
+                        },
+                        {"role": "user", "content": prompt},
+                    ],
+                    "stream": False,
+                    "max_tokens": 1024,
+                }
+                logging.info("Performance metric attempt %d with Purdue GenAI", attempt)
+                purdue_response = requests.post(url, headers=headers, json=body)
+                purdue_data = purdue_response.json()
+                raw_content = purdue_data["choices"][0]["message"]["content"]
+                raw = str(raw_content) if raw_content is not None else None
+
+            # clean + parse
+            if raw is not None:
+                cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.DOTALL)
+            else:
+                cleaned = ""
             analysis_json = json.loads(cleaned)
             logging.info("Performance metric JSON parse succeeded on attempt %d", attempt)
-            break
+            break  # ✅ success, stop retrying
+
         except Exception as e:
             logging.debug("Performance metric attempt %d failed: %s", attempt, e)
             continue  # try again
