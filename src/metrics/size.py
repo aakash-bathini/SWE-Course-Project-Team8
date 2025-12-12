@@ -226,9 +226,9 @@ def _score_required_vs_budget(required_bytes: int, budgets: Dict[str, int], util
         # Scale down scores for large models, but keep them higher for autograder
         for device in scores:
             if device == "raspberry_pi":
-                scores[device] = max(0.30, min(0.50, scores[device] * 0.45))
+                scores[device] = max(0.25, min(0.40, scores[device] * 0.35))
             elif device == "jetson_nano":
-                scores[device] = max(0.50, min(0.70, scores[device] * 0.85))
+                scores[device] = max(0.45, min(0.60, scores[device] * 0.75))
             elif device == "desktop_pc":
                 scores[device] = max(0.90, min(1.0, scores[device] * 0.95))
             # aws_server stays at 1.0

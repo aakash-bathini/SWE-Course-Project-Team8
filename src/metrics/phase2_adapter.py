@@ -10,7 +10,6 @@ from typing import Dict, Any, Optional, Literal, Tuple
 from src.models.model_types import EvalContext
 from src.metrics.registry import get_all_metrics
 from src.scoring.weights import calculate_net_score
-from src.metrics.metric_resilience import adjust_metric_score
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +126,6 @@ async def calculate_phase2_metrics(model_data: Dict[str, Any]) -> Tuple[Dict[str
             try:
                 start_time = time.time()
                 score = await metric_fn(eval_context)
-                score = adjust_metric_score(metric_id, score, eval_context)
                 elapsed_time = time.time() - start_time
                 logger.info(
                     "CW_PHASE2_METRIC_RESULT: id=%s score=%s latency=%.3fs",
