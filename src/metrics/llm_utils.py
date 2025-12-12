@@ -91,6 +91,7 @@ def cached_llm_chat(
     cache_scope: str,
     max_tokens: int = 384,
     temperature: float = 0.15,
+    top_p: float = 0.9,
 ) -> Optional[str]:
     """
     Invoke an external LLM provider (Gemini or Purdue GenAI) with a small in-memory cache so
@@ -98,7 +99,7 @@ def cached_llm_chat(
     """
 
     digest = hashlib.sha256(
-        f"{cache_scope}:{system_prompt}:{user_prompt}:{max_tokens}:{temperature}".encode("utf-8")
+        f"{cache_scope}:{system_prompt}:{user_prompt}:{max_tokens}:{temperature}:{top_p}".encode("utf-8")
     ).hexdigest()
     cached = _cache_get(digest)
     if cached is not None:
@@ -116,7 +117,7 @@ def cached_llm_chat(
         return None
 
     for name, provider in providers:
-        raw = provider(system_prompt, user_prompt, max_tokens, temperature)
+        raw = provider(system_prompt, user_prompt, max_tokens, temperature, top_p)
         if raw:
             _cache_set(digest, raw)
             logger.info(
@@ -162,6 +163,7 @@ def _invoke_gemini(
     user_prompt: str,
     max_tokens: int,
     temperature: float,
+    top_p: float = 0.9,
 ) -> Optional[str]:
     if not _GEMINI_KEY:
         return None
@@ -170,10 +172,22 @@ def _invoke_gemini(
 
         client = genai.Client(api_key=_GEMINI_KEY)
         full_prompt = f"{system_prompt.strip()}\n\n{user_prompt.strip()}"
-        response = client.models.generate_content(
-            model=_GEMINI_MODEL,
-            contents=full_prompt,
-        )
+        # Best-effort generation config. If the SDK doesn't support these kwargs, fall back safely.
+        try:
+            response = client.models.generate_content(
+                model=_GEMINI_MODEL,
+                contents=full_prompt,
+                config={
+                    "temperature": temperature,
+                    "top_p": top_p,
+                    "max_output_tokens": max_tokens,
+                },
+            )
+        except Exception:
+            response = client.models.generate_content(
+                model=_GEMINI_MODEL,
+                contents=full_prompt,
+            )
         return getattr(response, "text", None)
     except Exception as exc:
         logger.warning("Gemini invocation failed: %s", exc)
@@ -185,6 +199,7 @@ def _invoke_purdue(
     user_prompt: str,
     max_tokens: int,
     temperature: float,
+    top_p: float = 0.9,
 ) -> Optional[str]:
     if not _PURDUE_KEY:
         return None
@@ -203,6 +218,7 @@ def _invoke_purdue(
             "stream": False,
             "max_tokens": max_tokens,
             "temperature": temperature,
+            "top_p": top_p,
         }
         response = requests.post(url, headers=headers, json=body, timeout=30)
         response.raise_for_status()

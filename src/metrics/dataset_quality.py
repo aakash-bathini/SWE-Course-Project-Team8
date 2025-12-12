@@ -77,4 +77,7 @@ async def metric(ctx: EvalContext) -> float:
         model_ds_score = max(0.35, model_ds_score * 0.85)
         logging.info("Very low engagement model detected, applying minimum floor to dataset quality score")
 
+    # Conservative floor for model dataset_quality to reduce under-scoring when metadata is sparse.
+    model_ds_score = max(0.35, model_ds_score)
+
     return round(max(0.0, min(1.0, model_ds_score)), 2)

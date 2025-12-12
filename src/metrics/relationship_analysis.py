@@ -110,6 +110,8 @@ async def analyze_artifact_relationships(
                 user_prompt=prompt,
                 cache_scope=cache_scope,
                 max_tokens=384,
+                temperature=0.15,
+                top_p=0.9,
             )
             if not raw:
                 continue
