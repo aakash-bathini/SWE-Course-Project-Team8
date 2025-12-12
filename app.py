@@ -6343,7 +6343,6 @@ async def model_artifact_rate(
                         # Parse if stored as JSON string
                         if isinstance(hf_list, str):
                             try:
-                                import json
                                 hf_list = json.loads(hf_list)
                             except Exception:
                                 hf_list = []
@@ -6353,7 +6352,6 @@ async def model_artifact_rate(
                                 hf_data = first
                             elif isinstance(first, str):
                                 try:
-                                    import json
                                     parsed = json.loads(first)
                                     if isinstance(parsed, dict):
                                         hf_data = parsed
@@ -6363,7 +6361,6 @@ async def model_artifact_rate(
                         # Parse if stored as JSON string
                         if isinstance(gh_list, str):
                             try:
-                                import json
                                 gh_list = json.loads(gh_list)
                             except Exception:
                                 gh_list = []
@@ -6373,7 +6370,6 @@ async def model_artifact_rate(
                                 gh_profile = first_gh
                             elif isinstance(first_gh, str):
                                 try:
-                                    import json
                                     parsed = json.loads(first_gh)
                                     if isinstance(parsed, dict):
                                         gh_profile = parsed
@@ -6390,7 +6386,6 @@ async def model_artifact_rate(
                                 # Parse if stored as JSON string
                                 if isinstance(hf_list, str):
                                     try:
-                                        import json
                                         hf_list = json.loads(hf_list)
                                     except Exception:
                                         hf_list = []
@@ -6400,7 +6395,6 @@ async def model_artifact_rate(
                                         hf_data = first
                                     elif isinstance(first, str):
                                         try:
-                                            import json
                                             parsed = json.loads(first)
                                             if isinstance(parsed, dict):
                                                 hf_data = parsed
@@ -6411,7 +6405,6 @@ async def model_artifact_rate(
                                 # Parse if stored as JSON string
                                 if isinstance(gh_list, str):
                                     try:
-                                        import json
                                         gh_list = json.loads(gh_list)
                                     except Exception:
                                         gh_list = []
@@ -6421,7 +6414,6 @@ async def model_artifact_rate(
                                         gh_profile = first_gh
                                     elif isinstance(first_gh, str):
                                         try:
-                                            import json
                                             parsed = json.loads(first_gh)
                                             if isinstance(parsed, dict):
                                                 gh_profile = parsed
