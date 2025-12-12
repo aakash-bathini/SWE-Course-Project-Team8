@@ -64,7 +64,7 @@ location.reload();
 
 ## API overview
 
-The OpenAPI file is `ece461_fall_2025_openapi_spec.yaml` and the backend serves Swagger UI at `/docs`.
+The backend serves Swagger UI at `/docs`.
 
 Common endpoints:
 - `DELETE /reset`
