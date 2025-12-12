@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from typing import Dict, Any, Optional, List
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
@@ -217,12 +218,29 @@ class S3Storage:
             # Ensure metadata is JSON-serializable (handles HF ModelCardData/DatasetCardData)
             safe_metadata = _make_json_safe(metadata)
             metadata_json = json.dumps(safe_metadata, indent=2)
-            self.s3_client.put_object(
-                Bucket=self.bucket_name,
-                Key=key,
-                Body=metadata_json,
-                ContentType="application/json",
-            )
+            # A small retry loop helps reduce rare transient S3 failures and prevents
+            # downstream flakiness in concurrent /rate calls.
+            last_exc: Optional[Exception] = None
+            for attempt in range(3):
+                try:
+                    self.s3_client.put_object(
+                        Bucket=self.bucket_name,
+                        Key=key,
+                        Body=metadata_json,
+                        ContentType="application/json",
+                    )
+                    # Verify write succeeded (best-effort)
+                    try:
+                        self.s3_client.head_object(Bucket=self.bucket_name, Key=key)
+                    except Exception:
+                        pass
+                    last_exc = None
+                    break
+                except Exception as exc:
+                    last_exc = exc
+                    time.sleep(0.05 * (2**attempt))
+            if last_exc is not None:
+                raise last_exc
             if logger:
                 logger.info(f"✅ Successfully saved artifact metadata to S3: {key} (artifact_id={artifact_id})")
             return True
@@ -255,11 +273,33 @@ class S3Storage:
 
         try:
             key = f"artifacts/{artifact_id}/metadata.json"
-            response = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
-            metadata = json.loads(response["Body"].read().decode("utf-8"))
-            if logger:
-                logger.info(f"✅ Retrieved artifact metadata from S3: {key} (artifact_id={artifact_id})")
-            return metadata
+            # Best-effort retry reduces flakes when an immediate read follows a write.
+            last_client_error: Optional[ClientError] = None
+            for attempt in range(3):
+                try:
+                    response = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
+                    payload = response["Body"].read().decode("utf-8")
+                    metadata = json.loads(payload)
+                    if logger:
+                        logger.info(f"✅ Retrieved artifact metadata from S3: {key} (artifact_id={artifact_id})")
+                    return metadata
+                except ClientError as e:
+                    last_client_error = e
+                    error_code = e.response.get("Error", {}).get("Code", "")
+                    if error_code != "NoSuchKey":
+                        raise
+                    time.sleep(0.05 * (2**attempt))
+
+            # If still missing after retries, treat as not found
+            if last_client_error is not None:
+                error_code = last_client_error.response.get("Error", {}).get("Code", "")
+                if error_code == "NoSuchKey":
+                    if logger:
+                        logger.warning(f"⚠️ Artifact not found in S3: {key} (artifact_id={artifact_id})")
+                    return None
+                raise last_client_error
+
+            return None
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
             if error_code == "NoSuchKey":
