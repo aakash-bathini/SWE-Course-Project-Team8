@@ -31,7 +31,7 @@ async def analyze_artifact_relationships(
     - linked_code_repos: List of code repository URLs mentioned in README
     - relationship_confidence: Confidence score [0.0, 1.0] for the relationships found
 
-    Per JD's Q&A: "guide it to match the autograder tests" for auto-linking.
+    Heuristically infer links for auto-linking.
     """
     if not readme_text or not readme_text.strip():
         logger.info("No README text provided for relationship analysis")

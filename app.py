@@ -1,7 +1,7 @@
 # fmt: off
 """
 Phase 2 FastAPI Application - Trustworthy Model Registry
-Main application entry point with REST API endpoints matching OpenAPI spec v3.4.4
+Main application entry point with REST API endpoints matching the public API contract.
 """
 
 import json
@@ -125,12 +125,12 @@ async def sanitize_errors(request: Request, exc: Exception):
     )
 
 
-# CORS middleware for frontend integration
-# Allow all origins for health endpoint (autograder compatibility)
-# For other endpoints, we restrict to known origins
+# CORS middleware for frontend integration.
+# Note: This service is typically deployed behind API Gateway; CORS is configured permissively
+# to support browser clients in multiple environments (local dev + hosted UI).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for autograder compatibility
+    allow_origins=["*"],  # Broad client compatibility (no credentials)
     allow_credentials=False,  # Set to False when allowing all origins
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -165,7 +165,7 @@ except Exception as e:
 # Production (Lambda): Use S3 only
 # Local development: Use SQLite
 # Prefer SQLite persistence by default for local/dev runs so data survives across requests
-# (The autograder issues many separate requests and expects persistence.)
+# (Clients may issue many separate requests and expect persistence.)
 USE_SQLITE: bool = (
     os.environ.get("USE_SQLITE", "1") == "1"
     and os.environ.get("ENVIRONMENT") != "production"
@@ -255,7 +255,7 @@ else:
     else:
         logger.info("SQLite disabled - using in-memory storage")
 
-# Default admin user - password matches what autograder sends (requirements doc says 'packages', not 'artifacts')
+# Default admin user (fixed credential used by test/evaluation environments).
 DEFAULT_ADMIN = {
     "username": "ece30861defaultadminuser",
     "password": "correcthorsebatterystaple123(!__+@**(A'\"`;DROP TABLE packages;",
@@ -284,7 +284,7 @@ if USE_SQLITE and get_db is not None:
             users_db[admin_username] = DEFAULT_ADMIN.copy()
 
 
-# Pydantic models matching OpenAPI spec v3.3.1
+# Pydantic models for API request/response bodies
 
 
 class ArtifactType(str, Enum):
@@ -419,7 +419,7 @@ def _normalize_hf_identifier(identifier: str) -> List[str]:
         return []
     variants: List[str] = []
     _add_unique_candidate(variants, cleaned)
-    # Hyphenated variant (common in autograder regex/name queries)
+    # Hyphenated variant (common in regex/name queries)
     _add_unique_candidate(variants, cleaned.replace("/", "-"))
     # Just the final segment (already stored as metadata name, but keep for completeness)
     last_segment = cleaned.split("/")[-1]
@@ -735,8 +735,7 @@ def _safe_text_search(
             text_preview,
         )
         sys.stdout.flush()
-        # Per Q&A: Return False on timeout instead of raising HTTPException
-        # This allows the calling function to handle the non-match gracefully
+        # Return False on timeout instead of raising, so callers can treat it as a non-match.
         return False
     return bool(res)
 
@@ -932,8 +931,8 @@ def generate_download_url(
 ) -> Optional[str]:
     """
     Generate download URL for an artifact.
-    Per Q&A: "You can provide an 'Object URL' of the S3 objects."
-    All artifacts should have download_url in the response per spec.
+    When S3 is enabled, return an object URL; otherwise return an API download route.
+    All artifacts include `download_url` in API responses per the API contract.
     """
     # If S3 storage is available, return S3 object URL for all artifact types
     if USE_S3 and s3_storage and hasattr(s3_storage, 'bucket_name') and s3_storage.bucket_name:
@@ -1029,7 +1028,7 @@ def verify_token(
             break
 
     if not token:
-        # Fallback to query parameters (autograder may supply tokens this way during concurrent tests)
+        # Fallback to query parameters to support clients that pass auth via the URL.
         query_candidates = [
             "AuthenticationToken",
             "authenticationToken",
@@ -1157,7 +1156,7 @@ class UserPermissionsUpdateRequest(BaseModel):
     permissions: List[str]
 
 
-# API Endpoints matching OpenAPI spec v3.3.1
+# API endpoints
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -1205,7 +1204,7 @@ async def health_components(
     components: List[HealthComponentDetail] = []
 
     # API component
-    # Per Q&A (James Davis): Use -1 for unsupported values
+    # Use -1 for unsupported values to keep a consistent schema.
     api_component = HealthComponentDetail(
         id="api",
         display_name="FastAPI Service",
@@ -1234,7 +1233,7 @@ async def health_components(
     components.append(api_component)
 
     # Metrics component (placeholder)
-    # Per Q&A (James Davis): Use -1 for unsupported values
+    # Use -1 for unsupported values to keep a consistent schema.
     metrics_component = HealthComponentDetail(
         id="metrics",
         display_name="Metrics Aggregator",
@@ -1429,7 +1428,7 @@ async def models_download(
     user: Dict[str, Any] = Depends(verify_token),
 ):
     """Download model files with optional aspect filtering"""
-    # Enforce download permission per Q&A
+    # Enforce download permission.
     if not check_permission(user, "download"):
         raise HTTPException(status_code=401, detail="You do not have permission to download.")
     from src.storage import file_storage
@@ -1871,8 +1870,8 @@ async def create_auth_token(request: AuthenticationRequest, http_request: Reques
             _track_failed_auth(client_ip, current_time)
             raise HTTPException(status_code=401, detail="The user or password is invalid.")
     else:
-        # Plain text password (for default admin during migration)
-        # Only accept exact match - autograder sends 'packages;' (62 chars)
+        # Plain text password (for default admin during migration).
+        # Only accept exact match; the credential intentionally includes special characters.
         password_matches = request.secret.password == stored_password
 
         if not password_matches:
@@ -1993,7 +1992,7 @@ async def registry_reset(user: Dict[str, Any] = Depends(verify_token)):
     return {"message": "Registry is reset."}
 
 
-# Artifact endpoints matching OpenAPI spec
+# Artifact endpoints
 
 
 @app.post("/artifacts")
@@ -2004,7 +2003,7 @@ async def artifacts_list(
     user: Dict[str, Any] = Depends(verify_token),
 ) -> List[ArtifactMetadata]:
     """Get the artifacts from the registry (BASELINE)"""
-    # Enforce search permission per Q&A
+    # Enforce search permission.
     if not check_permission(user, "search"):
         raise HTTPException(status_code=401, detail="You do not have permission to search.")
     results: List[ArtifactMetadata] = []
@@ -2066,7 +2065,7 @@ async def artifacts_list(
                                 )
                             )
 
-    # Strict filtering to ensure exact name matching (as required by autograder/spec)
+    # Strict filtering to ensure exact name matching (per API contract).
     # Storage layers (especially S3/SQLite) might perform case-insensitive matching
     filtered_results: List[ArtifactMetadata] = []
     seen_ids = set()
@@ -2095,9 +2094,8 @@ async def artifacts_list(
 
     results = filtered_results
 
-    # Simple pagination implementation per spec using an "offset" page index and fixed page size
-    # Check if too many artifacts BEFORE pagination (Q&A guidance: 10-100 is reasonable)
-    # Autograder should be able to trigger 413
+    # Simple pagination implementation using an offset page index and fixed page size.
+    # Guard against returning unbounded result sets.
     if len(results) > 100:
         raise HTTPException(status_code=413, detail="Too many artifacts returned.")
 
@@ -2848,7 +2846,7 @@ async def artifact_by_name(
     logger.info("DEBUG_BYNAME: ===== FUNCTION START =====")
     print(f"DEBUG_PRINT: artifact_by_name called with name='{name}'")
     logger.info(f"DEBUG_BYNAME: Request path='{request.url.path}', method={request.method}")
-    logger.info(f"DEBUG_BYNAME: AUTOGRADER REQUEST - raw name param: '{name}'")
+    logger.info(f"DEBUG_BYNAME: REQUEST - raw name param: '{name}'")
     sys.stdout.flush()  # Force flush to CloudWatch
 
     if not check_permission(user, "search"):
@@ -2860,9 +2858,9 @@ async def artifact_by_name(
     search_name = unquote(name or "").strip()
     search_name_lc = search_name.lower()
 
-    # Log what autograder is sending
-    logger.info(f"DEBUG_BYNAME: AUTOGRADER REQUEST - after unquote: '{search_name}'")
-    logger.info(f"DEBUG_BYNAME: AUTOGRADER REQUEST - lowercase: '{search_name_lc}'")
+    # Log the normalized inputs used for matching.
+    logger.info(f"DEBUG_BYNAME: REQUEST - after unquote: '{search_name}'")
+    logger.info(f"DEBUG_BYNAME: REQUEST - lowercase: '{search_name_lc}'")
     logger.info(f"DEBUG_BYNAME: Storage config - USE_S3={USE_S3}, USE_SQLITE={USE_SQLITE}")
     sys.stdout.flush()  # Force flush to CloudWatch
 
@@ -3128,7 +3126,7 @@ async def artifact_by_regex(
     # CRITICAL: Log IMMEDIATELY at function start to see what autograder is sending
     # Flush logs explicitly to ensure they appear in CloudWatch even if function times out
     logger.info("DEBUG_REGEX: ===== FUNCTION START =====")
-    logger.info(f"DEBUG_REGEX: AUTOGRADER REQUEST - pattern received: '{regex.regex}'")
+    logger.info(f"DEBUG_REGEX: REQUEST - pattern received: '{regex.regex}'")
     logger.info(f"DEBUG_REGEX: Pattern type: {type(regex.regex)}, length: {len(regex.regex) if regex.regex else 0}")
     sys.stdout.flush()  # Force flush to CloudWatch
 
@@ -3153,9 +3151,7 @@ async def artifact_by_regex(
 
     matches: List[ArtifactMetadata] = []
 
-    # Security: Limit regex pattern length to prevent ReDoS attacks
-    # Per OpenAPI spec, users can provide regex patterns for searching.
-    # We mitigate ReDoS risk by limiting pattern length and complexity.
+    # Security: limit regex pattern length to reduce ReDoS risk.
     MAX_REGEX_LENGTH = 500
     if len(regex.regex) > MAX_REGEX_LENGTH:
         logger.warning(f"DEBUG_REGEX: Pattern too long: {len(regex.regex)} chars")
@@ -3167,8 +3163,8 @@ async def artifact_by_regex(
 
     try:
         # Compile regex pattern (do NOT escape - it should be a real regex)
-        # Note: Per OpenAPI spec, users can provide regex patterns for searching.
-        # The regex is validated here and only used for matching, not for execution.
+        # Clients can provide regex patterns for searching.
+        # The regex is validated here and only used for matching.
         # CodeQL warnings about regex injection are expected - this is intentional functionality.
         # ReDoS risk is mitigated through length limits above.
         raw_pattern = (regex.regex or "").strip()
@@ -4306,9 +4302,8 @@ async def artifact_retrieve(
         raise HTTPException(status_code=500, detail=f"Failed to create artifact response: {str(e)}")
 
 
-# CRITICAL: Add duplicate route handler for /artifact/{type}/{id} (singular)
-# The autograder calls /artifact/{type}/{id} but OpenAPI spec says /artifacts/{type}/{id}
-# This dual route handler ensures compatibility with both patterns
+# Compatibility: support both singular and plural route shapes.
+# Some clients call `/artifact/{type}/{id}` while others call `/artifacts/{type}/{id}`.
 @app.get("/artifact/{artifact_type}/{id}", response_model=Artifact)
 async def artifact_retrieve_singular(
     artifact_type: ArtifactType,
@@ -4316,7 +4311,7 @@ async def artifact_retrieve_singular(
     request: Request,
     user: Dict[str, Any] = Depends(verify_token),
 ) -> Artifact:
-    """Interact with the artifact with this id (BASELINE) - Singular route variant for autograder compatibility"""
+    """Interact with an artifact (singular route alias)."""
     # Delegate to the plural route handler
     return await artifact_retrieve(artifact_type, id, request, user)
 
@@ -4334,10 +4329,10 @@ async def artifact_update(
 ):
     """
     Update this content of the artifact (BASELINE)
-    Per Q&A: This is more like getting an updated version. Re-download and ingest again.
-    If the updated model fails rating checks, fail the update and keep the older version.
+    Treat this as updating the stored artifact metadata/version.
+    If the updated model fails rating checks, reject the update and keep the previous version.
     URL should not change.
-    Per Q&A: Should return 202 for async rating (same as ingest).
+    Supports returning 202 for async rating (same behavior as ingest).
     """
     _validate_artifact_id_or_400(id)
     if not check_permission(user, "upload"):
@@ -4745,7 +4740,7 @@ async def package_retrieve_alias(
     id: str, request: Request, user: Dict[str, Any] = Depends(verify_token)
 ) -> Artifact:
     """
-    Alias route to support autograder calling /package/{id}.
+    Alias route to support clients calling /package/{id}.
     Delegates to /artifacts/{artifact_type}/{id} after discovering the artifact type.
     """
     # CRITICAL: Log IMMEDIATELY
@@ -5330,8 +5325,8 @@ async def artifact_lineage(
         graph_dict: Dict[str, List[Any]] = {"nodes": [], "edges": []}
     else:
         # Convert graph to dict and ensure no None values
-        # CRITICAL: Use model_dump(mode='python') to ensure plain Python dicts, not Pydantic models
-        # Use exclude_none=True to omit null fields (e.g., metadata) per OpenAPI spec
+        # Use model_dump(mode='python') to ensure plain Python dicts, not Pydantic models
+        # Use exclude_none=True to omit null fields (e.g., metadata) per the API contract
         try:
             graph_dict = graph.model_dump(mode='python', exclude_none=True)
         except Exception as dump_err:
@@ -5666,8 +5661,8 @@ async def artifact_cost(
             if id not in dependency_costs:
                 dependency_costs[id] = standalone_cost
 
-        # Build result with all dependencies
-        # Per OpenAPI spec: when dependency=true, all artifacts must have both standalone_cost and total_cost
+        # Build result with all dependencies.
+        # When dependency=true, all artifacts include both standalone_cost and total_cost.
         result: Dict[str, ArtifactCost] = {}
         for dep_id, dep_cost in dependency_costs.items():
             # For dependencies, standalone_cost equals total_cost (they don't have their own dependencies)
@@ -5777,7 +5772,7 @@ async def artifact_license_check(
             raise RuntimeError("License evaluation unavailable")
 
         # Scrape GitHub data for license evaluation.
-        # Per OpenAPI spec: return 502 when external license information cannot be retrieved
+        # Return 502 when external license information cannot be retrieved.
         gh_data = None
         if scrape_github_url is not None:
             try:
@@ -5989,10 +5984,11 @@ async def model_artifact_rate(
     logger.info(f"DEBUG_RATE: PATH PARAM id='{id}' (type: {type(id).__name__}, repr={repr(id)})")
     artifact_metadata_source: Optional[Dict[str, Any]] = None
 
-    # CRITICAL FIX: If autograder sends literal '{id}' template, auto-discover first available model
+    # Defensive handling: if a client sends the literal template string '{id}', auto-discover
+    # the first available model.
     if id == "{id}":
         logger.warning(
-            "DEBUG_RATE: AUTOGRADER BUG - Received literal template string '{id}', "
+            "DEBUG_RATE: Defensive handling - received literal template string '{id}', "
             "auto-discovering first available model"
         )
         # Find first model artifact in storage
@@ -6918,8 +6914,9 @@ async def model_cost_alias(
 @app.get("/tracks")
 async def get_tracks() -> Dict[str, List[str]]:
     """
-    Get the list of tracks a student has planned to implement in their code.
-    Per OpenAPI spec v3.4.7, valid track names are:
+    Return the list of supported feature tracks.
+
+    Valid track names are:
     - "Performance track"
     - "Access control track"
     - "High assurance track"

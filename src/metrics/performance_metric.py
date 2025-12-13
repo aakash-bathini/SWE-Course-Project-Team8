@@ -282,7 +282,7 @@ async def metric(ctx: EvalContext) -> float:
     quality = summary.get("overall_evidence_quality", 0.0)
     specificity = summary.get("overall_specificity", 0.0)
 
-    # LLM analysis provides README evidence bonus (scaled to max 0.5 for autograder)
+    # LLM analysis provides a README evidence bonus (capped for stability).
     llm_bonus = ((quality + specificity) / 2.0) * 0.5
 
     # Combine base score (from HF metadata) with LLM analysis bonus

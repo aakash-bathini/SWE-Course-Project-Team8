@@ -142,7 +142,7 @@ def _extract_parent_models(context: EvalContext) -> list[str]:
         )
 
         # Check for model-index with base_model references
-        # NOTE: Per Q&A, lineage should only include models, NOT datasets
+        # NOTE: lineage should only include models, not datasets
         # The model-index results contain dataset names (for evaluation), not parent models
         # So we skip extracting from model-index results to avoid including datasets
         # Parent models should come from base_model field only

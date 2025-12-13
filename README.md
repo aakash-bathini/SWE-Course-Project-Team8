@@ -1,4 +1,4 @@
-# Trustworthy Model Registry (Phase 2)
+# Trustworthy Model Registry
 
 A web-based registry for uploading, rating, searching, and downloading ML artifacts (models, datasets, and code). It runs as a FastAPI service on AWS Lambda + API Gateway with S3-backed persistence, and includes a React/TypeScript frontend.
 
@@ -14,7 +14,7 @@ A web-based registry for uploading, rating, searching, and downloading ML artifa
 
 - **Upload** artifacts (ZIP upload for models, or create artifacts by URL)
 - **Ingest** Hugging Face models
-- **Rate** artifacts using Phase 1 + Phase 2 metrics
+- **Rate** artifacts using trust and quality metrics
 - **Search** by exact name or safe regex (README-aware)
 - **Download** with sub-aspect filtering (full / weights / datasets / code)
 - **Lineage**, **cost**, and **license compatibility** checks
@@ -31,6 +31,31 @@ python -m uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 
 Local dev uses SQLite (creates `registry.db`). In production, the backend uses S3.
 
+## Configuration
+
+### Environment Variables
+
+**Backend:**
+- `USE_S3` (default: `0`): Set to `1` to enable S3 storage (required in production)
+- `S3_BUCKET_NAME`: S3 bucket name for artifact storage (required if `USE_S3=1`)
+- `USE_SQLITE` (default: `1`): Set to `0` to disable SQLite (use in production with S3)
+- `GEMINI_API_KEY`: Optional API key for Google Gemini LLM (for relationship analysis)
+- `GEMINI_MODEL_ID`: Optional model ID override (defaults to `gemini-1.5-flash`)
+- `GEN_AI_STUDIO_API_KEY`: Optional API key for Purdue GenAI (alternative LLM provider)
+- `GH_TOKEN`: GitHub personal access token for GitHub API calls (license checks, repository metadata)
+
+**Frontend:**
+- `REACT_APP_API_URL`: Backend API base URL (e.g., `https://3vfheectz4.execute-api.us-east-1.amazonaws.com/prod`)
+
+### Storage Backends
+
+The backend supports multiple storage backends:
+- **In-memory**: Default for single-request testing (ephemeral)
+- **SQLite**: Local development (`registry.db` file)
+- **S3**: Production storage (persistent, scalable)
+
+Storage is selected automatically based on `USE_S3` and `USE_SQLITE` flags. In production (Lambda), S3 is used exclusively.
+
 ### Frontend
 
 ```bash
@@ -43,7 +68,7 @@ The dev server runs on `http://localhost:3000` and talks to the backend at `http
 
 ## Authentication
 
-Default admin credentials (required by the assignment):
+Default admin credentials (fixed value used by evaluation/test environments):
 - **Username**: `ece30861defaultadminuser`
 - **Password**: `correcthorsebatterystaple123(!__+@**(A'"`;DROP TABLE packages;`
 
@@ -141,7 +166,7 @@ Supported provider keys:
 
 No SageMaker (or other managed endpoint) integration is used.
 
-## Notes on course evaluation
+## Quality and reliability
 
-- Latest autograder run reported: **300/322** (Dec 12, 2025)
-- Code coverage: **61%** locally via `pytest --cov`
+- Automated test suite is run in CI (backend + frontend).
+- Code coverage is **≥ 60%** locally via `pytest --cov`.

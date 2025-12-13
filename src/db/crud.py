@@ -100,9 +100,8 @@ def list_by_name(db: Session, name: str) -> List[models.Artifact]:
     """
     List artifacts by exact name.
 
-    Per updated Q&A, the autograder expects the artifact name to match *exactly*
-    (case-sensitive). Use a simple equality comparison here instead of
-    lowercasing both sides.
+    This endpoint requires the artifact name to match *exactly* (case-sensitive).
+    Use a simple equality comparison here instead of lowercasing both sides.
     """
     return db.query(models.Artifact).filter(models.Artifact.name == name).all()
 
@@ -110,8 +109,8 @@ def list_by_name(db: Session, name: str) -> List[models.Artifact]:
 def list_by_regex(db: Session, regex: str) -> List[models.Artifact]:
     """Search artifacts by regex pattern (matches names and READMEs)"""
     # Do NOT escape regex - it should be a real regex pattern
-    # Note: Per OpenAPI spec, users can provide regex patterns for searching.
-    # The regex is validated here and only used for matching, not for execution.
+    # Clients can provide regex patterns for searching.
+    # The regex is validated here and only used for matching.
     # CodeQL warnings about regex injection are expected - this is intentional functionality.
     # ReDoS risk is mitigated through length limits enforced by the endpoint.
 
