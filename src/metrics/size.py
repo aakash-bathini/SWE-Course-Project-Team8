@@ -4,6 +4,7 @@ Model size metric calculation.
 Calculates size scores based on memory and storage requirements extracted from
 model metadata, README content, and HuggingFace/GitHub data.
 """
+
 # src/metrics/model_size.py
 import os
 import re
