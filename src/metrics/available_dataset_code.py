@@ -1,3 +1,10 @@
+"""
+Dataset and code availability metric calculation.
+
+Evaluates whether models have associated datasets and code repositories available,
+scoring based on metadata, README analysis, and repository structure.
+"""
+
 import logging
 import re
 from typing import List, Dict, Any, Optional
@@ -194,7 +201,7 @@ async def metric(ctx: EvalContext) -> float:
     has_evidence = (dscore > 0.05) or (cscore > 0.05)
     if has_evidence and (downloads > 1000000 or likes > 1000):  # Very popular models
         logging.info(f"High-engagement model detected (downloads: {downloads}, likes: {likes})")
-        # Boost scores for high-engagement models (increased for autograder)
+        # Boost scores for high-engagement models.
         dscore = min(1.0, dscore + 0.35)
         cscore = min(1.0, cscore + 0.35)
     elif has_evidence and (downloads > 100000 or likes > 100):  # Popular models

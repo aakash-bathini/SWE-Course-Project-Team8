@@ -75,11 +75,3 @@ jobs:
       - name: Jest tests
         working-directory: frontend
         run: npm test -- --ci --watchAll=false
-
-  # Placeholder deploy job (gated to main)
-  deploy:
-    if: github.ref == 'refs/heads/main'
-    needs: [backend-lint, backend-typecheck, backend-test, frontend-ci]
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Deploy step is gated and will be implemented with AWS later."

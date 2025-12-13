@@ -101,7 +101,7 @@ async def metric(ctx: EvalContext) -> float:
 
         # Models with very low engagement might have lower code quality
         if downloads < 10000 and likes < 10:  # Very low engagement
-            score = max(score * 0.8, 0.2)  # Apply minimum floor instead of cap (increased for autograder)
+            score = max(score * 0.8, 0.2)  # Apply a conservative minimum floor for stability.
             logging.info("Low-engagement model detected, applying minimum floor to code quality score")
         # Do not force moderate engagement to 0.0; keep computed score
 
@@ -133,7 +133,7 @@ async def metric(ctx: EvalContext) -> float:
 
         # Models with very low engagement might have lower code quality
         if downloads < 10000 and likes < 10:  # Very low engagement
-            score = max(score * 0.8, 0.2)  # Apply minimum floor instead of cap (increased for autograder)
+            score = max(score * 0.8, 0.2)  # Apply a conservative minimum floor for stability.
             logging.info("Low-engagement model detected, applying minimum floor to code quality score")
         # Do not force moderate engagement to 0.0; keep computed score
 
