@@ -167,7 +167,7 @@ config.local.*
 settings.local.*
 
 # OpenAPI specification
-ece461_fall_2025_openapi_spec.yaml
+#ece461_fall_2025_openapi_spec.yaml
 
 # Local verification docs (not needed in repo)
 REQUIREMENTS_VERIFICATION.md
