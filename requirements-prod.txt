@@ -47,7 +47,7 @@ fsspec==2025.10.0
 
 # Google
 google-auth==2.42.0
-google-genai==1.49.0
+google-genai==1.56.0
 cachetools==6.2.1
 
 # Utilities
