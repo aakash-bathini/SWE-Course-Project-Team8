@@ -70,7 +70,7 @@ websockets==15.0.1
 watchfiles==1.1.1
 uvloop==0.22.1
 shellingham==1.5.4
-typer-slim==0.20.0
+typer-slim==0.20.1
 typing-inspection==0.4.2
 jmespath==1.0.1
 # For Python 3.9 + botocore 1.40.x, urllib3 must be <1.27
