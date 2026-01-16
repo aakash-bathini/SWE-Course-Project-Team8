@@ -78,7 +78,7 @@ urllib3==1.26.19
 Pygments==2.19.2
 cffi==2.0.0
 pycparser==2.23
-pyasn1==0.6.1
+pyasn1==0.6.2
 pyasn1_modules==0.4.2
 rsa==4.9.1
 
