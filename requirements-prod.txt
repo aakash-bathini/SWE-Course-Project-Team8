@@ -52,7 +52,7 @@ cachetools==6.2.1
 
 # Utilities
 python-dotenv==1.2.1
-python-multipart==0.0.20
+python-multipart==0.0.22
 PyYAML==6.0.3
 click==8.3.0
 tenacity==9.1.2
